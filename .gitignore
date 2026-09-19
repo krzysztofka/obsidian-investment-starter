@@ -1,0 +1,97 @@
+# ==============================================================================
+# Obsidian Investment Template - Git Ignore Configuration
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Environment Variables & Secret API Keys (CRITICAL)
+# ------------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.pfx
+
+# ------------------------------------------------------------------------------
+# 2. Raw Broker Data Exports
+# In the template repository, sample raw files in 00_Raw are tracked.
+# User-imported broker CSVs are automatically ignored to protect private data.
+# ------------------------------------------------------------------------------
+00_Raw/*
+!00_Raw/Articles/
+!00_Raw/**/sample_*.csv
+!00_Raw/**/.gitkeep
+
+# ------------------------------------------------------------------------------
+# 3. Python Runtime & Virtual Environments
+# ------------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.cache/
+**/.cache/
+
+# ------------------------------------------------------------------------------
+# 4. Logs & Operational Artifacts
+# ------------------------------------------------------------------------------
+*.log
+99_System/runner.log
+99_System/Scripts/*.log
+
+# ------------------------------------------------------------------------------
+# 5. Obsidian Workspace Sessions & Local App State
+# ------------------------------------------------------------------------------
+.obsidian/workspace*
+.obsidian/graph.json
+.obsidian/starred.json
+.obsidian/backlink.json
+.obsidian/cache
+.obsidian/.trash/
+.trash/
+
+# ------------------------------------------------------------------------------
+# 6. Operating System & IDE Cache Files
+# ------------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

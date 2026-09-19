@@ -1,0 +1,2 @@
+# Reference the core requirements manifest without duplication
+-r 99_System/Scripts/requirements.txt
