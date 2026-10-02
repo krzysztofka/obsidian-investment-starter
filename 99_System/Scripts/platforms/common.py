@@ -1,8 +1,17 @@
 import os
 import sys
 import re
+import unicodedata
+import threading
+import concurrent.futures
 from datetime import datetime
-from typing import Optional, Dict, Any, Tuple, Union, Set, List
+from typing import Optional, Dict, Any, Tuple, Union, Set, List, Sequence
+
+# Configure UTF-8 encoding for stdout/stderr on Windows
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8')
 
 # Ensure script root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -11,9 +20,47 @@ if scripts_dir not in sys.path:
     sys.path.append(scripts_dir)
 
 from model.asset import Asset
+from model.config import load_vault_config
 from integrations.multi_source_asset_enricher import MultiSourceAssetEnricher
+from ui_progress import create_progress
 
 _asset_enricher = MultiSourceAssetEnricher()
+_concurrency_lock = threading.Lock()
+
+
+def get_in(obj: Any, path: Union[str, Sequence[Any]], default: Any = None) -> Any:
+    """Safely traverse a nested dict/list hierarchy by path (e.g. 'etf.issuer.discovery_mapping' or ['etf', 'issuer'])."""
+    if obj is None:
+        return default
+    keys = path.split('.') if isinstance(path, str) else path
+    cur = obj
+    for key in keys:
+        if isinstance(cur, dict):
+            cur = cur.get(key)
+        elif isinstance(cur, (list, tuple)) and isinstance(key, int):
+            try:
+                cur = cur[key]
+            except (IndexError, TypeError):
+                return default
+        else:
+            return default
+        if cur is None:
+            return default
+    return cur
+
+
+def get_max_workers(configured_workers: Optional[int] = None, base_dir: Optional[str] = None) -> int:
+    """Determine the number of worker threads to use for parallel execution.
+
+    1. If configured_workers is provided and > 0, returns it.
+    2. Otherwise, checks config.yaml for concurrency.max_workers.
+    3. If set to 'auto', <= 0, or omitted: detects and returns os.cpu_count() or 4.
+    """
+    if configured_workers is not None and int(configured_workers) > 0:
+        return int(configured_workers)
+
+    vault_cfg = load_vault_config(base_dir=base_dir)
+    return vault_cfg.concurrency.resolve_worker_count()
 
 
 def parse_number(val: Any) -> Union[int, float]:
@@ -42,6 +89,102 @@ def sanitize_filename(name: str) -> str:
     for char in '<>:"/\\|?*':
         name = name.replace(char, '_')
     return name.strip()
+
+
+KNOWN_ETF_NAMES: Dict[str, str] = {
+    'IE000YYE6WK5': 'VanEck Defense UCITS ETF',
+    'IE00B43HR379': 'iShares S&P 500 Health Care Sector UCITS ETF',
+    'IE00B8GKDB10': 'Vanguard FTSE All-World High Dividend Yield UCITS ETF',
+    'IE00BK5BQT80': 'Vanguard FTSE All-World UCITS ETF',
+    'IE00BMVB5P51': 'Vanguard LifeStrategy 60% Equity UCITS ETF',
+    'IE00BMVB5R75': 'Vanguard LifeStrategy 80% Equity UCITS ETF',
+    'NL0011683594': 'VanEck Morningstar Developed Markets Dividend Leaders UCITS ETF',
+    'IE00B3RBWM25': 'Vanguard FTSE All-World UCITS ETF Distributing',
+    'IE00B5BMR087': 'iShares Core S&P 500 UCITS ETF',
+    'IE00B4L5Y983': 'iShares Core MSCI World UCITS ETF',
+    'IE00BFY0GT14': 'SPDR MSCI World UCITS ETF',
+}
+
+
+def clean_asset_display_name(
+    name: str,
+    isin: Optional[str] = None,
+    ticker: Optional[str] = None
+) -> str:
+    """Clean and standardize an asset's display name, resolving known ETF names and stripping truncation."""
+    isin_key = (isin or ticker or "").strip().upper()
+    if isin_key in KNOWN_ETF_NAMES:
+        return KNOWN_ETF_NAMES[isin_key]
+
+    clean = (name or "").strip()
+    # Strip trailing ellipsis and periods
+    clean = re.sub(r'[\.\s]+$', '', clean)
+    return clean if clean else (ticker or "Unnamed Asset")
+
+
+def slugify_asset_name(
+    name: str,
+    ticker: Optional[str] = None,
+    platform: Optional[str] = None,
+    asset_type: Optional[str] = None,
+    isin: Optional[str] = None,
+) -> str:
+    """Generate a clean, filesystem-safe lowercase snake_case filename slug from an asset name.
+
+    Rules:
+    - Cash holdings retain standard platform cash ticker (e.g. DEGIRO_CASH_EUR).
+    - Retail treasury bonds (PKO BP) retain bond series code.
+    - S&P shorthand is preserved as 'sp' (e.g. 'ishares_sp_500_...').
+    - Polish & accented characters normalized to ASCII.
+    - Punctuation & symbols stripped, spaces replaced with underscores, lowercase.
+    """
+    plat_upper = (platform or "").upper().strip()
+    tick_str = (ticker or "").strip()
+
+    # Cash holdings keep standard platform cash ticker (e.g. DEGIRO_CASH_EUR)
+    if asset_type == "cash" or (tick_str and "CASH" in tick_str.upper()):
+        return sanitize_filename(tick_str or name)
+
+    # Retail treasury bonds keep bond series code
+    if plat_upper == "PKOBP":
+        return sanitize_filename(tick_str or name)
+
+    # Resolve display name
+    display_name = clean_asset_display_name(name, isin=isin, ticker=ticker)
+
+    clean_name = display_name
+    # Normalize corporate suffixes and abbreviations
+    clean_name = re.sub(r'\bS\.A\.?', 'SA', clean_name, flags=re.IGNORECASE)
+    clean_name = re.sub(r'\bCorporation\b', 'Corp', clean_name, flags=re.IGNORECASE)
+    clean_name = re.sub(r'\bIncorporated\b', 'Inc', clean_name, flags=re.IGNORECASE)
+    clean_name = re.sub(r'\bS&P\b', 'SP', clean_name, flags=re.IGNORECASE)
+    clean_name = clean_name.replace('&', ' and ')
+    clean_name = clean_name.replace('%', ' ')
+
+    # Normalize unicode accents
+    clean_name = clean_name.replace('ł', 'l').replace('Ł', 'L')
+    clean_name = unicodedata.normalize('NFKD', clean_name).encode('ascii', 'ignore').decode('ascii')
+
+    # Remove non-alphanumeric
+    clean_name = re.sub(r'[^a-zA-Z0-9\s]', ' ', clean_name)
+
+    # Account suffix handling (e.g. _IKE, _IKZE) to avoid filename collisions across accounts/brokers
+    account_suffix = ""
+    if tick_str.upper().endswith("_IKZE"):
+        account_suffix = "_ikze"
+    elif tick_str.upper().endswith("_IKE"):
+        account_suffix = "_ike"
+
+    # Convert to lowercase snake_case
+    slug = '_'.join(clean_name.lower().split())
+    if not slug:
+        slug = sanitize_filename(tick_str).lower() if tick_str else "unnamed_asset"
+
+    if account_suffix and not slug.endswith(account_suffix):
+        slug = f"{slug}{account_suffix}"
+
+    return slug
+
 
 
 def ensure_utf8_file(file_path: str) -> str:
@@ -126,65 +269,15 @@ _issuer_mapping_cache: Optional[Dict[str, str]] = None
 
 def load_issuer_discovery_mapping(base_dir: Optional[str] = None) -> Dict[str, str]:
     """Load etf.issuer.discovery_mapping from config.yaml with built-in fallbacks."""
-    global _issuer_mapping_cache
-    if _issuer_mapping_cache is not None:
-        return _issuer_mapping_cache
-
-    if base_dir is None:
-        base_dir = os.path.abspath(os.path.join(scripts_dir, "../.."))
-
-    candidate_paths = [
-        os.path.join(base_dir, "99_System", "config.yaml"),
-        os.path.join(base_dir, "config.yaml"),
-    ]
-
-    import yaml
-    for path in candidate_paths:
-        if os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    cfg = yaml.safe_load(f)
-                if isinstance(cfg, dict):
-                    etf_cfg = cfg.get('etf', {})
-                    if isinstance(etf_cfg, dict):
-                        iss_cfg = etf_cfg.get('issuer', {})
-                        if isinstance(iss_cfg, dict):
-                            mapping = iss_cfg.get('discovery_mapping')
-                            if isinstance(mapping, dict) and mapping:
-                                _issuer_mapping_cache = {str(k).lower(): str(v) for k, v in mapping.items()}
-                                return _issuer_mapping_cache
-            except Exception:
-                pass
-
-    _issuer_mapping_cache = DEFAULT_ISSUER_DISCOVERY_MAPPING
-    return _issuer_mapping_cache
+    vault_cfg = load_vault_config(base_dir=base_dir)
+    mapping = vault_cfg.etf.issuer.discovery_mapping
+    return {str(k).lower(): str(v) for k, v in mapping.items()}
 
 
 def load_import_config(base_dir: Optional[str] = None) -> Dict[str, Any]:
     """Load broker import configuration from config.yaml (e.g. default_mode: 'api' or 'csv')."""
-    if base_dir is None:
-        base_dir = os.path.abspath(os.path.join(scripts_dir, "../.."))
-
-    candidate_paths = [
-        os.path.join(base_dir, "99_System", "config.yaml"),
-        os.path.join(base_dir, "config.yaml"),
-    ]
-
-    import yaml
-    for path in candidate_paths:
-        if os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    cfg = yaml.safe_load(f)
-                if isinstance(cfg, dict) and "import" in cfg and isinstance(cfg["import"], dict):
-                    return cfg["import"]
-            except Exception:
-                pass
-
-    return {
-        "exante": {"default_mode": "api"},
-        "degiro": {"default_mode": "csv"},
-    }
+    vault_cfg = load_vault_config(base_dir=base_dir)
+    return {k: v.model_dump() for k, v in vault_cfg.import_config.items()}
 
 
 def determine_issuer(name: str, mapping: Optional[Dict[str, str]] = None) -> Optional[str]:
@@ -216,24 +309,15 @@ def determine_portfolio(name: str, asset_type: str, dominant_sector: Optional[st
     return 'Long term'
 
 
-def load_template(base_dir: str) -> Tuple[Optional[Dict[str, Any]], str]:
-    """Load the asset template and return frontmatter dictionary and body markdown."""
+def load_template(base_dir: str) -> Tuple[Dict[str, Any], str]:
+    """Load the asset template and return frontmatter dictionary and body markdown.
+
+    Raises:
+        FileNotFoundError: If asset_template.md is missing in the templates directory.
+    """
     template_path = os.path.join(base_dir, "99_System", "Templates", "asset_template.md")
     if not os.path.exists(template_path):
-        default_body = (
-            "\n# {name} ({ticker})\n\n"
-            "**Platform:** [[{platform}]]\n\n"
-            "## 📈 Technical & Market Price Chart\n"
-            "```dataviewjs\n"
-            'await dv.view("99_System/Views/stooq_chart", {\n'
-            "    ticker: dv.current().stooq_ticker,\n"
-            '    defaultRange: "1Y"\n'
-            "});\n"
-            "```\n\n"
-            "## Investment Thesis / Notes\n"
-            "Information about reasoning for buying and keeping this asset.\n"
-        )
-        return None, default_body
+        raise FileNotFoundError(f"Required asset template not found at: {template_path}")
     template_asset = Asset.from_file(template_path)
     return template_asset.to_frontmatter_dict(), template_asset.body
 
@@ -294,19 +378,86 @@ def save_or_update_asset(
     yahoo_ticker: Optional[str] = None,
     asset_allocation: Optional[Dict[str, Any]] = None,
     asset_type: Optional[str] = None,
+    dominant_sector: Optional[str] = None,
+    industry: Optional[str] = None,
+    sector: Optional[str] = None,
+    stooq_ticker: Optional[str] = None,
+    country: Optional[str] = None,
 ) -> str:
     """Enrich financial data, create or update asset note in 10_Finance/Assets, and return file path."""
     if not current_date:
         current_date = datetime.now().strftime("%Y-%m-%d")
 
-    safe_ticker = sanitize_filename(ticker)
-    file_path = os.path.join(vault_assets_dir, f"{safe_ticker}.md")
+    # Clean and resolve display name
+    display_name = clean_asset_display_name(name, isin=isin, ticker=ticker)
+    name = display_name
 
-    # Check for existing note by ticker or name
-    if not os.path.exists(file_path):
-        alt_name_path = os.path.join(vault_assets_dir, f"{sanitize_filename(name)}.md")
-        if os.path.exists(alt_name_path):
-            file_path = alt_name_path
+    target_slug = slugify_asset_name(
+        name=name,
+        ticker=ticker,
+        platform=platform,
+        asset_type=asset_type,
+        isin=isin
+    )
+    target_file_path = os.path.join(vault_assets_dir, f"{target_slug}.md")
+
+    # Locate existing note
+    file_path = None
+    if os.path.exists(target_file_path):
+        file_path = target_file_path
+    else:
+        # Check alternative legacy filenames
+        safe_ticker = sanitize_filename(ticker)
+        legacy_ticker_path = os.path.join(vault_assets_dir, f"{safe_ticker}.md")
+        if os.path.exists(legacy_ticker_path):
+            file_path = legacy_ticker_path
+        else:
+            legacy_name_path = os.path.join(vault_assets_dir, f"{sanitize_filename(name)}.md")
+            if os.path.exists(legacy_name_path):
+                file_path = legacy_name_path
+
+    # If still not found, check existing notes by frontmatter ticker or isin within same platform and account type
+    if not file_path and os.path.exists(vault_assets_dir):
+        t_clean = (ticker or "").strip().lower()
+        isin_clean = (isin or "").strip().lower() if isin else None
+        target_plat = (platform or "").strip().lower()
+        for fname in os.listdir(vault_assets_dir):
+            if not fname.endswith(".md"):
+                continue
+            cand_path = os.path.join(vault_assets_dir, fname)
+            try:
+                cand_asset = Asset.from_file(cand_path)
+                cand_plat = (cand_asset.platform or "").strip().lower()
+                cand_t = (cand_asset.ticker or "").strip().lower()
+                cand_isin = (cand_asset.isin or "").strip().lower() if cand_asset.isin else None
+
+                # CRITICAL: Do NOT match an asset from a different platform!
+                if target_plat and cand_plat and target_plat != cand_plat:
+                    continue
+
+                # Account suffix protection: match _ikze or _ike if present
+                if t_clean.endswith(("_ikze", "_ike")) and not cand_t.endswith(("_ikze", "_ike")):
+                    continue
+                if not t_clean.endswith(("_ikze", "_ike")) and cand_t.endswith(("_ikze", "_ike")):
+                    continue
+
+                if (t_clean and cand_t == t_clean) or (isin_clean and cand_isin == isin_clean):
+                    file_path = cand_path
+                    break
+            except Exception:
+                continue
+
+    # Auto-rename legacy ticker note to clean target slug if needed
+    if file_path and file_path != target_file_path and os.path.exists(file_path) and not os.path.exists(target_file_path):
+        try:
+            os.rename(file_path, target_file_path)
+            print(f"Renamed legacy asset note: {os.path.basename(file_path)} -> {os.path.basename(target_file_path)}")
+            file_path = target_file_path
+        except Exception as e:
+            sys.stderr.write(f"Warning: could not rename {file_path} to {target_file_path}: {e}\n")
+
+    if not file_path:
+        file_path = target_file_path
 
     if not os.path.exists(file_path):
         # Create new asset model
@@ -335,12 +486,22 @@ def save_or_update_asset(
             issuer=issuer,
             isin=isin,
             yahoo_ticker=yahoo_ticker,
+            stooq_ticker=stooq_ticker,
             tags=list(tags) if tags else [],
             last_updated=current_date,
             source=source,
         )
+        if dominant_sector:
+            asset.dominant_sector = dominant_sector
+        if industry:
+            asset.industry = industry
+        if sector:
+            asset.sector = sector
+        if country:
+            asset.country = country
+
         if template_fm:
-            canonical_keys = set(asset.to_frontmatter_dict().keys())
+            canonical_keys = set(Asset.model_fields.keys())
             for k, v in template_fm.items():
                 if k not in canonical_keys and v is not None:
                     asset.extra_properties[k] = v
@@ -351,12 +512,30 @@ def save_or_update_asset(
         elif not enriched.portfolio:
             enriched.portfolio = determine_portfolio(enriched.name, enriched.asset_type, enriched.dominant_sector)
 
+        if dominant_sector:
+            enriched.dominant_sector = dominant_sector
+        if industry:
+            enriched.industry = industry
+        if sector:
+            enriched.sector = sector
+        if stooq_ticker:
+            enriched.stooq_ticker = stooq_ticker
+        if country:
+            enriched.country = country
+
         if tags:
             for t in tags:
                 if t not in enriched.tags:
                     enriched.tags.append(t)
 
-        if template_body:
+        if asset_type == 'cash':
+            body = (
+                f"\n# {name} ({ticker})\n\n"
+                f"**Platform:** [[{platform}]]\n\n"
+                f"## Investment Thesis / Notes\n"
+                f"Information about reasoning for buying and keeping this asset.\n"
+            )
+        elif template_body:
             body = render_template_body(template_body, name, ticker, platform)
         else:
             body = (
@@ -380,6 +559,8 @@ def save_or_update_asset(
     else:
         # Update existing asset
         asset = Asset.from_file(file_path)
+        if display_name and (not asset.name or asset.name.endswith('...') or asset.name.endswith('..') or asset.name == asset.ticker):
+            asset.name = display_name
         asset.platform = platform
         asset.quantity = quantity
         if avg_price is not None:
@@ -391,12 +572,22 @@ def save_or_update_asset(
             asset.isin = isin
         if yahoo_ticker and not asset.yahoo_ticker:
             asset.yahoo_ticker = yahoo_ticker
+        if stooq_ticker and not asset.stooq_ticker:
+            asset.stooq_ticker = stooq_ticker
         if not asset.issuer and asset.asset_type == 'etf':
             asset.issuer = determine_issuer(asset.name)
         if portfolio and not asset.portfolio:
             asset.portfolio = portfolio
         if asset_allocation and not asset.asset_allocation:
             asset.asset_allocation = asset_allocation
+        if dominant_sector:
+            asset.dominant_sector = dominant_sector
+        if industry:
+            asset.industry = industry
+        if sector:
+            asset.sector = sector
+        if country:
+            asset.country = country
         if tags:
             for t in tags:
                 if t not in asset.tags:
@@ -414,12 +605,90 @@ def save_or_update_asset(
             enriched.portfolio = portfolio
         elif not enriched.portfolio:
             enriched.portfolio = determine_portfolio(enriched.name, enriched.asset_type, enriched.dominant_sector)
+
+        if dominant_sector:
+            enriched.dominant_sector = dominant_sector
+        if industry:
+            enriched.industry = industry
+        if sector:
+            enriched.sector = sector
+        if stooq_ticker:
+            enriched.stooq_ticker = stooq_ticker
+        if country:
+            enriched.country = country
+
         enriched.body = _inject_justetf_link(enriched.body, platform, enriched.justetf_url)
         enriched.body = _inject_issuer_link(enriched.body, platform, enriched.issuer_url)
         enriched.save(file_path)
         print(f"Updated: {os.path.basename(file_path)}")
 
     return file_path
+
+
+def save_or_update_assets_parallel(
+    asset_tasks: List[Dict[str, Any]],
+    max_workers: Optional[int] = None,
+    base_dir: Optional[str] = None,
+    show_progress: bool = True,
+) -> Tuple[Set[str], Set[str], int]:
+    """Execute asset enrichment and saving concurrently using ThreadPoolExecutor.
+
+    Parameters:
+        asset_tasks: List of keyword-argument dicts for save_or_update_asset.
+        max_workers: Optional number of worker threads. If omitted/None, automatically
+                     detects the CPU hardware threads count (os.cpu_count()).
+        base_dir: Optional base repository directory.
+        show_progress: Whether to display a real-time Rich progress bar during enrichment.
+
+    Returns:
+        Tuple of (active_asset_paths: Set[str], active_tickers: Set[str], imported_count: int)
+    """
+    if not asset_tasks:
+        return set(), set(), 0
+
+    workers = get_max_workers(max_workers, base_dir=base_dir)
+    print(f"⚡ Processing {len(asset_tasks)} asset(s) concurrently across {workers} worker threads...")
+
+    active_paths: Set[str] = set()
+    active_tickers: Set[str] = set()
+    imported_count = 0
+
+    def _worker(task: Dict[str, Any]) -> Tuple[str, str, Optional[str]]:
+        fpath = save_or_update_asset(**task)
+        ticker = task.get("ticker", "")
+        isin = task.get("isin")
+        return fpath, ticker, isin
+
+    with create_progress(disable=not show_progress) as progress:
+        task_id = progress.add_task(
+            "[bold cyan]Enriching & saving assets[/bold cyan]",
+            total=len(asset_tasks),
+            status="Starting...",
+        )
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+            future_to_task = {executor.submit(_worker, task): task for task in asset_tasks}
+            for future in concurrent.futures.as_completed(future_to_task):
+                task = future_to_task[future]
+                label = task.get("ticker") or task.get("name") or "Asset"
+                try:
+                    fpath, ticker, isin = future.result()
+                    active_paths.add(fpath)
+                    if ticker:
+                        active_tickers.add(ticker)
+                    if isin:
+                        active_tickers.add(isin)
+                    imported_count += 1
+                    progress.update(task_id, advance=1, status=f"[green]✓[/green] {label}")
+                except Exception as e:
+                    progress.update(task_id, advance=1, status=f"[red]✗[/red] {label}")
+                    if hasattr(progress, "console") and progress.console:
+                        progress.console.print(f"[red]Error processing asset {label}:[/red] {e}")
+                    else:
+                        sys.stderr.write(f"Error processing asset {label}: {e}\n")
+
+        progress.update(task_id, status="[bold green]Completed[/bold green]")
+
+    return active_paths, active_tickers, imported_count
 
 
 def remove_missing_platform_assets(
@@ -468,10 +737,6 @@ def remove_missing_platform_assets(
                 # Manual assets must never be removed by broker platform imports
                 asset_source = (asset.source or '').strip().lower()
                 if asset_source == 'manual':
-                    continue
-
-                # Check if ticker was imported under another filename
-                if asset.ticker and asset.ticker.strip().lower() in normalized_active_tickers:
                     continue
 
                 os.remove(file_path)

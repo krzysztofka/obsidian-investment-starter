@@ -1,15 +1,23 @@
 ---
 type: macro_dashboard
 title: Global & Domestic Macroeconomic Dashboard
-last_updated: "2026-09-03"
-us_10y_yield: 4.80
-us_2y_yield: 4.20
-yield_spread_10y_2y_bps: 59.6
+last_updated: "2026-09-29"
+us_10y_yield: 5.24
+us_2y_yield: 4.50
+yield_spread_10y_2y_bps: 74.0
 yield_curve_status: "Normal (Upward Sloping)"
-usd_pln: 3.7224
-eur_pln: 4.3211
-gold_usd: 4476.00
-brent_usd: 96.30
+pl_10y_yield: 5.81
+nbp_reference_rate: 3.75
+poland_cpi: 2.5
+usd_pln: 3.8478
+eur_pln: 4.3769
+gbp_pln: 5.1054
+gold_usd: 4172.20
+gold_pln: 15944.89
+silver_usd: 61.12
+copper_usd: 6.59
+brent_usd: 98.51
+vix: 16.10
 macro_regime: "Steep Curve / Mid-Cycle Expansion"
 tags:
   - macro
@@ -31,7 +39,8 @@ A central tracking hub for global and domestic macroeconomic indicators, monetar
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Federal Reserve (Fed)** | Fed Funds Target Range | 4.75% – 5.00% | Neutral / Easing | 2026-07-29 | 2026-09-16 |
 | **European Central Bank (ECB)** | Main Refinancing / Deposit Rate | 3.25% / 3.00% | Easing | 2026-07-18 | 2026-09-10 |
-| **National Bank of Poland (NBP)** | Stopa Referencyjna | 5.50% | Neutral / Pause | 2026-07-03 | 2026-09-09 |
+| **National Bank of Poland (NBP)** | Stopa Referencyjna | 3.75% | Easing / Cut | 2026-03-05 | 2026-10-07 |
+
 
 ---
 
@@ -40,10 +49,11 @@ A central tracking hub for global and domestic macroeconomic indicators, monetar
 | Indicator | Region | Current (YoY / %) | Prior Period | Target / Benchmark | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **CPI Inflation** | 🇺🇸 United States | 2.6% | 2.8% | 2.0% | Moderating |
-| **CPI Inflation** | 🇪🇺 Eurozone | 2.2% | 2.4% | 2.0% | Near Target |
-| **CPI Inflation** | 🇵🇱 Poland | 4.3% | 4.2% | 2.5% (±1.0%) | Elevated |
+| **HICP Inflation** | 🇪🇺 Eurozone | 2.0% | 2.1% | 2.0% | Moderating |
+| **CPI / HICP Inflation** | 🇵🇱 Poland | 2.5% | 2.6% | 2.5% (±1.0%) | Moderating |
 | **Unemployment Rate** | 🇺🇸 United States | 4.1% | 4.0% | ~4.0% (Full Employment) | Stable |
-| **Unemployment Rate (BAEL)** | 🇵🇱 Poland | 5.0% | 5.0% | Historical Low Range | Strong |
+| **Unemployment Rate (Eurostat/BAEL)** | 🇵🇱 Poland | 3.4% – 5.0% | 5.0% | Historical Low Range | Strong |
+
 
 ---
 
@@ -51,21 +61,40 @@ A central tracking hub for global and domestic macroeconomic indicators, monetar
 
 | Metric / Benchmark | Ticker / Source | Current Yield / Spread | 1M Trend | Signal / Implication |
 | :--- | :--- | :--- | :--- | :--- |
-| **US 10-Year Treasury** | `^TNX` | 4.80% | 📈 Increasing | Benchmark cost of capital; valuation hurdle |
-| **US 2-Year Treasury** | `2YY=F` / `^IRX` | 4.20% | 📈 Increasing | Policy expectations & short-term rate path |
-| **10Y – 2Y Treasury Spread** | Calculated Spread | **+60 bps (+0.60%)** | ➡️ Normal (Upward Sloping) | Yield curve term premia & cycle position |
-| **Poland 10-Year Bond (DS)** | `PL10Y` | 5.40% | ➡️ Stable | High domestic nominal yield, attractive real returns |
+| **US 10-Year Treasury** | `^TNX` | 5.24% | 📈 Increasing | Benchmark cost of capital; valuation hurdle |
+| **US 2-Year Treasury** | `2YY=F` / `^IRX` | 4.50% | 📈 Increasing | Policy expectations & short-term rate path |
+| **10Y – 2Y Treasury Spread** | Calculated Spread | **+74 bps (+0.74%)** | ➡️ Normal (Upward Sloping) | Yield curve term premia & cycle position |
+| **Poland 10-Year Bond (DS)** | `PL10Y` (Eurostat) | 5.81% | 📈 Increasing | High domestic nominal yield, attractive real returns |
 
 ---
 
-## 💱 Key Currencies & Strategic Commodities
+## ⛏️ Strategic Commodities & Cyclicals
+
+| Commodity | Ticker | Current Price | 52-Week Range | Impact on Portfolio Assets |
+| :--- | :--- | :--- | :--- | :--- |
+| **Physical Gold (USD / oz)** | `GC=F` | $4,172 | $3,786 – $5,586 | Safe-haven hedge in [[Long_term_portfolio\|Long Term]] (`GOLD`) |
+| **Gold (PLN / oz)** | NBP Fixing | 15,945 PLN | NBP Domestic Price | Domestic purchasing power & currency debasement hedge |
+| **Silver (USD / oz)** | `SI=F` | $61.12 | $45.38 – $121.30 | Revenue driver for [[PLKGHM000017\|KGHM Polska Miedź]] |
+| **Copper (USD / lb)** | `HG=F` | $6.59 | $4.71 – $6.83 | Global bellwether & core EBITDA driver for [[PLKGHM000017\|KGHM]] |
+| **Brent Crude Oil** | `BZ=F` | $98.51 | $58.72 – $126.10 | Wholesale costs & refining margin indicator for [[PLPKN0000018\|ORLEN]] |
+
+---
+
+## 🌪️ Market Volatility & Sentiment
+
+| Metric | Ticker | Current Level | Regime / Status | Strategic Implication |
+| :--- | :--- | :--- | :--- | :--- |
+| **CBOE Volatility Index (VIX)** | `^VIX` | 16.10 | Complacent / Low Volatility | Equity fear gauge; risk-on entry signal for [[Aggressive_portfolio\|Aggressive]] |
+
+---
+
+## 💱 Key Currencies
 
 | Asset | Ticker | Current Level | 52-Week Range | Strategic Impact |
 | :--- | :--- | :--- | :--- | :--- |
-| **USD/PLN** | `USDPLN=X` | 3.72 PLN | 3.49 – 3.81 | FX conversion rate for US holdings & tech equities |
-| **EUR/PLN** | `EURPLN=X` | 4.32 PLN | 4.19 – 4.35 | Eurozone export & cash cushion valuation |
-| **Gold (USD / oz)** | `GC=F` | $4,476 | $3,550 – $5,586 | Safe-haven hedge in [[Long_term_portfolio\|Long Term]] |
-| **Brent Crude Oil** | `BZ=F` | $96.30 | $58.72 – $126.10 | Headline inflation & commodity cost bellwether |
+| **USD/PLN** | `USDPLN=X` / NBP | 3.8478 PLN | 3.49 – 3.86 | FX conversion rate for US holdings & USD tech equities |
+| **EUR/PLN** | `EURPLN=X` / NBP | 4.3769 PLN | 4.19 – 4.40 | Eurozone export & cash cushion valuation |
+| **GBP/PLN** | `GBPPLN=X` / NBP | 5.1054 PLN | 4.77 – 5.11 | Valuation multiplier for [[vaneck_defense_ucits_etf\|VanEck Defense ETF (LSE)]] |
 
 ---
 
@@ -89,6 +118,7 @@ A central tracking hub for global and domestic macroeconomic indicators, monetar
 
 ### 🚀 Aggressive Portfolio
 - **High-Beta & Growth Equities:** Declining risk-free discount rates support valuations for tech and cyclical growth assets.
+- **Commodity & Cyclical Exposure:** Copper and silver price momentum directly benefits KGHM, while refining margins drive Orlen.
 - **Selectivity:** High real interest rates still challenge heavily indebted and unprofitable small-cap companies; focus remains on profitable cash-generative leaders.
 
 ---

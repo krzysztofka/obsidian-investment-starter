@@ -17,6 +17,12 @@ from typing import Optional, List, Dict, Any
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 VAULT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "../.."))
 
+# Ensure utf-8 encoding on Windows consoles
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 
 def copy_tree_filtered(src: str, dst: str, ignore_patterns: List[str] = None):
     """Recursively copy directory tree ignoring specified file/folder patterns."""
@@ -51,7 +57,12 @@ def create_sample_raw_files(target_dir: str):
     os.makedirs(os.path.join(raw_dir, "Degiro"), exist_ok=True)
     os.makedirs(os.path.join(raw_dir, "Exante"), exist_ok=True)
     os.makedirs(os.path.join(raw_dir, "mBM"), exist_ok=True)
+    os.makedirs(os.path.join(raw_dir, "pkobp"), exist_ok=True)
     os.makedirs(os.path.join(raw_dir, "Articles"), exist_ok=True)
+
+    # pkobp .gitkeep
+    with open(os.path.join(raw_dir, "pkobp", ".gitkeep"), "w", encoding="utf-8") as f:
+        f.write("")
 
     # 1. Degiro sample CSV
     degiro_sample_path = os.path.join(raw_dir, "Degiro", "sample_degiro.csv")
@@ -143,6 +154,34 @@ V80A GR ETF;DEU-XETRA;85;43,63;EUR;15 978,58;PLN
 """
     with open(mbm_ikze_path, "w", encoding="utf-8") as f:
         f.write(mbm_ikze_content)
+
+    # 5. PKO BP sample XLS
+    pkobp_sample_path = os.path.join(raw_dir, "pkobp", "sample_pkobp.xls")
+    try:
+        import xlwt
+        wb = xlwt.Workbook(encoding="utf-8")
+        sheet = wb.add_sheet("Stan Rachunku Rejestrowego")
+        headers = [
+            "EMISJA",
+            "DOSTĘPNA LICZBA OBLIGACJI",
+            "ZABLOKOWANA LICZBA OBLIGACJI",
+            "WARTOŚĆ NOMINALNA",
+            "WARTOŚĆ AKTUALNA",
+            "DATA WYKUPU",
+        ]
+        for c, h in enumerate(headers):
+            sheet.write(0, c, h)
+        rows = [
+            ["EDO0936", 100.0, 0.0, 10000.0, 10050.0, "2036-09-01"],
+            ["ROD0838", 150.0, 0.0, 15000.0, 15080.0, "2038-08-26"],
+            ["OTS0127", 50.0, 0.0, 5000.0, 5000.0, "2027-01-01"],
+        ]
+        for r_idx, row in enumerate(rows, start=1):
+            for c_idx, val in enumerate(row):
+                sheet.write(r_idx, c_idx, val)
+        wb.save(pkobp_sample_path)
+    except Exception as e:
+        print(f"   Warning: could not generate {pkobp_sample_path}: {e}")
 
     # Articles .gitkeep
     with open(os.path.join(raw_dir, "Articles", ".gitkeep"), "w", encoding="utf-8") as f:
@@ -311,7 +350,7 @@ Residential rental property providing defensive positive cash flow and real asse
 """),
 
         # --- Aggressive ---
-        ("US5949181045.md", """---
+        ("microsoft_corp.md", """---
 ticker: US5949181045
 name: Microsoft Corporation
 asset_class: equity
@@ -337,7 +376,7 @@ alerts: []
 
 Core enterprise cloud and AI infrastructure provider with compounding high return on invested capital (ROIC).
 """),
-        ("IE000YYE6WK5.md", """---
+        ("vaneck_defense_ucits_etf.md", """---
 ticker: IE000YYE6WK5
 name: VanEck Defense UCITS ETF (USD) Acc
 asset_class: etf
@@ -365,7 +404,7 @@ alerts: []
 
 Thematic exposure to global defense industry contractors, aerospace systems, and cybersecurity infrastructure.
 """),
-        ("PLKGHM000017.md", """---
+        ("kghm_polska_miedz_sa.md", """---
 ticker: PLKGHM000017
 name: KGHM Polska Miedz SA
 asset_class: equity
@@ -431,8 +470,8 @@ holding_name: Microsoft Corp.
 sector: Technology
 country: United States
 in_etfs:
-  - "[[10_Finance/Assets/IE00BMVB5R75|Vanguard LifeStrategy 80%]]"
-  - "[[10_Finance/Assets/IE00BK5BQT80|Vanguard FTSE All-World]]"
+  - "[[10_Finance/Assets/vanguard_lifestrategy_80_equity_ucits_etf|Vanguard LifeStrategy 80%]]"
+  - "[[10_Finance/Assets/vanguard_ftse_all_world_ucits_etf|Vanguard FTSE All-World]]"
 sum_exposure_pln: 1250.40
 avg_weight_pct: 3.85
 direct_position_pln: 16575.00
@@ -446,8 +485,8 @@ holding_name: Apple Inc.
 sector: Technology
 country: United States
 in_etfs:
-  - "[[10_Finance/Assets/IE00BMVB5R75|Vanguard LifeStrategy 80%]]"
-  - "[[10_Finance/Assets/IE00BK5BQT80|Vanguard FTSE All-World]]"
+  - "[[10_Finance/Assets/vanguard_lifestrategy_80_equity_ucits_etf|Vanguard LifeStrategy 80%]]"
+  - "[[10_Finance/Assets/vanguard_ftse_all_world_ucits_etf|Vanguard FTSE All-World]]"
 sum_exposure_pln: 1180.20
 avg_weight_pct: 3.60
 direct_position_pln: 0.00
@@ -461,8 +500,8 @@ holding_name: NVIDIA Corporation
 sector: Technology
 country: United States
 in_etfs:
-  - "[[10_Finance/Assets/IE00BMVB5R75|Vanguard LifeStrategy 80%]]"
-  - "[[10_Finance/Assets/IE00BK5BQT80|Vanguard FTSE All-World]]"
+  - "[[10_Finance/Assets/vanguard_lifestrategy_80_equity_ucits_etf|Vanguard LifeStrategy 80%]]"
+  - "[[10_Finance/Assets/vanguard_ftse_all_world_ucits_etf|Vanguard FTSE All-World]]"
 sum_exposure_pln: 940.80
 avg_weight_pct: 2.90
 direct_position_pln: 0.00
@@ -476,7 +515,7 @@ holding_name: Rheinmetall AG
 sector: Industrials
 country: Germany
 in_etfs:
-  - "[[10_Finance/Assets/IE000YYE6WK5|VanEck Defense UCITS ETF]]"
+  - "[[10_Finance/Assets/vaneck_defense_ucits_etf|VanEck Defense UCITS ETF]]"
 sum_exposure_pln: 980.50
 avg_weight_pct: 8.84
 direct_position_pln: 0.00
@@ -592,7 +631,7 @@ def create_template_gitignore(target_dir: str):
 # ------------------------------------------------------------------------------
 # 00_Raw/*
 # !00_Raw/Articles/
-# !00_Raw/**/sample_*.csv
+# !00_Raw/**/sample_*.*
 # !00_Raw/**/.gitkeep
 
 # ------------------------------------------------------------------------------
@@ -760,9 +799,14 @@ def export_template(
             os.path.join(VAULT_ROOT, "99_System", "config.yaml"),
             os.path.join(target_dir, "99_System", "config.yaml"),
         )
+    if os.path.exists(os.path.join(VAULT_ROOT, "99_System", "docs")):
+        copy_tree_filtered(
+            os.path.join(VAULT_ROOT, "99_System", "docs"),
+            os.path.join(target_dir, "99_System", "docs"),
+        )
 
     # 2. Copy root configuration & runner files
-    for filename in ["run.py", "config.yaml", "README.md", "GEMINI.md", "todo.md"]:
+    for filename in ["run.py", "config.yaml", "README.md", "GEMINI.md", "todo.md", "pyproject.toml"]:
         src_file = os.path.join(VAULT_ROOT, filename)
         if os.path.exists(src_file):
             shutil.copy2(src_file, os.path.join(target_dir, filename))
@@ -794,13 +838,21 @@ def export_template(
             os.path.join(target_dir, "10_Finance", "Watchlist"),
         )
 
-    # 5. Copy .obsidian plugins & configuration (excluding session workspace)
+    # 5. Copy tests framework
+    if os.path.exists(os.path.join(VAULT_ROOT, "tests")):
+        print("🧪 Copying tests directory...")
+        copy_tree_filtered(
+            os.path.join(VAULT_ROOT, "tests"),
+            os.path.join(target_dir, "tests"),
+        )
+
+    # 6. Copy .obsidian plugins & configuration (excluding session workspace)
     if os.path.exists(os.path.join(VAULT_ROOT, ".obsidian")):
         print("⚙️ Copying Obsidian community plugins & vault settings...")
         copy_tree_filtered(
             os.path.join(VAULT_ROOT, ".obsidian"),
             os.path.join(target_dir, ".obsidian"),
-            ignore_patterns=["workspace*", "cache", "starred.json", ".trash"],
+            ignore_patterns=["workspace*", "cache", "starred.json", "graph.json", ".trash"],
         )
 
     # 6. Generate sample raw files (00_Raw/)

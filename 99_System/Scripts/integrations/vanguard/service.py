@@ -1,9 +1,17 @@
 import os
+import sys
 import re
 import json
 import logging
 from typing import Dict, Any, Optional, List
-import requests
+
+# Ensure integrations root is in sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+integrations_dir = os.path.dirname(current_dir)
+if integrations_dir not in sys.path:
+    sys.path.append(integrations_dir)
+
+from resilience import resilient_get
 
 logger = logging.getLogger("vanguard_service")
 
@@ -22,7 +30,7 @@ USER_AGENT = (
 def _fetch_uk_sitemap_urls() -> List[str]:
     """Fetch investment URLs dynamically from Vanguard UK sitemap."""
     try:
-        r = requests.get(
+        r = resilient_get(
             "https://www.vanguardinvestor.co.uk/sitemap.xml",
             headers={"User-Agent": USER_AGENT},
             timeout=10,
@@ -72,7 +80,7 @@ def _check_us_vanguard_url(ticker_symbol: str) -> Optional[str]:
         return None
     url = f"https://investor.vanguard.com/investment-products/etfs/profile/{cleaned}"
     try:
-        r = requests.head(url, headers={"User-Agent": USER_AGENT}, timeout=5)
+        r = resilient_get(url, headers={"User-Agent": USER_AGENT}, timeout=5)
         if r.status_code == 200:
             return url
     except Exception:

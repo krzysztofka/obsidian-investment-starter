@@ -15,6 +15,7 @@ from platforms.common import (
     determine_asset_type,
     load_template,
     save_or_update_asset,
+    save_or_update_assets_parallel,
     remove_missing_platform_assets,
     ensure_utf8_file,
 )
@@ -342,7 +343,9 @@ def resolve_instrument_identifiers(raw_paper: str, exchange: str, account_type: 
 def import_mbm_account(
     csv_file_path: Optional[str] = None,
     account_type: str = "ikze",
-    base_dir: Optional[str] = None
+    base_dir: Optional[str] = None,
+    max_workers: Optional[int] = None,
+    show_progress: bool = True,
 ) -> Tuple[int, Set[str], Set[str]]:
     """Import positions for a specific mBM account ('ikze' or 'ike').
 
@@ -373,9 +376,7 @@ def import_mbm_account(
 
     template_fm, template_body = load_template(base_dir)
 
-    imported_count = 0
-    active_asset_paths: Set[str] = set()
-    active_tickers: Set[str] = set()
+    asset_tasks = []
 
     for item in rows:
         raw_paper = item['raw_paper']
@@ -393,38 +394,53 @@ def import_mbm_account(
         asset_type = info['asset_type']
         asset_allocation = info['asset_allocation']
 
-        fpath = save_or_update_asset(
-            vault_assets_dir=vault_assets_dir,
-            platform=platform_name,
-            ticker=vault_ticker,
-            name=name,
-            quantity=quantity,
-            current_price=price,
-            currency=currency,
-            avg_price=None,
-            isin=isin,
-            current_date=current_date,
-            template_fm=template_fm,
-            template_body=template_body,
-            source='platform',
-            portfolio="Long term",
-            tags=[account_tag],
-            yahoo_ticker=yahoo_ticker,
-            asset_allocation=asset_allocation,
-            asset_type=asset_type,
-        )
-        active_asset_paths.add(fpath)
-        active_tickers.add(vault_ticker)
-        imported_count += 1
+        asset_tasks.append({
+            "vault_assets_dir": vault_assets_dir,
+            "platform": platform_name,
+            "ticker": vault_ticker,
+            "name": name,
+            "quantity": quantity,
+            "current_price": price,
+            "currency": currency,
+            "avg_price": None,
+            "isin": isin,
+            "current_date": current_date,
+            "template_fm": template_fm,
+            "template_body": template_body,
+            "source": 'platform',
+            "portfolio": "Long term",
+            "tags": [account_tag],
+            "yahoo_ticker": yahoo_ticker,
+            "asset_allocation": asset_allocation,
+            "asset_type": asset_type,
+        })
+
+    active_asset_paths, active_tickers, imported_count = save_or_update_assets_parallel(
+        asset_tasks=asset_tasks,
+        max_workers=max_workers,
+        base_dir=base_dir,
+        show_progress=show_progress,
+    )
 
     return imported_count, active_asset_paths, active_tickers
 
 
-def import_mbm_ike(csv_file_path: Optional[str] = None, base_dir: Optional[str] = None) -> int:
+def import_mbm_ike(
+    csv_file_path: Optional[str] = None,
+    base_dir: Optional[str] = None,
+    max_workers: Optional[int] = None,
+    show_progress: bool = True,
+) -> int:
     """Import positions from mBM IKE CSV export."""
     if base_dir is None:
         base_dir = os.path.abspath(os.path.join(parent_scripts_dir, "../.."))
-    count, paths, tickers = import_mbm_account(csv_file_path=csv_file_path, account_type='ike', base_dir=base_dir)
+    count, paths, tickers = import_mbm_account(
+        csv_file_path=csv_file_path,
+        account_type='ike',
+        base_dir=base_dir,
+        max_workers=max_workers,
+        show_progress=show_progress,
+    )
     vault_assets_dir = os.path.join(base_dir, "10_Finance", "Assets")
     if paths:
         # Clean up missing IKE assets
@@ -434,7 +450,7 @@ def import_mbm_ike(csv_file_path: Optional[str] = None, base_dir: Optional[str] 
             fpath = os.path.join(vault_assets_dir, fname)
             if fpath in paths:
                 continue
-            if fname.endswith('_IKE.md'):
+            if fname.lower().endswith('_ike.md'):
                 try:
                     os.remove(fpath)
                     print(f"Removed missing IKE asset: {fname}")
@@ -446,11 +462,22 @@ def import_mbm_ike(csv_file_path: Optional[str] = None, base_dir: Optional[str] 
     return count
 
 
-def import_mbm_ikze(csv_file_path: Optional[str] = None, base_dir: Optional[str] = None) -> int:
+def import_mbm_ikze(
+    csv_file_path: Optional[str] = None,
+    base_dir: Optional[str] = None,
+    max_workers: Optional[int] = None,
+    show_progress: bool = True,
+) -> int:
     """Import positions from mBM IKZE CSV export."""
     if base_dir is None:
         base_dir = os.path.abspath(os.path.join(parent_scripts_dir, "../.."))
-    count, paths, tickers = import_mbm_account(csv_file_path=csv_file_path, account_type='ikze', base_dir=base_dir)
+    count, paths, tickers = import_mbm_account(
+        csv_file_path=csv_file_path,
+        account_type='ikze',
+        base_dir=base_dir,
+        max_workers=max_workers,
+        show_progress=show_progress,
+    )
     vault_assets_dir = os.path.join(base_dir, "10_Finance", "Assets")
     if paths:
         # Clean up missing IKZE assets
@@ -460,7 +487,7 @@ def import_mbm_ikze(csv_file_path: Optional[str] = None, base_dir: Optional[str]
             fpath = os.path.join(vault_assets_dir, fname)
             if fpath in paths:
                 continue
-            if fname.endswith('_IKZE.md'):
+            if fname.lower().endswith('_ikze.md'):
                 try:
                     os.remove(fpath)
                     print(f"Removed missing IKZE asset: {fname}")
@@ -475,7 +502,9 @@ def import_mbm_ikze(csv_file_path: Optional[str] = None, base_dir: Optional[str]
 def import_mbm(
     csv_file_path: Optional[str] = None,
     account_type: Optional[str] = None,
-    base_dir: Optional[str] = None
+    base_dir: Optional[str] = None,
+    max_workers: Optional[int] = None,
+    show_progress: bool = True,
 ) -> int:
     """Import positions from mBM CSV export(s) for IKE, IKZE, or both."""
     if base_dir is None:
@@ -487,17 +516,17 @@ def import_mbm(
     if csv_file_path:
         acc = account_type or detect_account_type_from_path(csv_file_path)
         if acc == 'ike':
-            return import_mbm_ike(csv_file_path=csv_file_path, base_dir=base_dir)
+            return import_mbm_ike(csv_file_path=csv_file_path, base_dir=base_dir, max_workers=max_workers, show_progress=show_progress)
         else:
-            return import_mbm_ikze(csv_file_path=csv_file_path, base_dir=base_dir)
+            return import_mbm_ikze(csv_file_path=csv_file_path, base_dir=base_dir, max_workers=max_workers, show_progress=show_progress)
 
     # If account type is explicitly specified
     if account_type:
         acc = account_type.lower().strip()
         if acc == 'ike':
-            return import_mbm_ike(base_dir=base_dir)
+            return import_mbm_ike(base_dir=base_dir, max_workers=max_workers, show_progress=show_progress)
         elif acc == 'ikze':
-            return import_mbm_ikze(base_dir=base_dir)
+            return import_mbm_ikze(base_dir=base_dir, max_workers=max_workers, show_progress=show_progress)
 
     # If neither file nor specific account is specified, import both IKE and IKZE if present
     total = 0
@@ -505,13 +534,23 @@ def import_mbm(
     all_tickers: Set[str] = set()
 
     print("\n--- Importing mBM (IKZE) ---")
-    ikze_count, ikze_paths, ikze_tickers = import_mbm_account(account_type='ikze', base_dir=base_dir)
+    ikze_count, ikze_paths, ikze_tickers = import_mbm_account(
+        account_type='ikze',
+        base_dir=base_dir,
+        max_workers=max_workers,
+        show_progress=show_progress,
+    )
     total += ikze_count
     all_paths.update(ikze_paths)
     all_tickers.update(ikze_tickers)
 
     print("\n--- Importing mBM (IKE) ---")
-    ike_count, ike_paths, ike_tickers = import_mbm_account(account_type='ike', base_dir=base_dir)
+    ike_count, ike_paths, ike_tickers = import_mbm_account(
+        account_type='ike',
+        base_dir=base_dir,
+        max_workers=max_workers,
+        show_progress=show_progress,
+    )
     total += ike_count
     all_paths.update(ike_paths)
     all_tickers.update(ike_tickers)
@@ -535,12 +574,13 @@ def main():
     parser = argparse.ArgumentParser(description="Import assets from mBM CSV exports (IKE & IKZE).")
     parser.add_argument("-f", "--file", dest="file", type=str, default=None, help="Path to mBM CSV file.")
     parser.add_argument("-a", "--account", dest="account", type=str, choices=["ike", "ikze", "all"], default=None, help="Account type (ike, ikze, all).")
+    parser.add_argument("-w", "--workers", dest="max_workers", type=int, default=None, help="Number of worker threads.")
     parser.add_argument("positional_file", nargs="?", default=None, help="Optional mBM CSV file path.")
 
     args = parser.parse_args()
     target_file = args.file or args.positional_file
     account_type = args.account if args.account != "all" else None
-    import_mbm(csv_file_path=target_file, account_type=account_type)
+    import_mbm(csv_file_path=target_file, account_type=account_type, max_workers=args.max_workers)
 
 
 if __name__ == '__main__':

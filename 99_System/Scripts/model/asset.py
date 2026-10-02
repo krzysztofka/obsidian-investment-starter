@@ -1,21 +1,23 @@
-from dataclasses import dataclass, field
+"""Pydantic model for Investment Asset notes in 10_Finance/Assets."""
+
 from typing import Optional, List, Dict, Any, Union
 import os
 import yaml
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
-@dataclass
-class Asset:
+class Asset(BaseModel):
     """Structure definition corresponding to asset_template.md and Obsidian asset notes.
 
     Represents an investment asset holding (Equity, ETF, or Cash) tracked within
     the 10_Finance/Assets vault directory.
     """
+    model_config = ConfigDict(extra="allow", validate_assignment=True, populate_by_name=True)
 
     # Core required fields (matching asset_template.md schema)
-    ticker: str
-    name: str
-    platform: str
+    ticker: str = ""
+    name: str = ""
+    platform: str = ""
     portfolio: Optional[str] = None  # 'Safety net', 'Long term', 'Aggressive'
     quantity: Union[int, float] = 0
     avg_price: Optional[Union[int, float]] = None
@@ -23,7 +25,7 @@ class Asset:
     value_pln: Union[int, float] = 0.0
     currency: str = "USD"
     asset_type: str = "equity"  # 'equity', 'etf', 'cash'
-    asset_allocation: Optional[Dict[str, Union[int, float]]] = None # e.g. {'equity': 60, 'bonds': 40}
+    asset_allocation: Optional[Dict[str, Union[int, float]]] = None  # e.g. {'equity': 60, 'bonds': 40}
 
     # Classification & Ratings
     dominant_sector: Optional[str] = None
@@ -32,19 +34,19 @@ class Asset:
     morningstar_rating: Optional[Union[str, int, float]] = None
     morningstar_risk: Optional[str] = None
     last_updated: Optional[str] = None
-    tags: List[str] = field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
 
     # Extended metadata (Yahoo Finance & JustETF enrichments)
     sector: Optional[str] = None
     country: Optional[str] = None
-    market_cap: Optional[str] = None
+    market_cap: Optional[Union[str, float, int]] = None
     pe_ratio: Optional[Union[float, int, str]] = None
     forward_pe: Optional[Union[float, int, str]] = None
-    dividend_yield: Optional[str] = None
+    dividend_yield: Optional[Union[str, float, int]] = None
     beta: Optional[Union[float, int, str]] = None
     fifty_two_week_high: Optional[Union[float, int, str]] = None
     fifty_two_week_low: Optional[Union[float, int, str]] = None
-    drawdown_52w: Optional[str] = None
+    drawdown_52w: Optional[Union[str, float, int]] = None
     sma_50: Optional[Union[float, int, str]] = None
     sma_200: Optional[Union[float, int, str]] = None
     rsi_14: Optional[Union[float, int, str]] = None
@@ -53,17 +55,17 @@ class Asset:
     isin: Optional[str] = None
 
     # Quantitative & Risk Metrics (OpenBB / Historical Price Analysis)
-    volatility: Optional[str] = None
+    volatility: Optional[Union[str, float, int]] = None
     sharpe_ratio: Optional[Union[float, int, str]] = None
-    max_drawdown: Optional[str] = None
-    upside_potential: Optional[str] = None
+    max_drawdown: Optional[Union[str, float, int]] = None
+    upside_potential: Optional[Union[str, float, int]] = None
 
     # ETF specific metadata
     justetf_url: Optional[str] = None
     issuer: Optional[str] = None
     issuer_url: Optional[str] = None
-    ter: Optional[str] = None
-    fund_size: Optional[str] = None
+    ter: Optional[Union[str, float, int]] = None
+    fund_size: Optional[Union[str, float, int]] = None
     distribution_policy: Optional[str] = None
     replication: Optional[str] = None
     fund_domicile: Optional[str] = None
@@ -71,10 +73,26 @@ class Asset:
     source: Optional[str] = "platform"  # Options: "platform", "manual"
 
     # Additional custom frontmatter fields not explicitly typed
-    extra_properties: Dict[str, Any] = field(default_factory=dict)
+    extra_properties: Dict[str, Any] = Field(default_factory=dict)
 
     # Note markdown body (below YAML frontmatter)
     body: str = ""
+
+    @field_validator("last_updated", mode="before")
+    @classmethod
+    def _coerce_date_str(cls, v: Any) -> Optional[str]:
+        if v is None:
+            return None
+        return str(v)
+
+    @field_validator("tags", "top_holdings", mode="before")
+    @classmethod
+    def _coerce_list(cls, v: Any) -> Any:
+        if v is None:
+            return []
+        if isinstance(v, str):
+            return [v]
+        return list(v) if isinstance(v, (list, tuple, set)) else []
 
     def to_frontmatter_dict(self) -> Dict[str, Any]:
         """Convert the Asset model into a frontmatter dictionary maintaining standard order."""
@@ -107,11 +125,9 @@ class Asset:
                     fm[key] = list(val)
             elif val is not None:
                 fm[key] = val
-            elif key in ['avg_price', 'morningstar_rating', 'morningstar_risk'] and key in [
-                'avg_price', 'morningstar_rating', 'morningstar_risk'
-            ]:
-                # Keep explicit null for template standard fields if set or None
-                if getattr(self, key) is None and key in ['avg_price', 'morningstar_rating', 'morningstar_risk']:
+            elif key in ['avg_price', 'morningstar_rating', 'morningstar_risk']:
+                # Keep explicit null for template standard fields
+                if getattr(self, key) is None:
                     fm[key] = None
 
         # Add any additional dynamic properties
@@ -119,38 +135,25 @@ class Asset:
             if k not in fm:
                 fm[k] = v
 
+        # Also check model extra fields
+        if self.model_extra:
+            for k, v in self.model_extra.items():
+                if k not in fm and k != "extra_properties":
+                    fm[k] = v
+
         return fm
 
     @classmethod
     def from_frontmatter_dict(cls, data: Dict[str, Any], body: str = "") -> "Asset":
         """Construct an Asset instance from frontmatter dictionary and markdown body."""
-        known_fields = {
-            'ticker', 'name', 'platform', 'portfolio', 'quantity', 'avg_price',
-            'current_price', 'value_pln', 'currency', 'asset_type',
-            'asset_allocation', 'dominant_sector', 'industry', 'analyst_rating',
-            'morningstar_rating', 'morningstar_risk', 'volatility', 'sharpe_ratio',
-            'max_drawdown', 'upside_potential', 'beta', 'forward_pe',
-            'fifty_two_week_high', 'fifty_two_week_low', 'drawdown_52w',
-            'sma_50', 'sma_200', 'rsi_14', 'last_updated',
-            'top_holdings', 'source', 'tags', 'yahoo_ticker', 'stooq_ticker', 'sector', 'country', 'market_cap',
-            'pe_ratio', 'dividend_yield', 'isin', 'justetf_url', 'issuer', 'issuer_url', 'ter',
-            'fund_size', 'distribution_policy', 'replication', 'fund_domicile'
-        }
+        known_fields = set(cls.model_fields.keys())
 
         kwargs: Dict[str, Any] = {}
         extra: Dict[str, Any] = {}
 
         for k, v in data.items():
             if k in known_fields:
-                if k in ['tags', 'top_holdings']:
-                    if isinstance(v, list):
-                        kwargs[k] = v
-                    elif isinstance(v, str):
-                        kwargs[k] = [v]
-                    else:
-                        kwargs[k] = []
-                else:
-                    kwargs[k] = v
+                kwargs[k] = v
             else:
                 extra[k] = v
 

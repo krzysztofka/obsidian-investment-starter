@@ -6,6 +6,7 @@ from .delisting_risk import DelistingRiskRule
 from .allocation_drift import AllocationDriftRule
 from .stop_loss import StopLossRule
 from .insider_selling import InsiderSellingRule
+from .macro_yield_curve import MacroYieldCurveRule
 
 __all__ = [
     "BaseAlertRule",
@@ -14,4 +15,6 @@ __all__ = [
     "AllocationDriftRule",
     "StopLossRule",
     "InsiderSellingRule",
+    "MacroYieldCurveRule",
 ]
+

@@ -4,6 +4,14 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, List, Any, Union
 from dotenv import load_dotenv, find_dotenv
 
+# Ensure integrations root is in sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+integrations_dir = os.path.dirname(current_dir)
+if integrations_dir not in sys.path:
+    sys.path.append(integrations_dir)
+
+from resilience import retry_with_backoff
+
 ALERT_INSIDER_SELL_TAG = "#alert/insider_sell"
 
 try:
@@ -15,6 +23,12 @@ try:
     load_dotenv(find_dotenv(usecwd=True))
 except ImportError:
     pass
+
+
+@retry_with_backoff(domain="finnhub.io")
+def _safe_finnhub_call(fn, *args, **kwargs):
+    """Execute Finnhub SDK method with thread-safe domain rate limiting and retry with backoff."""
+    return fn(*args, **kwargs)
 
 
 def _load_api_key() -> Optional[str]:
@@ -79,7 +93,7 @@ def fetch_analyst_rating(symbol: str, finnhub_client: Optional[Any] = None) -> O
 
     for sym in candidate_symbols:
         try:
-            res = client.recommendation_trends(sym)
+            res = _safe_finnhub_call(client.recommendation_trends, sym)
             if res and isinstance(res, list) and len(res) > 0:
                 data = res
                 break
@@ -135,7 +149,7 @@ def fetch_insider_sentiment(
 
     for sym in _get_candidate_symbols(symbol):
         try:
-            res = client.stock_insider_sentiment(sym, from_date, to_date)
+            res = _safe_finnhub_call(client.stock_insider_sentiment, sym, from_date, to_date)
             if res and isinstance(res, dict) and res.get('data'):
                 return res
         except Exception as e:
@@ -165,7 +179,7 @@ def fetch_insider_transactions(
 
     for sym in _get_candidate_symbols(symbol):
         try:
-            res = client.stock_insider_transactions(sym, from_date, to_date)
+            res = _safe_finnhub_call(client.stock_insider_transactions, sym, from_date, to_date)
             if res and isinstance(res, dict) and res.get('data'):
                 return res['data']
         except Exception as e:
@@ -194,7 +208,7 @@ def check_insider_sell(
 
     for sym in candidate_symbols:
         try:
-            sent_resp = client.stock_insider_sentiment(sym, from_date, to_date)
+            sent_resp = _safe_finnhub_call(client.stock_insider_sentiment, sym, from_date, to_date)
             data = sent_resp.get('data', []) if isinstance(sent_resp, dict) else []
             if data:
                 total_change = sum(item.get('change', 0) for item in data)
@@ -210,7 +224,7 @@ def check_insider_sell(
             sys.stderr.write(f"Finnhub: insider sentiment check error for {sym}: {e}\n")
 
         try:
-            tx_resp = client.stock_insider_transactions(sym, from_date, to_date)
+            tx_resp = _safe_finnhub_call(client.stock_insider_transactions, sym, from_date, to_date)
             txs = tx_resp.get('data', []) if isinstance(tx_resp, dict) else []
             if txs:
                 net_change = sum(item.get('change', 0) for item in txs)

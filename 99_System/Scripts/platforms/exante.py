@@ -15,8 +15,11 @@ from platforms.common import (
     parse_number,
     load_template,
     save_or_update_asset,
+    save_or_update_assets_parallel,
     remove_missing_platform_assets,
     load_import_config,
+    clean_asset_display_name,
+    KNOWN_ETF_NAMES,
 )
 from history.update_portfolio import update_portfolio_history
 
@@ -84,6 +87,8 @@ def import_exante_api(
     account_id: Optional[str] = None,
     base_dir: Optional[str] = None,
     client: Optional[Any] = None,
+    max_workers: Optional[int] = None,
+    show_progress: bool = True,
 ) -> int:
     """Import positions and cash balances directly from Exante REST API into 10_Finance/Assets."""
     if base_dir is None:
@@ -113,9 +118,7 @@ def import_exante_api(
     current_date = portfolio_data.get("session_date") or datetime.now().strftime("%Y-%m-%d")
     template_fm, template_body = load_template(base_dir)
 
-    imported_count = 0
-    active_asset_paths: Set[str] = set()
-    active_tickers: Set[str] = set()
+    asset_tasks = []
 
     # 1. Process cash balances
     for cash in portfolio_data.get("cash_balances", []):
@@ -124,24 +127,21 @@ def import_exante_api(
         value = cash.get("value", 0.0)
         ticker = f"EXANTE_CASH_{currency_code}"
 
-        fpath = save_or_update_asset(
-            vault_assets_dir=vault_assets_dir,
-            platform="Exante",
-            ticker=ticker,
-            name=instrument,
-            quantity=value,
-            current_price=1.0,
-            currency=currency_code,
-            avg_price=None,
-            isin=None,
-            current_date=current_date,
-            template_fm=template_fm,
-            template_body=template_body,
-            source="platform",
-        )
-        active_asset_paths.add(fpath)
-        active_tickers.add(ticker)
-        imported_count += 1
+        asset_tasks.append({
+            "vault_assets_dir": vault_assets_dir,
+            "platform": "Exante",
+            "ticker": ticker,
+            "name": instrument,
+            "quantity": value,
+            "current_price": 1.0,
+            "currency": currency_code,
+            "avg_price": None,
+            "isin": None,
+            "current_date": current_date,
+            "template_fm": template_fm,
+            "template_body": template_body,
+            "source": "platform",
+        })
 
     # 2. Process stocks & ETFs positions
     for pos in portfolio_data.get("positions", []):
@@ -156,24 +156,30 @@ def import_exante_api(
         if not ticker or quantity <= 0:
             continue
 
-        fpath = save_or_update_asset(
-            vault_assets_dir=vault_assets_dir,
-            platform="Exante",
-            ticker=ticker,
-            name=name,
-            quantity=quantity,
-            current_price=current_price,
-            currency=currency,
-            avg_price=avg_price,
-            isin=isin,
-            current_date=current_date,
-            template_fm=template_fm,
-            template_body=template_body,
-            source="platform",
-        )
-        active_asset_paths.add(fpath)
-        active_tickers.add(ticker)
-        imported_count += 1
+        name = clean_asset_display_name(name, isin=isin, ticker=ticker)
+
+        asset_tasks.append({
+            "vault_assets_dir": vault_assets_dir,
+            "platform": "Exante",
+            "ticker": ticker,
+            "name": name,
+            "quantity": quantity,
+            "current_price": current_price,
+            "currency": currency,
+            "avg_price": avg_price,
+            "isin": isin,
+            "current_date": current_date,
+            "template_fm": template_fm,
+            "template_body": template_body,
+            "source": "platform",
+        })
+
+    active_asset_paths, active_tickers, imported_count = save_or_update_assets_parallel(
+        asset_tasks=asset_tasks,
+        max_workers=max_workers,
+        base_dir=base_dir,
+        show_progress=show_progress,
+    )
 
     # 3. Verify existing platform assets against new import and remove missing
     remove_missing_platform_assets(
@@ -193,6 +199,8 @@ def import_exante(
     base_dir: Optional[str] = None,
     use_api: Optional[bool] = None,
     account_id: Optional[str] = None,
+    max_workers: Optional[int] = None,
+    show_progress: bool = True,
 ) -> int:
     """Import positions from Exante CSV export or Exante REST API into 10_Finance/Assets."""
     if base_dir is None:
@@ -207,7 +215,7 @@ def import_exante(
             use_api = cfg.get("exante", {}).get("default_mode", "api").lower() == "api"
 
     if use_api:
-        return import_exante_api(account_id=account_id, base_dir=base_dir)
+        return import_exante_api(account_id=account_id, base_dir=base_dir, max_workers=max_workers, show_progress=show_progress)
 
     vault_assets_dir = os.path.join(base_dir, "10_Finance", "Assets")
     os.makedirs(vault_assets_dir, exist_ok=True)
@@ -228,9 +236,7 @@ def import_exante(
     with open(csv_file, mode='r', encoding='utf-16') as f:
         lines = [ln.rstrip('\r') for ln in f]
 
-    imported_count = 0
-    active_asset_paths: Set[str] = set()
-    active_tickers: Set[str] = set()
+    asset_tasks = []
 
     # 1. Process cash balance section
     cash_rows = find_section(lines, 'cash', 'balance')
@@ -244,24 +250,21 @@ def import_exante(
         currency_code = iso or 'EUR'
         ticker = f"EXANTE_CASH_{currency_code}"
 
-        fpath = save_or_update_asset(
-            vault_assets_dir=vault_assets_dir,
-            platform='Exante',
-            ticker=ticker,
-            name=instrument,
-            quantity=value,
-            current_price=1.0,
-            currency=currency_code,
-            avg_price=None,
-            isin=None,
-            current_date=current_date,
-            template_fm=template_fm,
-            template_body=template_body,
-            source='platform',
-        )
-        active_asset_paths.add(fpath)
-        active_tickers.add(ticker)
-        imported_count += 1
+        asset_tasks.append({
+            "vault_assets_dir": vault_assets_dir,
+            "platform": 'Exante',
+            "ticker": ticker,
+            "name": instrument,
+            "quantity": value,
+            "current_price": 1.0,
+            "currency": currency_code,
+            "avg_price": None,
+            "isin": None,
+            "current_date": current_date,
+            "template_fm": template_fm,
+            "template_body": template_body,
+            "source": 'platform',
+        })
 
     # 2. Process stocks & ETFs section
     stock_rows = find_section(lines, 'stocks', 'etfs')
@@ -278,24 +281,30 @@ def import_exante(
         if quantity <= 0:
             continue
 
-        fpath = save_or_update_asset(
-            vault_assets_dir=vault_assets_dir,
-            platform='Exante',
-            ticker=instrument,
-            name=name,
-            quantity=quantity,
-            current_price=current_price,
-            currency=currency,
-            avg_price=avg_price,
-            isin=isin,
-            current_date=current_date,
-            template_fm=template_fm,
-            template_body=template_body,
-            source='platform',
-        )
-        active_asset_paths.add(fpath)
-        active_tickers.add(instrument)
-        imported_count += 1
+        name = clean_asset_display_name(name, isin=isin, ticker=instrument)
+
+        asset_tasks.append({
+            "vault_assets_dir": vault_assets_dir,
+            "platform": 'Exante',
+            "ticker": instrument,
+            "name": name,
+            "quantity": quantity,
+            "current_price": current_price,
+            "currency": currency,
+            "avg_price": avg_price,
+            "isin": isin,
+            "current_date": current_date,
+            "template_fm": template_fm,
+            "template_body": template_body,
+            "source": 'platform',
+        })
+
+    active_asset_paths, active_tickers, imported_count = save_or_update_assets_parallel(
+        asset_tasks=asset_tasks,
+        max_workers=max_workers,
+        base_dir=base_dir,
+        show_progress=show_progress,
+    )
 
     # 3. Verify existing platform assets against new import file and remove missing
     remove_missing_platform_assets(
@@ -317,10 +326,11 @@ if __name__ == '__main__':
     parser.add_argument("--api", dest="api", action="store_true", default=None, help="Fetch portfolio from Exante REST API.")
     parser.add_argument("--csv", dest="csv", action="store_true", default=False, help="Force CSV import mode.")
     parser.add_argument("--account", dest="account_id", type=str, default=None, help="Exante account ID.")
+    parser.add_argument("-w", "--workers", dest="max_workers", type=int, default=None, help="Number of worker threads.")
     parser.add_argument("positional_file", nargs="?", default=None, help="Optional Exante CSV file path.")
 
     args = parser.parse_args()
     target_file = args.file or args.positional_file
     use_api = False if args.csv else (True if args.api else None)
-    import_exante(csv_file_path=target_file, use_api=use_api, account_id=args.account_id)
+    import_exante(csv_file_path=target_file, use_api=use_api, account_id=args.account_id, max_workers=args.max_workers)
 

@@ -5,6 +5,14 @@ import re
 from typing import Optional, Dict, Any, List, Union
 import requests
 
+# Ensure integrations root is in sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+integrations_dir = os.path.dirname(current_dir)
+if integrations_dir not in sys.path:
+    sys.path.append(integrations_dir)
+
+from resilience import resilient_get
+
 try:
     import yfinance as yf
 except ImportError:
@@ -58,7 +66,7 @@ def search_yahoo_symbol(query: str) -> Optional[str]:
         return None
     url = "https://query1.finance.yahoo.com/v1/finance/search"
     try:
-        resp = requests.get(url, params={"q": query, "quotesCount": 1}, headers=HEADERS, timeout=5)
+        resp = resilient_get(url, params={"q": query, "quotesCount": 1}, headers=HEADERS, timeout=5)
         if resp.status_code == 200:
             data = resp.json()
             quotes = data.get("quotes", [])
@@ -247,7 +255,7 @@ def fetch_yfinance_data(isin: Optional[str], name: str, ticker: Optional[str] = 
     try:
         url = f"https://query1.finance.yahoo.com/v10/finance/quoteSummary/{symbol}"
         params = {"modules": "summaryProfile,financialData,defaultKeyStatistics,summaryDetail,fundProfile,fundPerformance"}
-        resp = requests.get(url, params=params, headers=HEADERS, timeout=5)
+        resp = resilient_get(url, params=params, headers=HEADERS, timeout=5)
         if resp.status_code == 200:
             raw = resp.json()
             result = raw.get("quoteSummary", {}).get("result", [{}])[0]
@@ -401,7 +409,7 @@ def fetch_yfinance_analyst_rating(symbol: str) -> Optional[str]:
     try:
         url = f"https://query1.finance.yahoo.com/v10/finance/quoteSummary/{symbol}"
         params = {"modules": "financialData"}
-        resp = requests.get(url, params=params, headers=HEADERS, timeout=5)
+        resp = resilient_get(url, params=params, headers=HEADERS, timeout=5)
         if resp.status_code == 200:
             raw = resp.json()
             result = raw.get("quoteSummary", {}).get("result", [{}])[0]
@@ -451,7 +459,7 @@ def get_fx_rate_to_pln(currency: str) -> float:
 
     try:
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
-        resp = requests.get(url, params={"interval": "1d", "range": "1d"}, headers=HEADERS, timeout=5)
+        resp = resilient_get(url, params={"interval": "1d", "range": "1d"}, headers=HEADERS, timeout=5)
         if resp.status_code == 200:
             raw = resp.json()
             meta = raw.get("chart", {}).get("result", [{}])[0].get("meta", {})

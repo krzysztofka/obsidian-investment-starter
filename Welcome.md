@@ -8,17 +8,17 @@ Welcome to your **Investment Second Brain & Portfolio Management System** — a 
 
 ## 🧭 Navigation & Core Dashboards
 
-| Dashboard | Description | Link |
-| :--- | :--- | :--- |
-| 📊 **Portfolio Overview** | Live portfolio valuation in PLN, consolidated asset class & sector allocation charts, and merged holdings. | [[Overview]] |
-| 🛡️ **Safety Net Portfolio** | Emergency fund, cash cushions, and capital preservation holdings. | [[Safety_portfolio\|Safety Net]] |
-| 🏛️ **Long Term Portfolio** | Broad-market index ETFs, sovereign bond ETFs, real estate, and physical gold. | [[Long_term_portfolio\|Long Term]] |
-| 🚀 **Aggressive Portfolio** | High-growth stock picks, thematic ETFs, and concentrated sector investments. | [[Aggressive_portfolio\|Aggressive]] |
-| 📈 **Historical Performance** | Valuation history timeline, cumulative equity performance, and portfolio milestone charts. | [[Portfolio_performance\|Historical Performance]] |
-| 🚨 **Active Alerts** | Valuation warnings (`#alert/overvalued`), delisting risks, and SEC insider trading signals (`#alert/insider_sell`). | [[Alerts]] |
-| 🔍 **Watchlist & Candidates** | Opportunity pipeline, valuation scanner candidates, target entry prices, and analyst consensus ratings. | [[10_Finance/Watchlist/Watchlist\|Watchlist]] |
-| 🌐 **Macro Dashboard** | Global & domestic macroeconomic indicators, central bank policy rates, CPI, and yield curve spreads. | [[10_Finance/Macro\|Macro Dashboard]] |
-| 📝 **Roadmap & Improvements** | Planned features, integration ideas, backlog, and system improvement items. | [[todo\|Things to Improve (TODO)]] |
+| Dashboard                          | Description                                                                                                             | Link |
+| :--------------------------------- | :---------------------------------------------------------------------------------------------------------------------- | :--- |
+| 📊**Portfolio Overview**     | Live portfolio valuation in PLN, consolidated asset class & sector allocation charts, and merged holdings.              | [[Overview]]     |
+| 🛡️**Safety Net Portfolio** | Emergency fund, cash cushions, and capital preservation holdings.                                                       | [[Safety_portfolio\|Safety Net]]     |
+| 🏛️**Long Term Portfolio**  | Broad-market index ETFs, sovereign bond ETFs, real estate, and physical gold.                                           | [[Long_term_portfolio\|Long Term]]     |
+| 🚀**Aggressive Portfolio**   | High-growth stock picks, thematic ETFs, and concentrated sector investments.                                            | [[Aggressive_portfolio\|Aggressive]]     |
+| 📈**Historical Performance** | Valuation history timeline, cumulative equity performance, and portfolio milestone charts.                              | [[Portfolio_performance\|Historical Performance]]     |
+| 🚨**Active Alerts**          | Valuation warnings (`#alert/overvalued`), delisting risks, and SEC insider trading signals (`#alert/insider_sell`). | [[Alerts]]     |
+| 🔍**Watchlist & Candidates** | Opportunity pipeline, valuation scanner candidates, target entry prices, and analyst consensus ratings.                 | [[10_Finance/Watchlist/Watchlist\|Watchlist]]     |
+| 🌐**Macro Dashboard**        | Global & domestic macroeconomic indicators, central bank policy rates, CPI, and yield curve spreads.                    | [[10_Finance/Macro\|Macro Dashboard]]     |
+| 📝**Roadmap & Improvements** | Planned features, integration ideas, backlog, and system improvement items.                                             | [[todo\|Things to Improve (TODO)]]     |
 
 ---
 
@@ -59,7 +59,9 @@ import:
 ```
 
 #### A. Exante Live REST API Synchronization (Default)
+
 When `default_mode: "api"` is set (or `--api` flag is used), positions and multi-currency cash balances are pulled directly from Exante's servers without downloading CSV files.
+
 - Configure credentials in `.env`:
   ```env
   EXANTE_API_KEY=your_application_id_here
@@ -68,6 +70,7 @@ When `default_mode: "api"` is set (or `--api` flag is used), positions and multi
   ```
 
 #### B. Raw CSV Exports (Degiro & Exante Fallback)
+
 - **Degiro:** Place CSV exports into `00_Raw/Degiro/` *(pattern: `portfolio-YYYY-MM-DD.csv`)*
 - **Exante (CSV mode):** Place CSV exports into `00_Raw/Exante/` *(pattern: `Account_YYYY-MM-DD_*.csv`)*
 
@@ -81,13 +84,16 @@ When `default_mode: "api"` is set (or `--api` flag is used), positions and multi
 Choose whichever execution method fits your environment:
 
 #### Method A: Direct Execution via Interactive Action Center
+
 Click the **📥 Import Degiro & Exante (`--import`)** or **🚀 Run Full Pipeline (`--all`)** button in the Action Center above. The execution output and progress will stream live in the console box.
 
 > [!NOTE]
 > The full pipeline (`--all`) enriches all holdings with live data from Yahoo Finance, JustETF, and Finnhub, which takes approximately 2 to 3 minutes. The Action Center uses unbuffered streaming and mirrors all output to `99_System/runner.log`, automatically preserving your console view even when vault files trigger background Dataview re-renders.
 
 #### Method B: Command Line Terminal
+
 Open your terminal in the workspace root and run:
+
 ```bash
 # 1. Run standard import (uses default_mode from config.yaml -> Degiro CSV + Exante API):
 python run.py --import
@@ -118,4 +124,5 @@ For in-depth technical details, refer to [[99_System/Scripts/import_instructions
 ---
 
 ## 🛠️ Backlog & Improvements
+
 Check out [[todo|todo.md]] for the active backlog and future ideas to improve the vault (e.g. macro indicators, new broker integrations, API enhancements, and test coverage).

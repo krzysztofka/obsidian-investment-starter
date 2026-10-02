@@ -15,12 +15,12 @@
 # ------------------------------------------------------------------------------
 # 2. Raw Broker Data Exports
 # In the template repository, sample raw files in 00_Raw are tracked.
-# User-imported broker CSVs are automatically ignored to protect private data.
+# To keep personal data private, ignore custom CSVs by uncommenting below:
 # ------------------------------------------------------------------------------
-00_Raw/*
-!00_Raw/Articles/
-!00_Raw/**/sample_*.csv
-!00_Raw/**/.gitkeep
+# 00_Raw/*
+# !00_Raw/Articles/
+# !00_Raw/**/sample_*.*
+# !00_Raw/**/.gitkeep
 
 # ------------------------------------------------------------------------------
 # 3. Python Runtime & Virtual Environments

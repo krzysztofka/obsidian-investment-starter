@@ -13,6 +13,7 @@ Provides a unified command interface to execute portfolio pipeline actions:
 
 import os
 import sys
+import re
 import time
 import argparse
 from typing import Optional, List, Tuple, Dict, Any
@@ -40,10 +41,13 @@ LOG_FILE_PATH = os.path.join(VAULT_ROOT, "99_System", "runner.log")
 class TeeLogger:
     """Tees output to terminal stream and a persistent runner.log file."""
 
+    ANSI_ESCAPE_RE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+
     def __init__(self, stream, log_path: str):
         self.stream = stream
         self.log_path = log_path
         self._file = None
+        self._line_buffer = ""
         try:
             os.makedirs(os.path.dirname(log_path), exist_ok=True)
             self._file = open(log_path, "a", encoding="utf-8", buffering=1)
@@ -58,7 +62,15 @@ class TeeLogger:
             pass
         if self._file:
             try:
-                self._file.write(data)
+                # Strip ANSI sequences to keep log file clean plaintext
+                clean_chunk = self.ANSI_ESCAPE_RE.sub('', data)
+                self._line_buffer += clean_chunk
+                if '\n' in self._line_buffer:
+                    lines = self._line_buffer.replace('\r\n', '\n').split('\n')
+                    for line in lines[:-1]:
+                        final_line = line.split('\r')[-1]
+                        self._file.write(final_line + '\n')
+                    self._line_buffer = lines[-1]
                 self._file.flush()
             except Exception:
                 pass
@@ -70,9 +82,26 @@ class TeeLogger:
             pass
         if self._file:
             try:
+                if self._line_buffer:
+                    final_line = self._line_buffer.split('\r')[-1]
+                    if final_line:
+                        self._file.write(final_line + '\n')
+                    self._line_buffer = ""
                 self._file.flush()
             except Exception:
                 pass
+
+    def close(self):
+        try:
+            self.flush()
+        except Exception:
+            pass
+        if self._file:
+            try:
+                self._file.close()
+            except Exception:
+                pass
+            self._file = None
 
     def isatty(self):
         return getattr(self.stream, "isatty", lambda: False)()
@@ -98,6 +127,7 @@ def run_import_step(args: argparse.Namespace, vault_root: str) -> Dict[str, Any]
     use_api = getattr(args, "use_api", None)
     use_csv = getattr(args, "use_csv", False)
     account_id = getattr(args, "account_id", None)
+    max_workers = getattr(args, "max_workers", None)
 
     if use_csv:
         effective_use_api = False
@@ -115,16 +145,20 @@ def run_import_step(args: argparse.Namespace, vault_root: str) -> Dict[str, Any]
     elif platform:
         print(f"   Target platform: {platform}")
     elif effective_use_api:
-        print("   Target: Degiro (CSV), Exante (REST API) & mBM (IKE/IKZE CSV)")
+        print("   Target: Degiro (CSV), Exante (REST API), mBM (IKE/IKZE CSV) & PKO BP (Excel)")
     else:
-        print("   Target: All supported platforms (Degiro, Exante & mBM CSV)")
+        print("   Target: All supported platforms (Degiro, Exante, mBM & PKO BP)")
 
+
+    show_progress = not getattr(args, "no_progress", False)
     results = import_assets(
         platform=platform,
         file=file_path,
         base_dir=vault_root,
         use_api=effective_use_api,
         account_id=account_id,
+        max_workers=max_workers,
+        show_progress=show_progress,
     )
     total_imported = sum(results.values()) if isinstance(results, dict) else 0
     print(f"   Import completed. Total positions processed: {total_imported}")
@@ -136,8 +170,10 @@ def run_update_rates_step(args: argparse.Namespace, vault_root: str) -> Dict[str
     from update_currencies import update_currencies
 
     assets_dir = os.path.join(vault_root, "10_Finance", "Assets")
+    max_workers = getattr(args, "max_workers", None)
+    show_progress = not getattr(args, "no_progress", False)
     print(f"💱 Updating live FX rates and PLN values in: {assets_dir}...")
-    update_currencies(assets_dir)
+    update_currencies(assets_dir, max_workers=max_workers, base_dir=vault_root, show_progress=show_progress)
     return {"status": "ok"}
 
 
@@ -165,6 +201,8 @@ def run_sync_etfs_step(args: argparse.Namespace, vault_root: str) -> Dict[str, A
     target_etf = getattr(args, "etf", None)
     limit = getattr(args, "limit", None)
     dry_run = getattr(args, "dry_run", False)
+    max_workers = getattr(args, "max_workers", None)
+    show_progress = not getattr(args, "no_progress", False)
 
     print("📊 Synchronizing ETF top holdings and exposure analytics...")
     if target_etf:
@@ -180,6 +218,8 @@ def run_sync_etfs_step(args: argparse.Namespace, vault_root: str) -> Dict[str, A
         target_etf=target_etf,
         limit=limit,
         dry_run=dry_run,
+        max_workers=max_workers,
+        show_progress=show_progress,
     )
     return {"status": "ok"}
 
@@ -231,6 +271,20 @@ def run_export_template_step(args: argparse.Namespace, vault_root: str) -> Dict[
     return {"status": "ok", "target_dir": exported_path}
 
 
+def run_patch_step(args: argparse.Namespace, vault_root: str) -> Dict[str, Any]:
+    """Execute vault version patching and synchronization."""
+    from patch.patch_engine import PatchEngine
+
+    target_vault = getattr(args, "sync_vault_path", None) or getattr(args, "target", None)
+    dry_run = getattr(args, "dry_run", False)
+    force = getattr(args, "force", False)
+
+    engine = PatchEngine(source_vault=vault_root)
+    target = target_vault or vault_root
+    ok = engine.run_patch(target_vault=target, dry_run=dry_run, force=force)
+    return {"status": "ok" if ok else "failed", "target": target}
+
+
 # ==============================================================================
 # Pipeline Registry & Runner
 # ==============================================================================
@@ -243,20 +297,65 @@ PIPELINE_STEPS = [
     ("alerts", "Scan & evaluate portfolio alerts", run_alerts_step),
     ("history", "Synchronize portfolio historical timeline", run_history_step),
     ("export_template", "Export clean template repository", run_export_template_step),
+    ("patch", "Patch and synchronize vault version", run_patch_step),
 ]
 
 
-def print_banner(vault_root: str):
+def print_banner(vault_root: str, max_workers: Optional[int] = None):
+    from platforms.common import get_max_workers
+    workers = get_max_workers(max_workers, base_dir=vault_root)
+    cpu_count = os.cpu_count() or "N/A"
     print("=" * 72)
     print("🚀  INVESTMENT SECOND BRAIN — UNIFIED RUNNER")
     print("=" * 72)
     print(f"📁 Vault Root : {vault_root}")
+    print(f"⚡ CPU Threads: {cpu_count} detected | Concurrency: {workers} workers")
     print(f"🕒 Timestamp  : {time.strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 72)
     print()
 
 
-def print_summary(results: List[Tuple[str, str, str, float]]):
+def print_summary(results: List[Tuple[str, str, str, float]], use_rich: bool = True):
+    try:
+        from rich.table import Table
+        from ui_progress import get_console
+        console = get_console() if use_rich else None
+    except ImportError:
+        console = None
+
+    if console and console.is_terminal:
+        print()
+        table = Table(title="📋  EXECUTION SUMMARY REPORT", show_header=True, header_style="bold cyan", border_style="dim")
+        table.add_column("Step", style="bold", width=16)
+        table.add_column("Description", width=42)
+        table.add_column("Status", width=12)
+        table.add_column("Duration", justify="right", width=10)
+
+        total_duration = 0.0
+        all_success = True
+
+        for step_id, description, status, duration in results:
+            total_duration += duration
+            if status == "SUCCESS":
+                status_str = "[bold green]✅ SUCCESS[/bold green]"
+            elif status == "FAILED":
+                status_str = "[bold red]❌ FAILED[/bold red]"
+                all_success = False
+            else:
+                status_str = "[bold yellow]⏭️ SKIPPED[/bold yellow]"
+            table.add_row(step_id, description, status_str, f"{duration:.2f}s")
+
+        console.print(table)
+        status_msg = (
+            "[bold green]✨ All requested actions completed successfully![/bold green]"
+            if all_success
+            else "[bold red]⚠️  One or more actions failed. Check logs above.[/bold red]"
+        )
+        print(f"Total Duration : {total_duration:.2f}s")
+        console.print(f"Status         : {status_msg}")
+        print("=" * 72)
+        return
+
     print()
     print("=" * 72)
     print("📋  EXECUTION SUMMARY REPORT")
@@ -297,7 +396,7 @@ def build_parser() -> argparse.ArgumentParser:
         epilog="""\
 examples:
   python run.py --all                      Run full pipeline (import -> rates -> etfs -> alerts -> history)
-  python run.py --import                   Import broker CSV files for all platforms
+  python run.py --import                   Import portfolio form all platforms
   python run.py --import --platform degiro Import only Degiro positions
   python run.py --update-rates             Update FX rates and recalculate PLN values
   python run.py --sync-etfs                Sync ETF top holdings and exposures
@@ -358,6 +457,20 @@ examples:
         action="store_true",
         help="Export clean template repository to ../obsidian-investment-template.",
     )
+    actions_group.add_argument(
+        "--patch",
+        dest="action_patch",
+        action="store_true",
+        help="Upgrade/patch vault using sequential migration patches.",
+    )
+    actions_group.add_argument(
+        "--sync-vault",
+        dest="sync_vault_path",
+        type=str,
+        default=None,
+        metavar="TARGET_PATH",
+        help="Synchronize and patch updates into target downstream vault (e.g., ../trader).",
+    )
 
     # Step-specific fine-tuning options
     step_opts = parser.add_argument_group("action options")
@@ -365,8 +478,9 @@ examples:
         "-p", "--platform",
         type=str,
         default=None,
-        help="[--import] Broker platform (e.g., 'degiro', 'exante', 'mbm', 'ike', 'ikze'). Default: all.",
+        help="[--import] Broker platform (e.g., 'degiro', 'exante', 'mbm', 'ike', 'ikze', 'pkobp'). Default: all.",
     )
+
     step_opts.add_argument(
         "-f", "--file",
         type=str,
@@ -422,6 +536,13 @@ examples:
     # Global runtime options
     global_opts = parser.add_argument_group("global options")
     global_opts.add_argument(
+        "-w", "--workers",
+        dest="max_workers",
+        type=int,
+        default=None,
+        help="Number of concurrent worker threads (defaults to CPU hardware threads count).",
+    )
+    global_opts.add_argument(
         "--dry-run",
         action="store_true",
         help="Simulate run without writing file modifications (alerts, macro, and sync-etfs).",
@@ -430,6 +551,18 @@ examples:
         "--fail-fast",
         action="store_true",
         help="Stop immediately if any pipeline step fails.",
+    )
+    global_opts.add_argument(
+        "--force",
+        action="store_true",
+        help="Force re-applying patch or action even if already up-to-date.",
+    )
+    global_opts.add_argument(
+        "--no-progress",
+        dest="no_progress",
+        action="store_true",
+        default=False,
+        help="Disable interactive rich progress bars (useful for headless CI or simple log outputs).",
     )
     global_opts.add_argument(
         "--base-dir",
@@ -466,15 +599,17 @@ def main() -> int:
         requested_steps.append("history")
     if args.action_export_template:
         requested_steps.append("export_template")
+    if args.action_patch or args.sync_vault_path:
+        requested_steps.append("patch")
 
     # If no action is specified, print help and exit cleanly
     if not requested_steps:
-        print_banner(vault_root)
+        print_banner(vault_root, max_workers=args.max_workers)
         parser.print_help()
         print("\n💡 Tip: Run 'python run.py --all' to execute the complete pipeline.")
         return 0
 
-    print_banner(vault_root)
+    print_banner(vault_root, max_workers=args.max_workers)
     print(f"🎯 Selected pipeline actions: {', '.join(requested_steps)}")
     if args.dry_run:
         print("⚡ Global dry-run mode active")
@@ -503,7 +638,7 @@ def main() -> int:
             if getattr(args, "fail_fast", False):
                 elapsed = time.time() - start_time
                 results.append((step_id, description, status, elapsed))
-                print_summary(results)
+                print_summary(results, use_rich=not getattr(args, "no_progress", False))
                 return 1
         finally:
             elapsed = time.time() - start_time
@@ -513,7 +648,7 @@ def main() -> int:
         results.append((step_id, description, status, elapsed))
         print()
 
-    print_summary(results)
+    print_summary(results, use_rich=not getattr(args, "no_progress", False))
 
     # Return non-zero exit code if any step failed
     has_failure = any(s == "FAILED" for _, _, s, _ in results)

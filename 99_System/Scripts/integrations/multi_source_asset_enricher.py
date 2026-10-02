@@ -77,8 +77,50 @@ class MultiSourceAssetEnricher(BaseAssetInfoEnricher):
             merged.asset_type = 'cash'
             merged.dominant_sector = 'Cash'
             merged.industry = 'Cash'
+            merged.sector = None
+            merged.country = None
+            merged.market_cap = None
+            merged.pe_ratio = None
+            merged.forward_pe = None
+            merged.dividend_yield = None
+            merged.fifty_two_week_high = None
+            merged.fifty_two_week_low = None
+            merged.drawdown_52w = None
+            merged.sma_50 = None
+            merged.sma_200 = None
+            merged.rsi_14 = None
+            merged.beta = None
+            merged.analyst_rating = None
+            merged.yahoo_ticker = None
+            merged.stooq_ticker = None
+            merged.issuer = None
+            merged.issuer_url = None
+            merged.justetf_url = None
+            merged.ter = None
+            merged.fund_size = None
+            merged.distribution_policy = None
+            merged.replication = None
+            merged.fund_domicile = None
+            merged.top_holdings = None
+            merged.extra_properties = {}
             merged.tags = [t for t in (merged.tags or []) if not (str(t).startswith('#alert') or str(t).startswith('alert/'))]
+            if merged.platform and merged.platform.lower() in ('degiro', 'exante'):
+                merged.portfolio = None
             merged.value_pln = calculate_value_pln(merged.quantity, merged.current_price, merged.currency) or merged.value_pln
+            return merged
+
+        # Handle Bond holdings (e.g. Polish treasury retail bonds)
+        if merged.asset_type == 'bond' or (merged.platform and merged.platform.upper() == 'PKOBP'):
+            merged.asset_type = 'bond'
+            merged.dominant_sector = 'Sovereign'
+            merged.industry = 'Sovereign'
+            merged.sector = 'Sovereign'
+            if not merged.stooq_ticker:
+                merged.stooq_ticker = '10ply.b'
+            if not merged.asset_allocation:
+                merged.asset_allocation = {'bonds': 100}
+            merged.tags = [t for t in (merged.tags or []) if not (str(t).startswith('#alert') or str(t).startswith('alert/'))]
+            merged.value_pln = calculate_value_pln(merged.quantity, merged.current_price, merged.currency) or (merged.quantity * merged.current_price)
             return merged
 
         scalar_fields = [

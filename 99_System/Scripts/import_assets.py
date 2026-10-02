@@ -11,6 +11,7 @@ if script_dir not in sys.path:
 from platforms.degiro import import_degiro
 from platforms.exante import import_exante, import_exante_api
 from platforms.mbm import import_mbm, import_mbm_ike, import_mbm_ikze
+from platforms.pkobp import import_pkobp
 from platforms.common import load_import_config
 
 SUPPORTED_PLATFORMS = {
@@ -25,6 +26,8 @@ SUPPORTED_PLATFORMS = {
     'mbm_ikze': ('mBM (IKZE)', import_mbm_ikze),
     'mbm-ikze': ('mBM (IKZE)', import_mbm_ikze),
     'ikze': ('mBM (IKZE)', import_mbm_ikze),
+    'pkobp': ('PKOBP', import_pkobp),
+    'pko': ('PKOBP', import_pkobp),
 }
 
 
@@ -35,6 +38,10 @@ def detect_platform_from_path(file_path: str) -> str:
     Raises ValueError if the platform cannot be determined.
     """
     normalized = os.path.normpath(file_path).lower()
+
+    # Check for PKO BP keywords
+    if 'pkobp' in normalized or 'stanrachunku' in normalized or 'pko' in normalized:
+        return 'PKOBP'
 
     # Check for mBM account-specific keywords first
     if 'ikze' in normalized:
@@ -50,6 +57,7 @@ def detect_platform_from_path(file_path: str) -> str:
         if key in normalized:
             return display_name
 
+
     supported_names = ", ".join(dict.fromkeys(name for name, _ in SUPPORTED_PLATFORMS.values()))
     raise ValueError(
         f"Could not recognize supported platform from file path '{file_path}'. "
@@ -63,6 +71,8 @@ def import_assets(
     base_dir: Optional[str] = None,
     use_api: Optional[bool] = None,
     account_id: Optional[str] = None,
+    max_workers: Optional[int] = None,
+    show_progress: bool = True,
 ) -> Dict[str, int]:
     """Import positions from broker CSV exports or REST APIs into 10_Finance/Assets.
     All positions imported from broker platforms (Degiro, Exante, mBM) are assigned 'source: platform'.
@@ -78,6 +88,8 @@ def import_assets(
         base_dir: Optional repository base directory path.
         use_api: If True, uses Exante REST API for Exante positions. If None, resolves from config.yaml.
         account_id: Optional Exante account ID for API import.
+        max_workers: Optional number of concurrent worker threads.
+        show_progress: Whether to display a real-time Rich progress bar during imports.
 
     Returns:
         Dict mapping platform name to count of imported assets.
@@ -105,9 +117,13 @@ def import_assets(
 
         print(f"Platform recognized as '{display_name}' from file path: {file}")
         if 'exante' in platform_key and 'api' not in platform_key:
-            count = handler(csv_file_path=file, base_dir=base_dir, use_api=False)
+            count = handler(csv_file_path=file, base_dir=base_dir, use_api=False, max_workers=max_workers, show_progress=show_progress)
+        elif 'exante' in platform_key:
+            count = handler(csv_file_path=file, base_dir=base_dir, max_workers=max_workers, show_progress=show_progress)
+        elif 'pkobp' in platform_key:
+            count = handler(file_path=file, base_dir=base_dir, max_workers=max_workers, show_progress=show_progress)
         else:
-            count = handler(csv_file_path=file, base_dir=base_dir)
+            count = handler(csv_file_path=file, base_dir=base_dir, max_workers=max_workers, show_progress=show_progress)
         return {display_name: count}
 
     # Resolve default import mode from config.yaml if not explicitly specified
@@ -125,25 +141,33 @@ def import_assets(
         display_name, handler = SUPPORTED_PLATFORMS[platform_key]
         if platform_key in ('exante_api', 'exante-api') or (platform_key == 'exante' and use_api):
             print(f"\n--- Importing platform via API: {display_name} ---")
-            count = import_exante_api(account_id=account_id, base_dir=base_dir)
+            count = import_exante_api(account_id=account_id, base_dir=base_dir, max_workers=max_workers, show_progress=show_progress)
             return {'Exante': count}
         else:
-            count = handler(csv_file_path=None, base_dir=base_dir, use_api=False) if platform_key == 'exante' else handler(csv_file_path=None, base_dir=base_dir)
+            if platform_key == 'exante':
+                count = handler(csv_file_path=None, base_dir=base_dir, use_api=False, max_workers=max_workers, show_progress=show_progress)
+            elif platform_key in ('pkobp', 'pko'):
+                count = handler(file_path=None, base_dir=base_dir, max_workers=max_workers, show_progress=show_progress)
+            else:
+                count = handler(csv_file_path=None, base_dir=base_dir, max_workers=max_workers, show_progress=show_progress)
             return {display_name: count}
 
     # If neither platform nor file is provided, import for all platforms
     results = {}
-    for key in ('degiro', 'exante', 'mbm'):
+    for key in ('degiro', 'exante', 'mbm', 'pkobp'):
         display_name, handler = SUPPORTED_PLATFORMS[key]
         print(f"\n--- Importing platform: {display_name} ---")
         if key == 'exante' and use_api:
-            results[display_name] = import_exante_api(account_id=account_id, base_dir=base_dir)
+            results[display_name] = import_exante_api(account_id=account_id, base_dir=base_dir, max_workers=max_workers, show_progress=show_progress)
         elif key == 'exante':
-            results[display_name] = handler(csv_file_path=None, base_dir=base_dir, use_api=False)
+            results[display_name] = handler(csv_file_path=None, base_dir=base_dir, use_api=False, max_workers=max_workers, show_progress=show_progress)
+        elif key == 'pkobp':
+            results[display_name] = handler(file_path=None, base_dir=base_dir, max_workers=max_workers, show_progress=show_progress)
         else:
-            results[display_name] = handler(csv_file_path=None, base_dir=base_dir)
+            results[display_name] = handler(csv_file_path=None, base_dir=base_dir, max_workers=max_workers, show_progress=show_progress)
 
     return results
+
 
 
 def main():
@@ -153,7 +177,7 @@ def main():
         dest="platform",
         type=str,
         default=None,
-        help="Broker platform to import (e.g., 'degiro', 'exante', 'mbm', 'ike', 'ikze'). If omitted, imports all platforms."
+        help="Broker platform to import (e.g., 'degiro', 'exante', 'mbm', 'ike', 'ikze', 'pkobp'). If omitted, imports all platforms."
     )
     parser.add_argument(
         "-f", "--file",
@@ -184,6 +208,20 @@ def main():
         help="Exante account ID for API import (optional, auto-detected if omitted)."
     )
     parser.add_argument(
+        "-w", "--workers",
+        dest="max_workers",
+        type=int,
+        default=None,
+        help="Number of concurrent worker threads to use (defaults to CPU hardware threads count)."
+    )
+    parser.add_argument(
+        "--no-progress",
+        dest="no_progress",
+        action="store_true",
+        default=False,
+        help="Disable interactive rich progress bars."
+    )
+    parser.add_argument(
         "positional_arg",
         nargs="?",
         default=None,
@@ -198,7 +236,7 @@ def main():
 
     if args.positional_arg:
         pos = args.positional_arg
-        if os.path.exists(pos) or os.path.sep in pos or '/' in pos or pos.lower().endswith('.csv'):
+        if os.path.exists(pos) or os.path.sep in pos or '/' in pos or pos.lower().endswith(('.csv', '.xls', '.xlsx')):
             if not file:
                 file = pos
         elif not platform and pos.lower() in SUPPORTED_PLATFORMS:
@@ -212,6 +250,8 @@ def main():
             file=file,
             use_api=use_api,
             account_id=args.account_id,
+            max_workers=args.max_workers,
+            show_progress=not args.no_progress,
         )
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

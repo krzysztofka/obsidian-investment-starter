@@ -2,8 +2,8 @@
 
 ## Requirements (for a new machine)
 - Python 3.x
-- `pip install -r 99_System/Scripts/requirements.txt`
-  *(Includes `yfinance`, `beautifulsoup4`, `requests`, `python-dotenv`, `finnhub-python`, `pyyaml`)*
+- `pip install .`
+  *(Defined in `pyproject.toml`; includes `yfinance`, `beautifulsoup4`, `requests`, `python-dotenv`, `finnhub-python`, `pyyaml`, etc.)*
 
 ## Exante REST API Configuration (.env)
 To import live positions directly from Exante without downloading CSV files, create or update `.env` in the vault root:
@@ -38,12 +38,13 @@ python run.py --import --platform exante
 python run.py --import --platform mbm
 python run.py --import --platform ikze
 python run.py --import --platform ike
-python run.py --import --file 00_Raw/mBM/ikze-2026-09-16.csv
+python run.py --import --platform pkobp
+python run.py --import --file 00_Raw/mBM/sample_ikze.csv
 ```
 
 ## Direct Script Usage (`import_assets.py` & `platforms/*.py`)
 ```bash
-# Import all platforms (Degiro, Exante, and mBM IKE & IKZE):
+# Import all platforms (Degiro, Exante, mBM, and PKO BP):
 python 99_System/Scripts/import_assets.py
 
 # Import all platforms using Exante REST API for Exante:
@@ -53,14 +54,17 @@ python 99_System/Scripts/import_assets.py --api
 python 99_System/Scripts/import_assets.py --platform degiro
 python 99_System/Scripts/import_assets.py --platform exante
 python 99_System/Scripts/import_assets.py --platform mbm
+python 99_System/Scripts/import_assets.py --platform pkobp
 python 99_System/Scripts/platforms/mbm.py --account ikze
 python 99_System/Scripts/platforms/mbm.py --account ike
+python 99_System/Scripts/platforms/pkobp.py
 python 99_System/Scripts/platforms/exante.py --api
 
 # Import specific file (platform is automatically recognized from the file path):
-python 99_System/Scripts/import_assets.py --file 00_Raw/Degiro/portfolio-2026-08-18.csv
-python 99_System/Scripts/import_assets.py --file 00_Raw/mBM/ikze-2026-09-16.csv
-python 99_System/Scripts/import_assets.py 00_Raw/Exante/Account_2026-08-12_JEF0220.001.csv
+python 99_System/Scripts/import_assets.py --file 00_Raw/Degiro/sample_degiro.csv
+python 99_System/Scripts/import_assets.py --file 00_Raw/mBM/sample_ikze.csv
+python 99_System/Scripts/import_assets.py --file 00_Raw/Exante/sample_exante.csv
+python 99_System/Scripts/import_assets.py --file 00_Raw/pkobp/sample_pkobp.xls
 ```
 
 ## Currency Update Procedure

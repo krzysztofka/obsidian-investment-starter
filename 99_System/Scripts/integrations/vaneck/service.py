@@ -1,10 +1,19 @@
 import os
+import sys
 import re
 import json
 import time
 import logging
 from typing import Dict, Any, Optional, List
 import requests
+
+# Ensure integrations root is in sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+integrations_dir = os.path.dirname(current_dir)
+if integrations_dir not in sys.path:
+    sys.path.append(integrations_dir)
+
+from resilience import resilient_get, retry_with_backoff
 
 logger = logging.getLogger("vaneck_service")
 
@@ -33,7 +42,7 @@ def _fetch_eu_products() -> List[Dict[str, Any]]:
     }
     params = {"blockId": "281060", "language": "en"}
     try:
-        r = requests.get(EU_SEARCH_URL, params=params, headers=headers, timeout=12)
+        r = resilient_get(EU_SEARCH_URL, params=params, headers=headers, timeout=12)
         if r.status_code == 200:
             data = r.json()
             rows = data.get("Rows", [])
@@ -75,6 +84,7 @@ def _fetch_eu_products() -> List[Dict[str, Any]]:
     return []
 
 
+@retry_with_backoff(domain="vaneck.com")
 def _fetch_us_products() -> List[Dict[str, Any]]:
     """Fetch US ETF product catalog from VanEck FundListingUs endpoint."""
     headers = {

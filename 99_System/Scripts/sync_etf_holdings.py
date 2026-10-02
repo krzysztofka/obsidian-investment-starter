@@ -10,6 +10,7 @@ import glob
 import re
 import argparse
 import datetime
+import concurrent.futures
 from typing import Optional, Dict, Any, List, Set, Tuple
 
 # Configure UTF-8 encoding for stdout/stderr on Windows
@@ -30,6 +31,8 @@ except ImportError:
     yaml = None
 
 from model.asset import Asset
+from platforms.common import get_max_workers
+from ui_progress import create_progress
 from integrations.justetf.service import fetch_justetf_top_holdings
 from integrations.yfinance.service import (
     fetch_yfinance_top_holdings,
@@ -211,15 +214,16 @@ def generate_holding_note(
 
     # Calculate total indirect value in PLN
     total_indirect_pln = sum(float(e.get("indirect_pln", 0.0)) for e in etf_exposures)
-    parent_etf_links = [f"[[{e['etf_ticker']}]]" for e in etf_exposures]
+    parent_etf_links = [f"[[{e.get('etf_note_name') or e['etf_ticker']}]]" for e in etf_exposures]
 
     # Build exposure table rows
     exposure_rows = []
     for e in etf_exposures:
         ind_pln = float(e.get("indirect_pln", 0.0))
         ind_str = f"{ind_pln:,.2f} PLN" if ind_pln > 0 else "-"
+        etf_link = e.get('etf_note_name') or e['etf_ticker']
         exposure_rows.append(
-            f"| [[{e['etf_ticker']}]] | {e['etf_name']} | {e['weight_pct']:.2f}% | {ind_str} |"
+            f"| [[{etf_link}]] | {e['etf_name']} | {e['weight_pct']:.2f}% | {ind_str} |"
         )
     exposure_table = "\n".join(exposure_rows)
 
@@ -414,14 +418,17 @@ def sync_all_etfs(
     holdings_dir: str,
     target_etf: Optional[str] = None,
     limit: Optional[int] = None,
-    dry_run: bool = False
+    dry_run: bool = False,
+    max_workers: Optional[int] = None,
+    show_progress: bool = True,
 ) -> None:
     """Main synchronization routine."""
     config = load_etf_config()
     max_holdings = limit if limit is not None else get_configured_max_holdings(config)
     sector_config = load_sector_config()
+    workers = get_max_workers(max_workers, base_dir=VAULT_ROOT)
 
-    print(f"🚀 Starting ETF Top Holdings Sync (Max holdings per ETF: {max_holdings}, Dry-run: {dry_run})")
+    print(f"🚀 Starting ETF Top Holdings Sync (Max holdings per ETF: {max_holdings}, Workers: {workers}, Dry-run: {dry_run})")
 
     # 1. Load all direct assets to create a lookup map
     direct_assets: Dict[str, Asset] = {}
@@ -431,59 +438,92 @@ def sync_all_etfs(
     for af in asset_files:
         try:
             asset = Asset.from_file(af)
+            note_name = os.path.splitext(os.path.basename(af))[0]
             if asset.asset_type == "etf":
                 if target_etf is None or target_etf.lower() in [
                     asset.ticker.lower(),
                     (asset.isin or "").lower(),
                     (asset.yahoo_ticker or "").lower(),
-                    os.path.basename(af).lower()
+                    os.path.basename(af).lower(),
+                    note_name.lower()
                 ]:
                     etf_assets.append((af, asset))
             else:
-                # Direct stock or cash
-                direct_assets[asset.ticker.upper()] = asset
+                # Direct stock or cash: map to note name for Obsidian wikilinks
+                if asset.ticker:
+                    direct_assets[asset.ticker.upper()] = note_name
                 if asset.isin:
-                    direct_assets[asset.isin.upper()] = asset
+                    direct_assets[asset.isin.upper()] = note_name
                 if asset.yahoo_ticker:
-                    direct_assets[asset.yahoo_ticker.upper()] = asset
+                    direct_assets[asset.yahoo_ticker.upper()] = note_name
+                if asset.name:
+                    direct_assets[asset.name.upper()] = note_name
         except Exception as e:
             sys.stderr.write(f"Error reading asset {af}: {e}\n")
 
     print(f"📦 Found {len(etf_assets)} ETF(s) to process and {len(direct_assets)} direct asset references.")
 
-    # 2. Process each ETF and aggregate holdings
-    # holding_map: ticker -> {"name": str, "exposures": [{"etf_ticker": ..., "weight_pct": ..., "indirect_pln": ...}]}
+    # 2. Process each ETF and aggregate holdings concurrently
+    # holding_map: ticker -> {"name": str, "exposures": [{"etf_note_name": ..., "etf_ticker": ..., "weight_pct": ..., "indirect_pln": ...}]}
     holding_map: Dict[str, Dict[str, Any]] = {}
 
-    for file_path, asset in etf_assets:
-        print(f"\n🔍 Processing ETF: {asset.ticker} ({asset.name}) | ISIN: {asset.isin} | Yahoo: {asset.yahoo_ticker}")
+    def _process_single_etf(item: Tuple[str, Asset]) -> Tuple[Asset, str, List[Dict[str, Any]]]:
+        file_path, asset = item
+        etf_note_name = os.path.splitext(os.path.basename(file_path))[0]
+        if not show_progress:
+            print(f"\n🔍 Processing ETF: {asset.ticker} ({asset.name}) | ISIN: {asset.isin} | Yahoo: {asset.yahoo_ticker}")
         holdings = extract_holdings_for_etf(asset, limit=max_holdings)
-        print(f"   Found {len(holdings)} holdings:")
-        for h in holdings:
-            print(f"     - {h['ticker']}: {h['name']} ({h['weight_pct']}%)")
-
-        # Update ETF asset note
+        if not show_progress:
+            print(f"   Found {len(holdings)} holdings for {asset.ticker}:")
+            for h in holdings:
+                print(f"     - {h['ticker']}: {h['name']} ({h['weight_pct']}%)")
         update_etf_asset_note(asset, file_path, holdings, dry_run=dry_run)
+        return asset, etf_note_name, holdings
 
-        # Aggregate exposure
-        etf_val = float(asset.value_pln or 0.0)
-        for h in holdings:
-            t = h["ticker"].upper()
-            w = float(h.get("weight_pct", 0.0))
-            indirect_pln = etf_val * (w / 100.0)
+    if etf_assets:
+        print(f"⚡ Processing {len(etf_assets)} ETF(s) concurrently across {min(workers, len(etf_assets))} worker threads...")
+        with create_progress(disable=not show_progress) as progress:
+            task_etfs = progress.add_task(
+                "[bold cyan]Decomposing ETF holdings[/bold cyan]",
+                total=len(etf_assets),
+                status="Starting...",
+            )
+            with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+                future_to_etf = {executor.submit(_process_single_etf, item): item for item in etf_assets}
+                for future in concurrent.futures.as_completed(future_to_etf):
+                    item = future_to_etf[future]
+                    asset_item = item[1]
+                    try:
+                        asset, etf_note_name, holdings = future.result()
+                        # Aggregate exposure
+                        etf_val = float(asset.value_pln or 0.0)
+                        for h in holdings:
+                            t = h["ticker"].upper()
+                            w = float(h.get("weight_pct", 0.0))
+                            indirect_pln = etf_val * (w / 100.0)
 
-            if t not in holding_map:
-                holding_map[t] = {
-                    "ticker": h["ticker"],
-                    "name": h["name"],
-                    "exposures": []
-                }
-            holding_map[t]["exposures"].append({
-                "etf_ticker": asset.ticker,
-                "etf_name": asset.name,
-                "weight_pct": w,
-                "indirect_pln": indirect_pln
-            })
+                            if t not in holding_map:
+                                holding_map[t] = {
+                                    "ticker": h["ticker"],
+                                    "name": h["name"],
+                                    "exposures": []
+                                }
+                            holding_map[t]["exposures"].append({
+                                "etf_note_name": etf_note_name,
+                                "etf_ticker": asset.ticker,
+                                "etf_name": asset.name,
+                                "weight_pct": w,
+                                "indirect_pln": indirect_pln
+                            })
+                        progress.update(task_etfs, advance=1, status=f"[green]✓[/green] {asset.ticker} ({len(holdings)} holdings)")
+                    except Exception as e:
+                        progress.update(task_etfs, advance=1, status=f"[red]✗[/red] {asset_item.ticker}")
+                        if hasattr(progress, "console") and progress.console:
+                            progress.console.print(f"[red]Error processing ETF {asset_item.ticker}:[/red] {e}")
+                        else:
+                            sys.stderr.write(f"Error processing ETF {asset_item.ticker}: {e}\n")
+
+            progress.update(task_etfs, status="[bold green]Completed[/bold green]")
 
     # Load Watchlist notes for cross-referencing
     watchlist_dir = os.path.join(VAULT_ROOT, "10_Finance/Watchlist")
@@ -502,31 +542,55 @@ def sync_all_etfs(
                 except Exception:
                     pass
 
-    # 3. Generate or update holding notes
-    print(f"\n📝 Generating/Updating {len(holding_map)} ETF holding notes in {holdings_dir}...")
-    for ticker, hdata in holding_map.items():
-        # Check if direct holding exists
-        direct_asset_note = None
-        t_clean = ticker.upper()
-        base_t = t_clean.split('.')[0]
-        if t_clean in direct_assets:
-            direct_asset_note = direct_assets[t_clean].ticker
-        elif base_t in direct_assets:
-            direct_asset_note = direct_assets[base_t].ticker
+    # 3. Generate or update holding notes concurrently
+    if holding_map:
+        print(f"\n📝 Generating/Updating {len(holding_map)} ETF holding notes in {holdings_dir} across {workers} worker threads...")
 
-        # Check watchlist
-        watchlist_note = watchlist_map.get(t_clean) or watchlist_map.get(base_t)
+        def _process_single_holding(item: Tuple[str, Dict[str, Any]]):
+            ticker, hdata = item
+            direct_asset_note = None
+            t_clean = ticker.upper()
+            base_t = t_clean.split('.')[0]
+            if t_clean in direct_assets:
+                direct_asset_note = direct_assets[t_clean]
+            elif base_t in direct_assets:
+                direct_asset_note = direct_assets[base_t]
 
-        generate_holding_note(
-            ticker=hdata["ticker"],
-            name=hdata["name"],
-            etf_exposures=hdata["exposures"],
-            direct_asset_note=direct_asset_note,
-            watchlist_note=watchlist_note,
-            sector_config=sector_config,
-            output_dir=holdings_dir,
-            dry_run=dry_run
-        )
+            watchlist_note = watchlist_map.get(t_clean) or watchlist_map.get(base_t)
+
+            generate_holding_note(
+                ticker=hdata["ticker"],
+                name=hdata["name"],
+                etf_exposures=hdata["exposures"],
+                direct_asset_note=direct_asset_note,
+                watchlist_note=watchlist_note,
+                sector_config=sector_config,
+                output_dir=holdings_dir,
+                dry_run=dry_run
+            )
+
+        with create_progress(disable=not show_progress) as progress:
+            task_holdings = progress.add_task(
+                "[bold cyan]Generating ETF holding notes[/bold cyan]",
+                total=len(holding_map),
+                status="Starting...",
+            )
+            with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+                future_to_holding = {executor.submit(_process_single_holding, item): item for item in holding_map.items()}
+                for future in concurrent.futures.as_completed(future_to_holding):
+                    item = future_to_holding[future]
+                    ticker = item[0]
+                    try:
+                        future.result()
+                        progress.update(task_holdings, advance=1, status=f"[green]✓[/green] {ticker}")
+                    except Exception as e:
+                        progress.update(task_holdings, advance=1, status=f"[red]✗[/red] {ticker}")
+                        if hasattr(progress, "console") and progress.console:
+                            progress.console.print(f"[red]Error generating holding note for {ticker}:[/red] {e}")
+                        else:
+                            sys.stderr.write(f"Error generating holding note for {ticker}: {e}\n")
+
+            progress.update(task_holdings, status="[bold green]Completed[/bold green]")
 
     # 4. Generate/Update Overview Dashboard
     overview_file = os.path.join(holdings_dir, "Holdings_Overview.md")
@@ -540,7 +604,9 @@ def main():
     parser = argparse.ArgumentParser(description="Synchronize ETF top holdings and exposure analytics across the vault.")
     parser.add_argument("--etf", type=str, default=None, help="Sync specific ETF by ticker, ISIN, or file path.")
     parser.add_argument("--limit", type=int, default=None, help="Override maximum top holdings count.")
+    parser.add_argument("-w", "--workers", dest="max_workers", type=int, default=None, help="Number of concurrent worker threads.")
     parser.add_argument("--dry-run", action="store_true", help="Simulate run without writing files.")
+    parser.add_argument("--no-progress", dest="no_progress", action="store_true", default=False, help="Disable interactive rich progress bars.")
     parser.add_argument("--assets-dir", type=str, default=os.path.join(VAULT_ROOT, "10_Finance/Assets"), help="Path to Assets directory.")
     parser.add_argument("--holdings-dir", type=str, default=os.path.join(VAULT_ROOT, "10_Finance/ETF_Holdings"), help="Path to ETF_Holdings directory.")
 
@@ -550,7 +616,9 @@ def main():
         holdings_dir=args.holdings_dir,
         target_etf=args.etf,
         limit=args.limit,
-        dry_run=args.dry_run
+        dry_run=args.dry_run,
+        max_workers=args.max_workers,
+        show_progress=not args.no_progress,
     )
 
 

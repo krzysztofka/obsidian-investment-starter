@@ -546,8 +546,16 @@ def save_watchlist_item(candidate: Dict[str, Any], output_dir: Optional[str] = N
         output_dir = os.path.join(vault_root, "10_Finance", "Watchlist")
     os.makedirs(output_dir, exist_ok=True)
 
+    asset_type = (candidate.get("asset_type") or "").lower()
     ticker = candidate.get("ticker", "UNKNOWN").replace("/", "_").replace(".", "_")
-    filename = f"{ticker}.md"
+    name = candidate.get("name") or ticker
+
+    if asset_type == "etf":
+        from platforms.common import slugify_asset_name
+        slug = slugify_asset_name(name, ticker=ticker, asset_type="etf")
+        filename = f"{slug}.md"
+    else:
+        filename = f"{ticker}.md"
     file_path = os.path.join(output_dir, filename)
 
     content = generate_watchlist_item_note(candidate)

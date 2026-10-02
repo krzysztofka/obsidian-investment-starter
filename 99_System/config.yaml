@@ -1,16 +1,66 @@
 # Configuration for Asset Portfolio Management
 
+# Parallel processing & concurrency settings
+concurrency:
+  # Max worker threads for asset enrichment, currency updates, and ETF holding sync.
+  # 'auto' automatically detects and uses the number of CPU hardware threads (os.cpu_count()).
+  max_workers: "auto"
+
+# Resilience, rate limiting & retry policy settings
+resilience:
+  # Maximum number of retry attempts for failed network/API requests
+  max_retries: 3
+  # Initial backoff delay in seconds
+  base_delay_seconds: 0.5
+  # Maximum backoff delay ceiling in seconds
+  max_delay_seconds: 10.0
+  # Enable randomized jitter to prevent thundering herd problem
+  jitter: true
+  # Provider-specific rate limits (requests per second per domain)
+  rate_limits:
+    finnhub.io: 10.0
+    query1.finance.yahoo.com: 15.0
+    query2.finance.yahoo.com: 15.0
+    justetf.com: 5.0
+    stooq.com: 8.0
+    stooq.pl: 8.0
+    ishares.com: 6.0
+    vanguard.com: 6.0
+    vanguard.co.uk: 6.0
+    vaneck.com: 6.0
+    api.nbp.pl: 10.0
+
 # Broker position import preferences
 import:
   exante:
     # Default import mode: 'api' (live Exante REST API) or 'csv' (00_Raw/Exante CSV file)
-    default_mode: "api"
+    default_mode: "csv"
   degiro:
     # Default import mode: 'csv' (00_Raw/Degiro CSV file)
     default_mode: "csv"
   mbm:
     # Default import mode: 'csv' (00_Raw/mBM CSV files for IKE & IKZE)
     default_mode: "csv"
+  pkobp:
+    # Default import mode: 'xls' (00_Raw/pkobp Excel file)
+    default_mode: "xls"
+    # Default portfolio allocation for unconfigured bond series
+    default_portfolio: "Long term"
+    # Sub-portfolio allocation and split rules
+    rules:
+      # Family & inflation-protected bonds up to 90k PLN to Safety net
+      - prefix: "ROD"
+        portfolio: "Safety net"
+        max_amount: 90000
+      - prefix: "ROK"
+        portfolio: "Safety net"
+        max_amount: 90000
+      # Liquidity cushions
+      - prefix: "OTS"
+        portfolio: "Safety net"
+      - prefix: "ROR"
+        portfolio: "Safety net"
+
 
 alerts:
   overvalued:

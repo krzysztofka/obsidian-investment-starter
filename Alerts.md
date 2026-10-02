@@ -94,3 +94,16 @@ TABLE
 FROM "10_Finance/Assets" AND #alert/stop_loss
 SORT value_pln DESC
 ```
+
+## 📉 Inverted Yield Curve / Macro Recession Risk (`US 10Y-2Y Spread < 0`)
+
+```dataview
+TABLE 
+    name AS "Name",
+    portfolio AS "Portfolio",
+    dominant_sector AS "Sector",
+    current_price AS "Current Price",
+    value_pln AS "Value (PLN)"
+FROM "10_Finance/Assets" AND #alert/macro_inverted_yield_curve
+SORT value_pln DESC
+```

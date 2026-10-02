@@ -1,9 +1,17 @@
 import os
+import sys
 import re
 import json
 import time
-import requests
 from typing import Optional, Dict, Any, Tuple, List
+
+# Ensure integrations root is in sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+integrations_dir = os.path.dirname(current_dir)
+if integrations_dir not in sys.path:
+    sys.path.append(integrations_dir)
+
+from resilience import resilient_get
 
 # Cache file location and TTL (24 hours)
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".cache")
@@ -56,7 +64,7 @@ def _fetch_us_products() -> Dict[str, Dict[str, Any]]:
     """Fetch and parse US iShares product catalog."""
     products_by_ticker = {}
     try:
-        resp = requests.get(US_SCREENER_URL, headers=HEADERS, timeout=12)
+        resp = resilient_get(US_SCREENER_URL, headers=HEADERS, timeout=12)
         if resp.status_code == 200:
             json_data = resp.json()
             table_data = json_data.get('data', {}).get('tableData', {})
@@ -109,7 +117,7 @@ def _fetch_uk_products() -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str,
     by_ticker: Dict[str, Dict[str, Any]] = {}
 
     try:
-        resp = requests.get(UK_SCREENER_URL, params=UK_SCREENER_PARAMS, headers=HEADERS, timeout=12)
+        resp = resilient_get(UK_SCREENER_URL, params=UK_SCREENER_PARAMS, headers=HEADERS, timeout=12)
         if resp.status_code == 200:
             catalog = resp.json()
             for _, item in catalog.items():

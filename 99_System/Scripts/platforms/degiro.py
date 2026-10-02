@@ -16,7 +16,10 @@ from platforms.common import (
     determine_asset_type,
     load_template,
     save_or_update_asset,
+    save_or_update_assets_parallel,
     remove_missing_platform_assets,
+    clean_asset_display_name,
+    KNOWN_ETF_NAMES,
 )
 from history.update_portfolio import update_portfolio_history
 
@@ -47,7 +50,12 @@ def find_degiro_csv(degiro_dir: str, custom_path: Optional[str] = None) -> Optio
     return None
 
 
-def import_degiro(csv_file_path: Optional[str] = None, base_dir: Optional[str] = None) -> int:
+def import_degiro(
+    csv_file_path: Optional[str] = None,
+    base_dir: Optional[str] = None,
+    max_workers: Optional[int] = None,
+    show_progress: bool = True,
+) -> int:
     """Import positions from Degiro CSV export into 10_Finance/Assets."""
     if base_dir is None:
         base_dir = os.path.abspath(os.path.join(parent_scripts_dir, "../.."))
@@ -69,9 +77,7 @@ def import_degiro(csv_file_path: Optional[str] = None, base_dir: Optional[str] =
 
     template_fm, template_body = load_template(base_dir)
 
-    imported_count = 0
-    active_asset_paths: Set[str] = set()
-    active_tickers: Set[str] = set()
+    asset_tasks = []
     with open(csv_file, mode='r', encoding='utf-8-sig') as f:
         reader = csv.DictReader(f)
         headers = reader.fieldnames or []
@@ -111,25 +117,30 @@ def import_degiro(csv_file_path: Optional[str] = None, base_dir: Optional[str] =
                     continue
 
             isin = ticker if len(ticker) == 12 and ticker[:2].isalpha() else None
+            name = clean_asset_display_name(name, isin=isin, ticker=ticker)
 
-            fpath = save_or_update_asset(
-                vault_assets_dir=vault_assets_dir,
-                platform='Degiro',
-                ticker=ticker,
-                name=name,
-                quantity=quantity,
-                current_price=current_price,
-                currency=currency,
-                avg_price=None,
-                isin=isin,
-                current_date=current_date,
-                template_fm=template_fm,
-                template_body=template_body,
-                source='platform',
-            )
-            active_asset_paths.add(fpath)
-            active_tickers.add(ticker)
-            imported_count += 1
+            asset_tasks.append({
+                "vault_assets_dir": vault_assets_dir,
+                "platform": "Degiro",
+                "ticker": ticker,
+                "name": name,
+                "quantity": quantity,
+                "current_price": current_price,
+                "currency": currency,
+                "avg_price": None,
+                "isin": isin,
+                "current_date": current_date,
+                "template_fm": template_fm,
+                "template_body": template_body,
+                "source": "platform",
+            })
+
+    active_asset_paths, active_tickers, imported_count = save_or_update_assets_parallel(
+        asset_tasks=asset_tasks,
+        max_workers=max_workers,
+        base_dir=base_dir,
+        show_progress=show_progress,
+    )
 
     # Verify existing platform assets against new import file and remove missing
     remove_missing_platform_assets(

@@ -24,6 +24,7 @@ from alerts.rules.delisting_risk import DelistingRiskRule
 from alerts.rules.allocation_drift import AllocationDriftRule
 from alerts.rules.stop_loss import StopLossRule
 from alerts.rules.insider_selling import InsiderSellingRule
+from alerts.rules.macro_yield_curve import MacroYieldCurveRule
 
 
 class AlertEngine:
@@ -51,7 +52,9 @@ class AlertEngine:
             ("allocation_drift", AllocationDriftRule()),
             ("stop_loss", StopLossRule()),
             ("insider_selling", InsiderSellingRule()),
+            ("macro_yield_curve", MacroYieldCurveRule()),
         ]
+
 
         active_rules: List[BaseAlertRule] = []
         for key, rule_instance in all_rules:

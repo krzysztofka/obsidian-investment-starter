@@ -61,7 +61,8 @@ trader/
 ├── 00_Raw/                         # Raw broker data exports (gitignored / ephemeral)
 │   ├── Degiro/                     # Degiro CSV export files
 │   ├── Exante/                     # Exante CSV export files
-│   └── mBM/                        # mBM CSV export files (ike-YYYY-MM-DD.csv & ikze-YYYY-MM-DD.csv)
+│   ├── mBM/                        # mBM CSV export files (ike-YYYY-MM-DD.csv & ikze-YYYY-MM-DD.csv)
+│   └── pkobp/                      # PKO BP Excel export files (StanRachunkuRejestrowego_YYYY-MM-DD.xls)
 ├── 10_Finance/                     # Core financial tracking
 │   ├── Assets/                     # 1 Markdown note per asset/cash holding
 │   ├── ETF_Holdings/               # Underlying company notes tracked inside portfolio ETFs
@@ -73,15 +74,16 @@ trader/
 ├── 99_System/                      # System tools, templates & configurations
 │   ├── Scripts/                    # Python automation suite
 │   │   ├── history/                # History update & sync utilities
-│   │   ├── integrations/           # API integrations (yfinance, JustETF, Finnhub, sectors)
+│   │   ├── integrations/           # API integrations (yfinance, JustETF, Finnhub, NBP, Eurostat, Stooq)
 │   │   ├── model/                  # Data models corresponding to vault templates (e.g., Asset)
-│   │   ├── platforms/              # Broker platform import modules (Degiro, Exante, mBM, common)
+│   │   ├── platforms/              # Broker platform import modules (Degiro, Exante, mBM, pkobp, common)
 │   │   ├── sync_etf_holdings.py    # ETF top holdings synchronization engine
-│   │   ├── requirements.txt        # Python dependency manifest
+│   │   ├── sync_macro.py           # Macroeconomic dashboard synchronization engine
 │   │   └── import_instructions.md  # Detailed manual import documentation
-│   ├── Templates/                  # Vault templates (asset, decision, retrospective, watchlist)
+│   ├── Templates/                  # Vault templates (asset, decision, retrospective, watchlist, macro)
 │   │   ├── asset_template.md       # Base template for assets
 │   │   ├── etf_holding_template.md # Template for ETF underlying holdings
+│   │   ├── macro_template.md       # Template for macroeconomic dashboard (Macro.md)
 │   │   ├── decision_template.md    # Template for investment decisions
 │   │   ├── retrospective_template.md # Template for decision reviews
 │   │   └── watchlist_item_template.md # Template for watchlist items
@@ -94,20 +96,25 @@ trader/
 ├── Long_term_portfolio.md          # Long term portfolio breakdown (broad ETFs, bonds, real estate, gold)
 ├── Aggressive_portfolio.md         # Aggressive portfolio breakdown (growth equities & thematic ETFs)
 ├── Welcome.md                      # Navigation hub & system overview
-├── todo.md                         # Project roadmap & backlog
+├── pyproject.toml                  # Python project metadata & dependency manifest
 ├── config.yaml                     # Root reference config
 └── GEMINI.md                       # AI assistant context & system guidelines
 ```
 
 ---
 
-## 🏷️ Asset Note Template & Schema
+## 🏷️ Vault Note Templates & Schemas
 
-Asset note frontmatter schema and body structure are defined dynamically in the system templates:
+Note frontmatter schemas and body layouts are defined dynamically in the system templates:
 - **Asset Template:** [`99_System/Templates/asset_template.md`](99_System/Templates/asset_template.md)
 - **ETF Holding Template:** [`99_System/Templates/etf_holding_template.md`](99_System/Templates/etf_holding_template.md)
+- **Macro Dashboard Template:** [`99_System/Templates/macro_template.md`](99_System/Templates/macro_template.md)
+- **Decision Template:** [`99_System/Templates/decision_template.md`](99_System/Templates/decision_template.md)
+- **Retrospective Template:** [`99_System/Templates/retrospective_template.md`](99_System/Templates/retrospective_template.md)
+- **Watchlist Item Template:** [`99_System/Templates/watchlist_item_template.md`](99_System/Templates/watchlist_item_template.md)
 
-Refer to the template file for the latest schema, frontmatter fields, and note structure. When updating or creating new asset notes in `10_Finance/Assets/` or holding notes in `10_Finance/ETF_Holdings/`, adhere to the fields specified in the template.
+Refer to the respective template file for the latest schema, frontmatter fields, and note structure. Never hardcode Markdown note templates directly inside Python source code; always maintain templates in `99_System/Templates/` and render them dynamically.
+
 
 ---
 
@@ -117,11 +124,12 @@ All scripts are executed with Python 3.x using the virtual environment / install
 
 ```bash
 # 1. Install dependencies
-pip install -r requirements.txt
+pip install .
 
 # 🚀 UNIFIED RUNNER (run.py): Execute all or specific pipeline actions
 python run.py --all                      # Run full pipeline: import -> rates -> macro -> etfs -> alerts -> history
-python run.py --import                   # Import broker CSVs (all platforms or use --platform / --file)
+python run.py --import                   # Import broker exports (all platforms or use --platform / --file)
+python run.py --import --platform pkobp  # Import PKO BP treasury retail bonds
 python run.py --import --platform mbm    # Import mBM positions (IKE & IKZE)
 python run.py --import --platform ikze   # Import mBM IKZE positions
 python run.py --import --platform ike    # Import mBM IKE positions
@@ -136,14 +144,17 @@ python run.py --update-rates --alerts    # Chain multiple actions together
 # --- Or run individual modules directly ---
 # 2. Import broker exports (all platforms or specific platform/file/API)
 python 99_System/Scripts/import_assets.py
+# (Or: python 99_System/Scripts/platforms/pkobp.py)
+# (Or: python 99_System/Scripts/import_assets.py --platform pkobp)
 # (Or: python 99_System/Scripts/import_assets.py --platform degiro)
 # (Or: python 99_System/Scripts/import_assets.py --platform exante)
 # (Or: python 99_System/Scripts/import_assets.py --platform mbm)
 # (Or: python 99_System/Scripts/platforms/mbm.py --account ikze)
 # (Or: python 99_System/Scripts/platforms/mbm.py --account ike)
 # (Or: python 99_System/Scripts/import_assets.py --api)
-# (Or: python 99_System/Scripts/platforms/exante.py --api)
-# (Or: python 99_System/Scripts/import_assets.py --file 00_Raw/mBM/ikze-2026-09-16.csv)
+# (Or: python 99_System/Scripts/import_assets.py --file 00_Raw/pkobp/sample_pkobp.xls)
+# (Or: python 99_System/Scripts/import_assets.py --file 00_Raw/mBM/sample_ikze.csv)
+
 
 # 3. Synchronize macroeconomic indicators & yield curves
 python 99_System/Scripts/sync_macro.py
@@ -220,4 +231,7 @@ EXANTE_API_URL=https://api-live.exante.eu
 - **Vanguard Integration (`requests`):** Automatic resolution of official Vanguard product websites (US Investor & UK/Europe UCITS) and fund profiles.
 - **VanEck Integration (`requests`):** Automatic resolution of official VanEck product websites (Europe UCITS & US) and fund metadata.
 - **Stooq Integration (`stooq`):** Automatic resolution of standardized Stooq market symbols (`stooq_ticker`) for equities, UCITS/US ETFs, retail treasury bonds / 10Y benchmarks (`10ply.b`), precious metals (`xauusd`), and interactive HTML5 technical charts (`stooq_chart.js`).
+- **NBP Integration (`api.nbp.pl` & `static.nbp.pl`):** Official Polish exchange rates (Table A fixing), domestic gold fixings, and central bank base interest rates (`NBPMacroSupplier`).
+- **Eurostat Integration (`ec.europa.eu/eurostat`):** Polish 10Y sovereign yields (Maastricht criterion), European & Polish HICP inflation, and labor indicators (`EurostatMacroSupplier`).
 - **OpenBB & Morningstar (`openbb` / `yfinance` fallback):** Morningstar ratings, Morningstar risk metrics, valuation overviews, and automated watchlist candidate screening.
+

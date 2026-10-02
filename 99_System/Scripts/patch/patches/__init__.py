@@ -1,0 +1,1 @@
+"""Sequential version patch definitions."""

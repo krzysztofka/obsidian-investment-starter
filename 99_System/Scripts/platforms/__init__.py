@@ -11,6 +11,9 @@ from .mbm import (
     import_mbm_ike,
     import_mbm_ikze,
 )
+from .pkobp import (
+    import_pkobp,
+)
 
 __all__ = [
     "parse_number",
@@ -22,4 +25,6 @@ __all__ = [
     "import_mbm",
     "import_mbm_ike",
     "import_mbm_ikze",
+    "import_pkobp",
 ]
+

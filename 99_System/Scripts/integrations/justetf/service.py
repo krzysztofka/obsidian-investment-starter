@@ -3,13 +3,20 @@ import sys
 import glob
 import re
 from typing import Optional, Dict, Any, List, Union
-import requests
 from bs4 import BeautifulSoup
 
 try:
     import yaml
 except ImportError:
     yaml = None
+
+# Ensure integrations root is in sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+integrations_dir = os.path.dirname(current_dir)
+if integrations_dir not in sys.path:
+    sys.path.append(integrations_dir)
+
+from resilience import resilient_get
 
 DELISTING_RISK_MIN_AUM_MILLION = 50.0
 ALERT_DELISTING_RISK_TAG = "#alert/delisting_risk"
@@ -173,7 +180,7 @@ def fetch_justetf_data(isin: str) -> Optional[Dict[str, Any]]:
         return None
     url = f"https://www.justetf.com/en/etf-profile.html?isin={isin}"
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=8)
+        resp = resilient_get(url, headers=HEADERS, timeout=8)
         if resp.status_code != 200:
             return None
         html = resp.text
@@ -249,7 +256,7 @@ def fetch_justetf_sectors(isin: str) -> Dict[str, float]:
         return {}
     url = f"https://www.justetf.com/en/etf-profile.html?isin={isin}"
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=8)
+        resp = resilient_get(url, headers=HEADERS, timeout=8)
         if resp.status_code != 200:
             return {}
         html = resp.text
@@ -296,7 +303,7 @@ def fetch_justetf_top_holdings(isin: str, limit: int = 10) -> List[Dict[str, Any
         return []
     url = f"https://www.justetf.com/en/etf-profile.html?isin={isin}"
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=8)
+        resp = resilient_get(url, headers=HEADERS, timeout=8)
         if resp.status_code != 200:
             return []
         html = resp.text

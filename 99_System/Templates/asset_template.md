@@ -60,9 +60,7 @@ top_holdings: []
 # === 7. Meta & Alerts ===
 last_updated: 2026-08-31
 source: platform         # Options: "platform", "manual"
-tags:
-  - "#alert/insider_sell"
-  - "#alert/overvalued"
+tags: []
 ---
 
 # Apple Inc. (AAPL)
