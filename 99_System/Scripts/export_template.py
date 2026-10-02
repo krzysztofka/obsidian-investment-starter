@@ -3,7 +3,7 @@
 
 Exports code, templates, dashboards, views, documentation, and a sanitized
 sample dataset (including sample raw broker exports and demo portfolio notes)
-to a clean standalone template repository (default: ../obsidian-investment-template).
+to a clean standalone template repository (default: ../obsidian-investment-starter).
 """
 
 import os
@@ -771,8 +771,8 @@ def export_template(
 ) -> str:
     """Execute full template export pipeline."""
     if not target_dir:
-        # Default to ../obsidian-investment-template
-        target_dir = os.path.abspath(os.path.join(VAULT_ROOT, "..", "obsidian-investment-template"))
+        # Default to ../obsidian-investment-starter
+        target_dir = os.path.abspath(os.path.join(VAULT_ROOT, "..", "obsidian-investment-starter"))
 
     print(f"🚀 Exporting Obsidian Investment Template...")
     print(f"   Source Vault : {VAULT_ROOT}")
@@ -890,7 +890,7 @@ def export_template(
                 subprocess.run(["git", "init"], cwd=target_dir, check=True, capture_output=True)
                 subprocess.run(["git", "add", "."], cwd=target_dir, check=True, capture_output=True)
                 subprocess.run(
-                    ["git", "commit", "-m", "feat: initial commit of obsidian-investment-template"],
+                    ["git", "commit", "-m", "feat: initial commit of obsidian-investment-starter"],
                     cwd=target_dir,
                     check=True,
                     capture_output=True,

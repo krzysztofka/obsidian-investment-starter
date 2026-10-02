@@ -95,7 +95,7 @@
 
 - [x] **v0.6 Template Starter Architecture & Inverted Synchronization:**
   - [x] **Invert Template Generation Flow:**
-    - Transitioned template repository (`obsidian-investment-template`) to the canonical upstream starter repository.
+    - Transitioned template repository (`obsidian-investment-starter`) to the canonical upstream starter repository.
     - Template acts as standalone starter that distributes and installs changes, bugfixes, and features into downstream user vaults.
   - [x] **Starter Patcher & Vault Update Engine (`patch.py` / `99_System/Scripts/patch/` / CLI):**
     - Sequential version patching engine (`PatchEngine`) with automated migrations (`patch_0_5_to_0_6.py`).

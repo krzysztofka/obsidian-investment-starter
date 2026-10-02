@@ -84,8 +84,8 @@ The system enforces an autonomous **three-bucket capital allocation framework**:
 Clone the repository and install Python dependencies:
 
 ```bash
-git clone https://github.com/krzysztofka/obsidian-investment-brain.git
-cd obsidian-investment-brain
+git clone https://github.com/krzysztofka/obsidian-investment-starter.git
+cd obsidian-investment-starter
 
 # Create and activate virtual environment
 python -m venv venv

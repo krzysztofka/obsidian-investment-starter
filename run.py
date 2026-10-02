@@ -455,7 +455,7 @@ examples:
         "--export-template",
         dest="action_export_template",
         action="store_true",
-        help="Export clean template repository to ../obsidian-investment-template.",
+        help="Export clean template repository to ../obsidian-investment-starter.",
     )
     actions_group.add_argument(
         "--patch",
