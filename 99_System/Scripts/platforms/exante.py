@@ -3,7 +3,7 @@ import sys
 import csv
 import re
 from datetime import datetime
-from typing import Optional, List, Dict, Set
+from typing import Optional, List, Dict, Set, Any
 
 # Ensure scripts directory is in sys.path
 script_dir = os.path.dirname(os.path.abspath(__file__))
