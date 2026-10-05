@@ -38,3 +38,7 @@ jobs:
           python run.py --alerts --dry-run
           python run.py --macro --dry-run
           python run.py --sync-etfs --dry-run
+
+      - name: Run Automated Unit Tests
+        run: |
+          python -m pytest

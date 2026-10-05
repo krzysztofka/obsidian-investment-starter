@@ -5,7 +5,7 @@ import sys
 import pytest
 
 # Ensure scripts dir is on sys.path
-SCRIPTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "99_System", "Scripts"))
+SCRIPTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "Scripts"))
 if SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, SCRIPTS_DIR)
 
@@ -79,7 +79,7 @@ def test_resolve_portfolio_allocation_rules():
 
 def test_parse_sample_pkobp_sheet(tmp_path):
     sample_file = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "00_Raw", "pkobp", "sample_pkobp.xls")
+        os.path.join(os.path.dirname(__file__), "..", "..", "00_Raw", "pkobp", "sample_pkobp.xls")
     )
     if not os.path.exists(sample_file):
         import xlwt

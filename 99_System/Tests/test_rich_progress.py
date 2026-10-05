@@ -7,7 +7,7 @@ import unittest
 import tempfile
 import shutil
 
-VAULT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+VAULT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SCRIPTS_DIR = os.path.join(VAULT_ROOT, "99_System", "Scripts")
 if VAULT_ROOT not in sys.path:
     sys.path.insert(0, VAULT_ROOT)

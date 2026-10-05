@@ -80,7 +80,7 @@ def apply(source_vault: str, target_vault: str, dry_run: bool = False) -> bool:
     if os.path.exists(os.path.join(dst_system, "config.yaml")):
         ignore_system_files.add("config.yaml")
 
-    system_folders = ["Scripts", "Templates", "Views", "docs"]
+    system_folders = ["Scripts", "Templates", "Views", "docs", "Tests"]
     for folder in system_folders:
         src_f = os.path.join(src_system, folder)
         dst_f = os.path.join(dst_system, folder)
@@ -93,17 +93,11 @@ def apply(source_vault: str, target_vault: str, dry_run: bool = False) -> bool:
             )
             print(f"   Updated 99_System/{folder} ({len(copied)} files)")
 
-    # 1b. Update tests framework
-    src_tests = os.path.join(source_vault, "tests")
-    dst_tests = os.path.join(target_vault, "tests")
-    if os.path.exists(src_tests):
-        copied_tests = _copy_tree_preserving_config(
-            src_tests,
-            dst_tests,
-            ignore_files=set(),
-            dry_run=dry_run,
-        )
-        print(f"   Updated tests ({len(copied_tests)} files)")
+    # 1b. Clean up legacy root tests directory if present in target
+    legacy_tests = os.path.join(target_vault, "tests")
+    if os.path.exists(legacy_tests) and not dry_run:
+        shutil.rmtree(legacy_tests, ignore_errors=True)
+        print("   Removed legacy root tests directory")
 
     # 2. Update root runners and manifests
     root_files_to_sync = ["run.py", "patch.py", "init.py", "pyproject.toml"]

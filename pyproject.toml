@@ -34,3 +34,7 @@ test = [
 [project.urls]
 Homepage = "https://github.com/krzysztofka/obsidian-investment-starter"
 Repository = "https://github.com/krzysztofka/obsidian-investment-starter.git"
+
+[tool.pytest.ini_options]
+testpaths = ["99_System/Tests"]
+pythonpath = ["99_System/Scripts", "."]

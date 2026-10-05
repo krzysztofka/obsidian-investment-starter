@@ -7,7 +7,7 @@ import shutil
 import pytest
 
 # Ensure scripts dir is on sys.path
-SCRIPTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "99_System", "Scripts"))
+SCRIPTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "Scripts"))
 if SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, SCRIPTS_DIR)
 
@@ -59,7 +59,7 @@ def test_build_patch_pipeline():
 
 
 def test_patch_application_and_private_data_preservation():
-    vault_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    vault_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
     with tempfile.TemporaryDirectory() as mock_target:
         # Setup mock downstream vault with private user data and old v0.5 state

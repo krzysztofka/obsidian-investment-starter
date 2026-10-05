@@ -87,6 +87,7 @@ trader/
 │   │   ├── decision_template.md    # Template for investment decisions
 │   │   ├── retrospective_template.md # Template for decision reviews
 │   │   └── watchlist_item_template.md # Template for watchlist items
+│   ├── Tests/                      # Automated unit test suite (pytest)
 │   ├── Views/                      # Reusable DataviewJS custom views (e.g., alert_banner.js, open_decisions.js)
 │   └── config.yaml                 # Dominant sector thresholds & mapping configuration
 ├── Alerts.md                       # Active alerts dashboard (Dataview)
@@ -178,6 +179,9 @@ python 99_System/Scripts/discover_watchlist.py --add NVDA
 # 8. Synchronize ETF top holdings, overlap and cross-exposure notes
 python 99_System/Scripts/sync_etf_holdings.py
 # (Or: python 99_System/Scripts/sync_etf_holdings.py --limit 15)
+
+# 9. Run automated unit test suite (pytest)
+python -m pytest
 ```
 
 ---

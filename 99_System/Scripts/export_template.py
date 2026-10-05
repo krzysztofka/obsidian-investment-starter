@@ -794,6 +794,11 @@ def export_template(
         os.path.join(VAULT_ROOT, "99_System", "Views"),
         os.path.join(target_dir, "99_System", "Views"),
     )
+    if os.path.exists(os.path.join(VAULT_ROOT, "99_System", "Tests")):
+        copy_tree_filtered(
+            os.path.join(VAULT_ROOT, "99_System", "Tests"),
+            os.path.join(target_dir, "99_System", "Tests"),
+        )
     if os.path.exists(os.path.join(VAULT_ROOT, "99_System", "config.yaml")):
         shutil.copy2(
             os.path.join(VAULT_ROOT, "99_System", "config.yaml"),
@@ -838,15 +843,7 @@ def export_template(
             os.path.join(target_dir, "10_Finance", "Watchlist"),
         )
 
-    # 5. Copy tests framework
-    if os.path.exists(os.path.join(VAULT_ROOT, "tests")):
-        print("🧪 Copying tests directory...")
-        copy_tree_filtered(
-            os.path.join(VAULT_ROOT, "tests"),
-            os.path.join(target_dir, "tests"),
-        )
-
-    # 6. Copy .obsidian plugins & configuration (excluding session workspace)
+    # 5. Copy .obsidian plugins & configuration (excluding session workspace)
     if os.path.exists(os.path.join(VAULT_ROOT, ".obsidian")):
         print("⚙️ Copying Obsidian community plugins & vault settings...")
         copy_tree_filtered(
