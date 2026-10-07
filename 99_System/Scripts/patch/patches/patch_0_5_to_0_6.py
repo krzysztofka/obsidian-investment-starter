@@ -10,9 +10,6 @@ Milestone v0.6 Template Starter Architecture & Inverted Synchronization:
 
 import os
 import shutil
-import re
-from typing import List, Set
-
 
 FROM_VERSION = "0.5.0"
 TO_VERSION = "0.6.0"
@@ -22,11 +19,11 @@ DESCRIPTION = "Upgrade to v0.6 Template Starter Architecture (PKO BP, inverted s
 def _copy_tree_preserving_config(
     src_dir: str,
     dst_dir: str,
-    ignore_files: Set[str],
+    ignore_files: set[str],
     dry_run: bool = False,
-) -> List[str]:
+) -> list[str]:
     """Recursively copy directory tree while ignoring specified files and patterns."""
-    copied = []
+    copied: list[str] = []
     if not os.path.exists(src_dir):
         return copied
 
@@ -63,7 +60,7 @@ def apply(source_vault: str, target_vault: str, dry_run: bool = False) -> bool:
     """Apply the 0.5.0 -> 0.6.0 patch to target_vault."""
     source_vault = os.path.abspath(source_vault)
     target_vault = os.path.abspath(target_vault)
-    is_same_vault = (source_vault == target_vault)
+    is_same_vault = source_vault == target_vault
 
     print(f"\n📦 Applying Patch {FROM_VERSION} -> {TO_VERSION}: {DESCRIPTION}")
     print(f"   Source Starter : {source_vault}")
@@ -122,7 +119,7 @@ def apply(source_vault: str, target_vault: str, dry_run: bool = False) -> bool:
     target_gitignore = os.path.join(target_vault, ".gitignore")
     if os.path.exists(target_gitignore):
         try:
-            with open(target_gitignore, "r", encoding="utf-8") as f:
+            with open(target_gitignore, encoding="utf-8") as f:
                 content = f.read()
 
             if "sample_*.csv" in content and "sample_*.*" not in content:

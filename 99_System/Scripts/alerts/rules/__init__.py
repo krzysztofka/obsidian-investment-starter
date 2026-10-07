@@ -1,12 +1,12 @@
 """Alert rules package."""
 
-from .base import BaseAlertRule
-from .overvalued import OvervaluedRule
-from .delisting_risk import DelistingRiskRule
 from .allocation_drift import AllocationDriftRule
-from .stop_loss import StopLossRule
+from .base import BaseAlertRule
+from .delisting_risk import DelistingRiskRule
 from .insider_selling import InsiderSellingRule
 from .macro_yield_curve import MacroYieldCurveRule
+from .overvalued import OvervaluedRule
+from .stop_loss import StopLossRule
 
 __all__ = [
     "BaseAlertRule",
@@ -17,4 +17,3 @@ __all__ = [
     "InsiderSellingRule",
     "MacroYieldCurveRule",
 ]
-

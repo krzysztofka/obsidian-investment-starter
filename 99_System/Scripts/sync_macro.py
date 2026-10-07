@@ -10,18 +10,18 @@ Renders 10_Finance/Macro.md via the Obsidian vault template:
   - 99_System/Templates/macro_template.md
 """
 
-import os
-import sys
-import re
 import argparse
 import datetime
-from typing import Optional, Dict, Any
+import os
+import re
+import sys
+from typing import Any
 
 # Configure UTF-8 encoding for stdout/stderr on Windows
-if hasattr(sys.stdout, 'reconfigure'):
-    sys.stdout.reconfigure(encoding='utf-8')
-if hasattr(sys.stderr, 'reconfigure'):
-    sys.stderr.reconfigure(encoding='utf-8')
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 # Ensure script directory and vault root are in sys.path
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -33,21 +33,18 @@ integrations_dir = os.path.join(CURRENT_DIR, "integrations")
 if integrations_dir not in sys.path:
     sys.path.append(integrations_dir)
 
-try:
-    import jinja2
-except ImportError:
-    jinja2 = None
+import jinja2
 
 try:
     import yfinance as yf
 except ImportError:
-    yf = None
+    yf = None  # type: ignore[assignment]
 
-from integrations.nbp import NBPMacroSupplier
 from integrations.eurostat import EurostatMacroSupplier
+from integrations.nbp import NBPMacroSupplier
 
 
-def fetch_ticker_quote(ticker_symbol: str) -> Optional[Dict[str, Any]]:
+def fetch_ticker_quote(ticker_symbol: str) -> dict[str, Any] | None:
     """Fetch current price, 52-week high/low, and 1-month trend for a ticker symbol using yfinance."""
     if not yf:
         return None
@@ -84,25 +81,25 @@ def fetch_ticker_quote(ticker_symbol: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def fetch_macro_dataset() -> Dict[str, Any]:
+def fetch_macro_dataset() -> dict[str, Any]:
     """Aggregate live macro dataset across specialized integration suppliers."""
     print("   🌐 Ingesting macroeconomic indicators across integration suppliers...")
     today_str = datetime.datetime.now().strftime("%Y-%m-%d")
 
     # 1. Global & Domestic Sovereign Yields
     print("      Ingesting Sovereign Yields (US 10Y, US 2Y & Eurostat PL 10Y)...")
-    tnx = fetch_ticker_quote("^TNX")     # US 10Y Yield
+    tnx = fetch_ticker_quote("^TNX")  # US 10Y Yield
     two_y = fetch_ticker_quote("2YY=F")  # US 2Y Yield futures
-    irx = fetch_ticker_quote("^IRX")     # 13-week T-Bill Yield fallback
+    irx = fetch_ticker_quote("^IRX")  # 13-week T-Bill Yield fallback
 
     us_10y = tnx["current"] if tnx else 5.23
     us_2y = two_y["current"] if two_y else (irx["current"] if irx else 4.50)
     spread_bps = round((us_10y - us_2y) * 100, 1)
 
     spread_status = (
-        "Normal (Upward Sloping)" if spread_bps > 10 else (
-            "Inverted (Recession Warning)" if spread_bps < -10 else "Flat / Transitioning"
-        )
+        "Normal (Upward Sloping)"
+        if spread_bps > 10
+        else ("Inverted (Recession Warning)" if spread_bps < -10 else "Flat / Transitioning")
     )
 
     eurostat_pl10y = EurostatMacroSupplier.fetch_10y_yield(geo="PL")
@@ -133,9 +130,7 @@ def fetch_macro_dataset() -> Dict[str, Any]:
     vix_val = vix_quote["current"] if vix_quote else 15.82
 
     vix_status = (
-        "Complacent / Low Volatility" if vix_val < 18 else (
-            "Elevated / Risk-Off" if vix_val > 25 else "Moderate"
-        )
+        "Complacent / Low Volatility" if vix_val < 18 else ("Elevated / Risk-Off" if vix_val > 25 else "Moderate")
     )
 
     # 3. Central Bank Interest Rates
@@ -229,7 +224,7 @@ def fetch_macro_dataset() -> Dict[str, Any]:
         regime_desc = "Positive term premia and healthy economic expansion with accommodative policy."
 
     spread_sign = "+" if spread_bps >= 0 else ""
-    spread_display = f"**{spread_sign}{spread_bps:.0f} bps ({spread_sign}{spread_bps/100:.2f}%)**"
+    spread_display = f"**{spread_sign}{spread_bps:.0f} bps ({spread_sign}{spread_bps / 100:.2f}%)**"
 
     return {
         "last_updated": today_str,
@@ -245,20 +240,34 @@ def fetch_macro_dataset() -> Dict[str, Any]:
         "nbp_reference_rate": nbp_rates["ref_rate"],
         "poland_cpi": pl_inf.get("numeric", 2.5),
         "usd_pln": usd_pln,
-        "usd_pln_range": f"{usd_pln_quote['low_52w']:.2f} – {usd_pln_quote['high_52w']:.2f}" if usd_pln_quote else "3.49 – 3.86",
+        "usd_pln_range": f"{usd_pln_quote['low_52w']:.2f} – {usd_pln_quote['high_52w']:.2f}"
+        if usd_pln_quote
+        else "3.49 – 3.86",
         "eur_pln": eur_pln,
-        "eur_pln_range": f"{eur_pln_quote['low_52w']:.2f} – {eur_pln_quote['high_52w']:.2f}" if eur_pln_quote else "4.19 – 4.40",
+        "eur_pln_range": f"{eur_pln_quote['low_52w']:.2f} – {eur_pln_quote['high_52w']:.2f}"
+        if eur_pln_quote
+        else "4.19 – 4.40",
         "gbp_pln": gbp_pln,
-        "gbp_pln_range": f"{gbp_pln_quote['low_52w']:.2f} – {gbp_pln_quote['high_52w']:.2f}" if gbp_pln_quote else "4.77 – 5.11",
+        "gbp_pln_range": f"{gbp_pln_quote['low_52w']:.2f} – {gbp_pln_quote['high_52w']:.2f}"
+        if gbp_pln_quote
+        else "4.77 – 5.11",
         "gold_usd": gold_usd,
         "gold_pln": gold_pln,
-        "gold_range": f"${gold_quote['low_52w']:,.0f} – ${gold_quote['high_52w']:,.0f}" if gold_quote else "$3,786 – $5,586",
+        "gold_range": f"${gold_quote['low_52w']:,.0f} – ${gold_quote['high_52w']:,.0f}"
+        if gold_quote
+        else "$3,786 – $5,586",
         "silver_usd": silver_usd,
-        "silver_range": f"${silver_quote['low_52w']:.2f} – ${silver_quote['high_52w']:.2f}" if silver_quote else "$45.38 – $121.30",
+        "silver_range": f"${silver_quote['low_52w']:.2f} – ${silver_quote['high_52w']:.2f}"
+        if silver_quote
+        else "$45.38 – $121.30",
         "copper_usd": copper_usd,
-        "copper_range": f"${copper_quote['low_52w']:.2f} – ${copper_quote['high_52w']:.2f}" if copper_quote else "$4.71 – $6.83",
+        "copper_range": f"${copper_quote['low_52w']:.2f} – ${copper_quote['high_52w']:.2f}"
+        if copper_quote
+        else "$4.71 – $6.83",
         "brent_usd": brent_usd,
-        "brent_range": f"${brent_quote['low_52w']:.2f} – ${brent_quote['high_52w']:.2f}" if brent_quote else "$58.72 – $126.10",
+        "brent_range": f"${brent_quote['low_52w']:.2f} – ${brent_quote['high_52w']:.2f}"
+        if brent_quote
+        else "$58.72 – $126.10",
         "vix": vix_val,
         "vix_status": vix_status,
         "macro_regime_title": regime_title,
@@ -268,12 +277,12 @@ def fetch_macro_dataset() -> Dict[str, Any]:
     }
 
 
-def extract_custom_thesis_log(file_path: str) -> Optional[str]:
+def extract_custom_thesis_log(file_path: str) -> str | None:
     """Extract existing '## 📝 Observations & Macro Thesis Log' section to prevent overwriting user notes."""
     if not os.path.exists(file_path):
         return None
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             content = f.read()
 
         match = re.search(r"(## 📝 Observations & Macro Thesis Log.*)", content, re.DOTALL)
@@ -285,9 +294,9 @@ def extract_custom_thesis_log(file_path: str) -> Optional[str]:
 
 
 def render_macro_markdown(
-    dataset: Dict[str, Any],
-    template_path: Optional[str] = None,
-    existing_notes_section: Optional[str] = None,
+    dataset: dict[str, Any],
+    template_path: str | None = None,
+    existing_notes_section: str | None = None,
 ) -> str:
     """Render 10_Finance/Macro.md by loading and compiling 99_System/Templates/macro_template.md."""
     if not template_path:
@@ -296,7 +305,7 @@ def render_macro_markdown(
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"Macro template not found at: {template_path}")
 
-    with open(template_path, "r", encoding="utf-8") as f:
+    with open(template_path, encoding="utf-8") as f:
         template_content = f.read()
 
     # Prepare custom notes section
@@ -329,10 +338,10 @@ def render_macro_markdown(
 
 
 def sync_macro(
-    macro_path: Optional[str] = None,
-    template_path: Optional[str] = None,
+    macro_path: str | None = None,
+    template_path: str | None = None,
     dry_run: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Synchronize macroeconomic data and render 10_Finance/Macro.md via template."""
     if not macro_path:
         macro_path = os.path.join(VAULT_ROOT, "10_Finance", "Macro.md")
@@ -359,10 +368,16 @@ def sync_macro(
         with open(macro_path, "w", encoding="utf-8") as f:
             f.write(rendered_md)
         print(f"✔ Successfully synchronized Macro Dashboard: {macro_path}")
-        print(f"   US 10Y Yield: {dataset['us_10y_yield']:.2f}% | 2Y Yield: {dataset['us_2y_yield']:.2f}% | Spread: {dataset['yield_spread_10y_2y_bps']} bps")
+        print(
+            f"   US 10Y Yield: {dataset['us_10y_yield']:.2f}% | 2Y Yield: {dataset['us_2y_yield']:.2f}% | Spread: {dataset['yield_spread_10y_2y_bps']} bps"
+        )
         print(f"   Poland 10Y Yield: {dataset['pl_10y_yield']:.2f}% | NBP Rate: {dataset['nbp_reference_rate']:.2f}%")
-        print(f"   USD/PLN: {dataset['usd_pln']:.4f} | EUR/PLN: {dataset['eur_pln']:.4f} | GBP/PLN: {dataset['gbp_pln']:.4f}")
-        print(f"   Gold: ${dataset['gold_usd']:,.0f} ({dataset['gold_pln']:,.0f} PLN) | Copper: ${dataset['copper_usd']:.2f} | Brent: ${dataset['brent_usd']:.2f}")
+        print(
+            f"   USD/PLN: {dataset['usd_pln']:.4f} | EUR/PLN: {dataset['eur_pln']:.4f} | GBP/PLN: {dataset['gbp_pln']:.4f}"
+        )
+        print(
+            f"   Gold: ${dataset['gold_usd']:,.0f} ({dataset['gold_pln']:,.0f} PLN) | Copper: ${dataset['copper_usd']:.2f} | Brent: ${dataset['brent_usd']:.2f}"
+        )
 
     print("-" * 72)
     return dataset

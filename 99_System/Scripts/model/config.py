@@ -1,18 +1,19 @@
 """Pydantic configuration models for Vault Configuration (config.yaml)."""
 
-from typing import Dict, List, Optional, Union, Literal, Any
 import os
+from typing import Any, Literal
+
 import yaml
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ConcurrencyConfig(BaseModel):
     """Configuration for concurrency and worker thread pool."""
+
     model_config = ConfigDict(extra="ignore")
 
-    max_workers: Union[int, Literal["auto"]] = Field(
-        default="auto",
-        description="Max worker threads or 'auto' to use os.cpu_count()."
+    max_workers: int | Literal["auto"] = Field(
+        default="auto", description="Max worker threads or 'auto' to use os.cpu_count()."
     )
 
     def resolve_worker_count(self) -> int:
@@ -27,13 +28,14 @@ class ConcurrencyConfig(BaseModel):
 
 class ResilienceConfig(BaseModel):
     """Configuration for network resilience, rate limiting, and backoff."""
+
     model_config = ConfigDict(extra="ignore")
 
     max_retries: int = Field(default=3, ge=0, description="Max retry attempts for transient errors.")
     base_delay_seconds: float = Field(default=0.5, ge=0.0, description="Initial backoff delay in seconds.")
     max_delay_seconds: float = Field(default=10.0, ge=0.0, description="Maximum ceiling backoff delay.")
     jitter: bool = Field(default=True, description="Enable randomized full jitter.")
-    rate_limits: Dict[str, float] = Field(
+    rate_limits: dict[str, float] = Field(
         default_factory=lambda: {
             "finnhub.io": 10.0,
             "query1.finance.yahoo.com": 15.0,
@@ -47,30 +49,38 @@ class ResilienceConfig(BaseModel):
             "vaneck.com": 6.0,
             "api.nbp.pl": 10.0,
         },
-        description="Rate limits in requests/sec per domain."
+        description="Rate limits in requests/sec per domain.",
     )
 
 
 class BrokerRuleConfig(BaseModel):
     """Rule for portfolio splitting / allocation of specific asset prefixes."""
+
     model_config = ConfigDict(extra="ignore")
 
-    prefix: str
+    prefix: str | None = None
+    ticker: str | None = None
     portfolio: str
-    max_amount: Optional[float] = None
+    max_amount: float | None = None
 
 
-class BrokerImportConfig(BaseModel):
-    """Configuration for individual broker position import."""
+class PlatformConfig(BaseModel):
+    """Configuration for individual platform/broker extension."""
+
     model_config = ConfigDict(extra="ignore")
 
+    enabled: bool = True
     default_mode: str = Field(default="csv", description="Default mode: 'api', 'csv', or 'xls'.")
-    default_portfolio: Optional[str] = Field(default=None, description="Default portfolio bucket.")
-    rules: List[BrokerRuleConfig] = Field(default_factory=list, description="Allocation split rules.")
+    default_portfolio: str | None = Field(default=None, description="Default portfolio bucket.")
+    rules: list[BrokerRuleConfig] = Field(default_factory=list, description="Allocation split rules.")
+
+
+BrokerImportConfig = PlatformConfig
 
 
 class AlertOvervaluedConfig(BaseModel):
     """Overvalued P/E alert settings."""
+
     model_config = ConfigDict(extra="ignore")
 
     enabled: bool = True
@@ -79,6 +89,7 @@ class AlertOvervaluedConfig(BaseModel):
 
 class AlertDelistingRiskConfig(BaseModel):
     """Delisting risk AUM alert settings."""
+
     model_config = ConfigDict(extra="ignore")
 
     enabled: bool = True
@@ -87,6 +98,7 @@ class AlertDelistingRiskConfig(BaseModel):
 
 class AlertAllocationDriftConfig(BaseModel):
     """Single position weight limit alert settings."""
+
     model_config = ConfigDict(extra="ignore")
 
     enabled: bool = True
@@ -95,6 +107,7 @@ class AlertAllocationDriftConfig(BaseModel):
 
 class AlertStopLossConfig(BaseModel):
     """Stop-loss breach alert settings."""
+
     model_config = ConfigDict(extra="ignore")
 
     enabled: bool = True
@@ -102,14 +115,25 @@ class AlertStopLossConfig(BaseModel):
 
 class AlertInsiderSellingConfig(BaseModel):
     """Insider selling alert settings."""
+
     model_config = ConfigDict(extra="ignore")
 
     enabled: bool = True
     lookback_days: int = 90
 
 
+class AlertMacroYieldCurveConfig(BaseModel):
+    """Macro inverted yield curve alert settings."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    enabled: bool = True
+    inversion_threshold_bps: float = 0.0
+
+
 class AlertsConfig(BaseModel):
     """Alert rules configuration."""
+
     model_config = ConfigDict(extra="ignore")
 
     overvalued: AlertOvervaluedConfig = Field(default_factory=AlertOvervaluedConfig)
@@ -117,13 +141,15 @@ class AlertsConfig(BaseModel):
     allocation_drift: AlertAllocationDriftConfig = Field(default_factory=AlertAllocationDriftConfig)
     stop_loss: AlertStopLossConfig = Field(default_factory=AlertStopLossConfig)
     insider_selling: AlertInsiderSellingConfig = Field(default_factory=AlertInsiderSellingConfig)
+    macro_yield_curve: AlertMacroYieldCurveConfig = Field(default_factory=AlertMacroYieldCurveConfig)
 
 
 class EtfIssuerConfig(BaseModel):
     """ETF issuer discovery keyword mappings."""
+
     model_config = ConfigDict(extra="ignore")
 
-    discovery_mapping: Dict[str, str] = Field(
+    discovery_mapping: dict[str, str] = Field(
         default_factory=lambda: {
             "ishares": "iShares",
             "vanguard": "Vanguard",
@@ -153,6 +179,7 @@ class EtfIssuerConfig(BaseModel):
 
 class EtfConfig(BaseModel):
     """ETF extraction and decomposition settings."""
+
     model_config = ConfigDict(extra="ignore")
 
     max_top_holdings: int = 10
@@ -161,27 +188,40 @@ class EtfConfig(BaseModel):
 
 class DominantSectorConfig(BaseModel):
     """Dominant sector classification thresholds and taxonomy mappings."""
+
     model_config = ConfigDict(extra="ignore")
 
     default_threshold: float = 50.0
     diversified_label: str = "Diversified"
-    thresholds: Dict[str, float] = Field(default_factory=dict)
-    mappings: Dict[str, str] = Field(default_factory=dict)
+    thresholds: dict[str, float] = Field(default_factory=dict)
+    mappings: dict[str, str] = Field(default_factory=dict)
 
 
 class VaultConfig(BaseModel):
     """Root configuration model representing config.yaml."""
+
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     concurrency: ConcurrencyConfig = Field(default_factory=ConcurrencyConfig)
     resilience: ResilienceConfig = Field(default_factory=ResilienceConfig)
-    import_config: Dict[str, BrokerImportConfig] = Field(default_factory=dict, alias="import")
+    platforms: dict[str, PlatformConfig] = Field(default_factory=dict)
+    import_config: dict[str, PlatformConfig] = Field(default_factory=dict, alias="import")
     alerts: AlertsConfig = Field(default_factory=AlertsConfig)
     etf: EtfConfig = Field(default_factory=EtfConfig)
     dominant_sector: DominantSectorConfig = Field(default_factory=DominantSectorConfig)
 
+    @model_validator(mode="before")
     @classmethod
-    def load(cls, file_path: Optional[str] = None, base_dir: Optional[str] = None) -> "VaultConfig":
+    def sync_platforms_and_import(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "platforms" in data and "import" not in data:
+                data["import"] = data["platforms"]
+            elif "import" in data and "platforms" not in data:
+                data["platforms"] = data["import"]
+        return data
+
+    @classmethod
+    def load(cls, file_path: str | None = None, base_dir: str | None = None) -> "VaultConfig":
         """Load and parse VaultConfig from a YAML file path or search candidate directories."""
         candidate_paths = []
         if file_path:
@@ -192,28 +232,30 @@ class VaultConfig(BaseModel):
             current_dir = os.path.dirname(os.path.abspath(__file__))
             base_dir = os.path.abspath(os.path.join(current_dir, "../../.."))
 
-        candidate_paths.extend([
-            os.path.join(base_dir, "99_System", "config.yaml"),
-            os.path.join(base_dir, "config.yaml"),
-        ])
+        candidate_paths.extend(
+            [
+                os.path.join(base_dir, "config.yaml"),
+                os.path.join(base_dir, "99_System", "config.yaml"),
+            ]
+        )
 
         for path in candidate_paths:
             if os.path.exists(path):
                 try:
-                    with open(path, "r", encoding="utf-8") as f:
+                    with open(path, encoding="utf-8") as f:
                         raw_data = yaml.safe_load(f) or {}
                     if isinstance(raw_data, dict):
                         return cls.model_validate(raw_data)
-                except Exception as e:
+                except Exception:
                     pass
 
         return cls()
 
 
-_vault_config_cache: Optional[VaultConfig] = None
+_vault_config_cache: VaultConfig | None = None
 
 
-def load_vault_config(base_dir: Optional[str] = None, force_refresh: bool = False) -> VaultConfig:
+def load_vault_config(base_dir: str | None = None, force_refresh: bool = False) -> VaultConfig:
     """Retrieve cached or freshly loaded VaultConfig singleton."""
     global _vault_config_cache
     if _vault_config_cache is None or force_refresh:

@@ -1,8 +1,7 @@
 import re
-from typing import Optional, Dict
 
 # Known ISIN to Stooq ticker mappings
-KNOWN_ISIN_STOOQ_MAP: Dict[str, str] = {
+KNOWN_ISIN_STOOQ_MAP: dict[str, str] = {
     # GPW Polish Equities
     "PLKGHM000017": "kgh",
     "PLPKN0000018": "pkn",
@@ -56,27 +55,26 @@ KNOWN_ISIN_STOOQ_MAP: Dict[str, str] = {
     "PLVOX0000014": "vox",
     "PLWIRT000014": "wpl",
     "PLZUE0000015": "zue",
-
     # UCITS ETFs
-    "IE00BMVB5R75": "v80a.de",       # Vanguard LifeStrategy 80% Equity UCITS ETF
-    "IE00BMVB5P51": "v60a.de",       # Vanguard LifeStrategy 60% Equity UCITS ETF
-    "IE00BMVB5N38": "v40a.de",       # Vanguard LifeStrategy 40% Equity UCITS ETF
-    "IE00BMVB5M21": "v20a.de",       # Vanguard LifeStrategy 20% Equity UCITS ETF
-    "IE00BK5BQT80": "vwra.uk",       # Vanguard FTSE All-World UCITS ETF (USD Acc)
-    "IE00B3RBWM25": "vwrl.uk",       # Vanguard FTSE All-World UCITS ETF (USD Dist)
-    "IE00B8GKDB10": "vhyl.uk",       # Vanguard FTSE All-World High Dividend Yield UCITS ETF
-    "IE00B43HR379": "iuhc.uk",       # iShares S&P 500 Health Care Sector UCITS ETF
-    "IE00BYXPSP02": "ibta.uk",       # iShares $ Treasury Bond 7-10yr UCITS ETF
-    "IE000YYE6WK5": "dfen.de",       # VanEck Defense UCITS ETF
-    "NL0011683594": "tdiv.nl",       # VanEck Morningstar Developed Markets Dividend Leaders UCITS ETF
-    "IE00B4L5Y983": "swda.uk",       # iShares Core MSCI World UCITS ETF
-    "IE00B5BMR087": "cspx.uk",       # iShares Core S&P 500 UCITS ETF
-    "IE00BKM4GZ66": "emim.uk",       # iShares Core MSCI EM IMI UCITS ETF
-    "LU1681045370": "lcwd.uk",       # Amundi Core MSCI World UCITS ETF
+    "IE00BMVB5R75": "v80a.de",  # Vanguard LifeStrategy 80% Equity UCITS ETF
+    "IE00BMVB5P51": "v60a.de",  # Vanguard LifeStrategy 60% Equity UCITS ETF
+    "IE00BMVB5N38": "v40a.de",  # Vanguard LifeStrategy 40% Equity UCITS ETF
+    "IE00BMVB5M21": "v20a.de",  # Vanguard LifeStrategy 20% Equity UCITS ETF
+    "IE00BK5BQT80": "vwra.uk",  # Vanguard FTSE All-World UCITS ETF (USD Acc)
+    "IE00B3RBWM25": "vwrl.uk",  # Vanguard FTSE All-World UCITS ETF (USD Dist)
+    "IE00B8GKDB10": "vhyl.uk",  # Vanguard FTSE All-World High Dividend Yield UCITS ETF
+    "IE00B43HR379": "iuhc.uk",  # iShares S&P 500 Health Care Sector UCITS ETF
+    "IE00BYXPSP02": "ibta.uk",  # iShares $ Treasury Bond 7-10yr UCITS ETF
+    "IE000YYE6WK5": "dfen.de",  # VanEck Defense UCITS ETF
+    "NL0011683594": "tdiv.nl",  # VanEck Morningstar Developed Markets Dividend Leaders UCITS ETF
+    "IE00B4L5Y983": "swda.uk",  # iShares Core MSCI World UCITS ETF
+    "IE00B5BMR087": "cspx.uk",  # iShares Core S&P 500 UCITS ETF
+    "IE00BKM4GZ66": "emim.uk",  # iShares Core MSCI EM IMI UCITS ETF
+    "LU1681045370": "lcwd.uk",  # Amundi Core MSCI World UCITS ETF
 }
 
 # Known Ticker / Identifier to Stooq ticker mappings
-KNOWN_TICKER_STOOQ_MAP: Dict[str, str] = {
+KNOWN_TICKER_STOOQ_MAP: dict[str, str] = {
     # Commodities & Precious Metals
     "GOLD": "xauusd",
     "XAUUSD": "xauusd",
@@ -84,7 +82,6 @@ KNOWN_TICKER_STOOQ_MAP: Dict[str, str] = {
     "SILVER": "xagusd",
     "XAGUSD": "xagusd",
     "XAG": "xagusd",
-
     # Bonds & Benchmarks
     "10PLY": "10ply.b",
     "10USY": "10usy.b",
@@ -95,28 +92,26 @@ KNOWN_TICKER_STOOQ_MAP: Dict[str, str] = {
     "WIG": "wig",
     "SPX": "spx",
     "NDX": "ndx",
-
     # Currencies
     "EURPLN": "eurpln",
     "USDPLN": "usdpln",
     "EURUSD": "eurusd",
     "GBPPLN": "gbppln",
     "CHFPLN": "chfpln",
-
     # Specific Custom Portfolio Assets
     "V80A_IKZE": "v80a.de",
 }
 
 
 def resolve_stooq_ticker(
-    isin: Optional[str] = None,
-    yahoo_ticker: Optional[str] = None,
-    ticker: Optional[str] = None,
-    name: Optional[str] = None,
-    asset_type: Optional[str] = None,
-    country: Optional[str] = None,
-    currency: Optional[str] = None,
-) -> Optional[str]:
+    isin: str | None = None,
+    yahoo_ticker: str | None = None,
+    ticker: str | None = None,
+    name: str | None = None,
+    asset_type: str | None = None,
+    country: str | None = None,
+    currency: str | None = None,
+) -> str | None:
     """Resolve the standardized Stooq ticker symbol for any financial asset.
 
     Supports:
@@ -133,12 +128,19 @@ def resolve_stooq_ticker(
     clean_type = str(asset_type).strip().lower() if asset_type else ""
 
     # 1. Non-market assets (Cash, Real Estate, IKE wrappers)
-    if clean_type in ("cash", "real estate", "ike", "deposit") or clean_t.startswith(("DEGIRO_CASH", "EXANTE_CASH", "MBANK_CASH", "MBANK_DEPOSIT", "NN_IKE", "JASINSKIEGO")):
+    if clean_type in ("cash", "real estate", "ike", "deposit") or clean_t.startswith(
+        ("DEGIRO_CASH", "EXANTE_CASH", "MBANK_CASH", "MBANK_DEPOSIT", "NN_IKE", "JASINSKIEGO")
+    ):
         if clean_type != "commodities" and "gold" not in clean_name and "gold" not in clean_t.lower():
             return None
 
     # 2. Precious Metals / Commodities (Gold, Silver)
-    if clean_t in ("GOLD", "XAUUSD", "XAU") or "physical gold" in clean_name or "spot gold" in clean_name or (clean_type == "commodities" and "gold" in clean_name):
+    if (
+        clean_t in ("GOLD", "XAUUSD", "XAU")
+        or "physical gold" in clean_name
+        or "spot gold" in clean_name
+        or (clean_type == "commodities" and "gold" in clean_name)
+    ):
         return "xauusd"
     if clean_t in ("SILVER", "XAGUSD", "XAG") or "silver" in clean_name:
         return "xagusd"

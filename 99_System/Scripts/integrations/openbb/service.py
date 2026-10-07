@@ -1,11 +1,8 @@
+import math
 import os
 import sys
-import json
-import glob
-import math
-from typing import Optional, Dict, Any, List, Union
 from datetime import datetime
-import requests
+from typing import Any
 
 # Ensure scripts dir is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -19,6 +16,7 @@ for p in (scripts_dir, integrations_dir, current_dir):
 # Try importing OpenBB SDK if installed
 try:
     from openbb import obb  # type: ignore
+
     OPENBB_AVAILABLE = True
 except ImportError:
     obb = None
@@ -39,13 +37,13 @@ def is_openbb_available() -> bool:
     return OPENBB_AVAILABLE
 
 
-def fetch_morningstar_rating(symbol: str) -> Dict[str, Any]:
+def fetch_morningstar_rating(symbol: str) -> dict[str, Any]:
     """Fetch Morningstar star rating, quantitative rating, and risk rating for a symbol or ISIN.
 
     Returns:
         Dict containing keys: 'morningstar_rating', 'morningstar_risk', 'analyst_rating', 'category'
     """
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "morningstar_rating": None,
         "morningstar_risk": None,
         "analyst_rating": None,
@@ -117,9 +115,9 @@ def fetch_morningstar_rating(symbol: str) -> Dict[str, Any]:
     return result
 
 
-def fetch_quantitative_metrics(symbol: str, period: str = "1y", rf_rate: float = 0.04) -> Dict[str, Any]:
+def fetch_quantitative_metrics(symbol: str, period: str = "1y", rf_rate: float = 0.04) -> dict[str, Any]:
     """Calculate annualized Volatility, Sharpe Ratio, Max Drawdown, and Upside Potential."""
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "volatility": None,
         "sharpe_ratio": None,
         "max_drawdown": None,
@@ -132,7 +130,7 @@ def fetch_quantitative_metrics(symbol: str, period: str = "1y", rf_rate: float =
 
     # 1. Calculate price history metrics (Volatility, Sharpe Ratio, Max Drawdown)
     try:
-        closes: List[float] = []
+        closes: list[float] = []
         if OPENBB_AVAILABLE and obb is not None:
             try:
                 if hasattr(obb, "equity") and hasattr(obb.equity, "price") and hasattr(obb.equity.price, "historical"):
@@ -194,13 +192,13 @@ def fetch_quantitative_metrics(symbol: str, period: str = "1y", rf_rate: float =
     return result
 
 
-def fetch_openbb_data(symbol: str) -> Dict[str, Any]:
+def fetch_openbb_data(symbol: str) -> dict[str, Any]:
     """Fetch enriched market metrics, quantitative risk indicators, and ratings using OpenBB / YFinance."""
     if not symbol:
         return {}
 
     clean_symbol = symbol.strip().upper()
-    data: Dict[str, Any] = {
+    data: dict[str, Any] = {
         "yahoo_ticker": clean_symbol,
     }
 
@@ -298,53 +296,213 @@ def fetch_openbb_data(symbol: str) -> Dict[str, Any]:
 # Predefined high-quality watchlist screen candidates across core strategies
 CANDIDATE_POOLS = {
     "quality_growth": [
-        {"ticker": "NVDA", "name": "NVIDIA Corporation", "thesis": "Dominant GPU & AI computing platform architecture with wide enterprise moat.", "sector": "Technology"},
-        {"ticker": "GOOGL", "name": "Alphabet Inc.", "thesis": "Search monopoly, YouTube scale, accelerating Cloud profitability, and Gemini AI integration.", "sector": "Technology"},
-        {"ticker": "AMZN", "name": "Amazon.com Inc.", "thesis": "AWS cloud margins expansion, high-margin retail advertising, and logistics automation.", "sector": "Consumer Cyclical"},
-        {"ticker": "ASML", "name": "ASML Holding N.V.", "thesis": "Global monopoly on EUV lithography critical for semiconductor manufacturing.", "sector": "Technology"},
+        {
+            "ticker": "NVDA",
+            "name": "NVIDIA Corporation",
+            "thesis": "Dominant GPU & AI computing platform architecture with wide enterprise moat.",
+            "sector": "Technology",
+        },
+        {
+            "ticker": "GOOGL",
+            "name": "Alphabet Inc.",
+            "thesis": "Search monopoly, YouTube scale, accelerating Cloud profitability, and Gemini AI integration.",
+            "sector": "Technology",
+        },
+        {
+            "ticker": "AMZN",
+            "name": "Amazon.com Inc.",
+            "thesis": "AWS cloud margins expansion, high-margin retail advertising, and logistics automation.",
+            "sector": "Consumer Cyclical",
+        },
+        {
+            "ticker": "ASML",
+            "name": "ASML Holding N.V.",
+            "thesis": "Global monopoly on EUV lithography critical for semiconductor manufacturing.",
+            "sector": "Technology",
+        },
     ],
     "dividend_value": [
-        {"ticker": "JNJ", "name": "Johnson & Johnson", "thesis": "AAA-rated balance sheet, diversified healthcare & medtech, 60+ years of consecutive dividend growth.", "sector": "Healthcare"},
-        {"ticker": "PG", "name": "Procter & Gamble Co.", "thesis": "Recession-resistant consumer staples pricing power and consistent shareholder capital returns.", "sector": "Consumer Defensive"},
-        {"ticker": "CVX", "name": "Chevron Corporation", "thesis": "Low breakeven cost upstream assets, strong balance sheet, and disciplined capital return program.", "sector": "Energy"},
-        {"ticker": "KO", "name": "The Coca-Cola Company", "thesis": "Unmatched global distribution network, high pricing power, and steady cash generation.", "sector": "Consumer Defensive"},
+        {
+            "ticker": "JNJ",
+            "name": "Johnson & Johnson",
+            "thesis": "AAA-rated balance sheet, diversified healthcare & medtech, 60+ years of consecutive dividend growth.",
+            "sector": "Healthcare",
+        },
+        {
+            "ticker": "PG",
+            "name": "Procter & Gamble Co.",
+            "thesis": "Recession-resistant consumer staples pricing power and consistent shareholder capital returns.",
+            "sector": "Consumer Defensive",
+        },
+        {
+            "ticker": "CVX",
+            "name": "Chevron Corporation",
+            "thesis": "Low breakeven cost upstream assets, strong balance sheet, and disciplined capital return program.",
+            "sector": "Energy",
+        },
+        {
+            "ticker": "KO",
+            "name": "The Coca-Cola Company",
+            "thesis": "Unmatched global distribution network, high pricing power, and steady cash generation.",
+            "sector": "Consumer Defensive",
+        },
     ],
     "european_leaders": [
-        {"ticker": "ASML", "name": "ASML Holding N.V.", "thesis": "Uncontested monopoly on extreme ultraviolet (EUV) lithography systems in Europe.", "sector": "Technology"},
-        {"ticker": "MC.PA", "name": "LVMH Moët Hennessy Louis Vuitton", "thesis": "World leader in luxury goods with unparalleled heritage brands and pricing power.", "sector": "Consumer Cyclical"},
-        {"ticker": "SAP", "name": "SAP SE", "thesis": "Mission-critical enterprise ERP software leader with accelerating cloud migration.", "sector": "Technology"},
-        {"ticker": "NVO", "name": "Novo Nordisk A/S", "thesis": "Global healthcare and diabetes/obesity treatment leader with durable market share.", "sector": "Healthcare"},
-        {"ticker": "ALV.DE", "name": "Allianz SE", "thesis": "Premier European insurance & asset manager (PIMCO) with steady 5%+ dividend yield.", "sector": "Finance"},
-        {"ticker": "SIE.DE", "name": "Siemens AG", "thesis": "Industrial digitalization, smart infrastructure, and energy transition powerhouse.", "sector": "Industrials"},
-        {"ticker": "SHEL", "name": "Shell PLC", "thesis": "Integrated energy major generating massive free cash flow, LNG dominance, and aggressive share buybacks.", "sector": "Energy"},
-        {"ticker": "SNY", "name": "Sanofi SA", "thesis": "Deep value European biopharma with strong immunology franchise (Dupixent) and 4.5%+ dividend.", "sector": "Healthcare"},
+        {
+            "ticker": "ASML",
+            "name": "ASML Holding N.V.",
+            "thesis": "Uncontested monopoly on extreme ultraviolet (EUV) lithography systems in Europe.",
+            "sector": "Technology",
+        },
+        {
+            "ticker": "MC.PA",
+            "name": "LVMH Moët Hennessy Louis Vuitton",
+            "thesis": "World leader in luxury goods with unparalleled heritage brands and pricing power.",
+            "sector": "Consumer Cyclical",
+        },
+        {
+            "ticker": "SAP",
+            "name": "SAP SE",
+            "thesis": "Mission-critical enterprise ERP software leader with accelerating cloud migration.",
+            "sector": "Technology",
+        },
+        {
+            "ticker": "NVO",
+            "name": "Novo Nordisk A/S",
+            "thesis": "Global healthcare and diabetes/obesity treatment leader with durable market share.",
+            "sector": "Healthcare",
+        },
+        {
+            "ticker": "ALV.DE",
+            "name": "Allianz SE",
+            "thesis": "Premier European insurance & asset manager (PIMCO) with steady 5%+ dividend yield.",
+            "sector": "Finance",
+        },
+        {
+            "ticker": "SIE.DE",
+            "name": "Siemens AG",
+            "thesis": "Industrial digitalization, smart infrastructure, and energy transition powerhouse.",
+            "sector": "Industrials",
+        },
+        {
+            "ticker": "SHEL",
+            "name": "Shell PLC",
+            "thesis": "Integrated energy major generating massive free cash flow, LNG dominance, and aggressive share buybacks.",
+            "sector": "Energy",
+        },
+        {
+            "ticker": "SNY",
+            "name": "Sanofi SA",
+            "thesis": "Deep value European biopharma with strong immunology franchise (Dupixent) and 4.5%+ dividend.",
+            "sector": "Healthcare",
+        },
     ],
     "dividend_aristocrats": [
-        {"ticker": "JNJ", "name": "Johnson & Johnson", "thesis": "60+ years of consecutive dividend growth, AAA balance sheet, recession-proof cash flows.", "sector": "Healthcare"},
-        {"ticker": "ABBV", "name": "AbbVie Inc.", "thesis": "High-yield biopharma leader with successful post-Humira growth engines (Skyrizi & Rinvoq).", "sector": "Healthcare"},
-        {"ticker": "PG", "name": "Procter & Gamble Co.", "thesis": "Global consumer staples giant with 67 years of dividend increases and pricing power.", "sector": "Consumer Defensive"},
-        {"ticker": "PEP", "name": "PepsiCo, Inc.", "thesis": "Diversified snacks & beverage titan with resilient volumes and 50+ years of dividend hikes.", "sector": "Consumer Defensive"},
-        {"ticker": "CVX", "name": "Chevron Corporation", "thesis": "Energy aristocrat with 36+ years of dividend hikes and conservative debt gearing.", "sector": "Energy"},
-        {"ticker": "O", "name": "Realty Income Corp", "thesis": "'The Monthly Dividend Company' - S&P 500 REIT with 25+ years of consecutive monthly payouts.", "sector": "Real Estate"},
-        {"ticker": "TROW", "name": "T. Rowe Price Group", "thesis": "Debt-free financial asset manager aristocrat with 37+ years of dividend increases.", "sector": "Finance"},
+        {
+            "ticker": "JNJ",
+            "name": "Johnson & Johnson",
+            "thesis": "60+ years of consecutive dividend growth, AAA balance sheet, recession-proof cash flows.",
+            "sector": "Healthcare",
+        },
+        {
+            "ticker": "ABBV",
+            "name": "AbbVie Inc.",
+            "thesis": "High-yield biopharma leader with successful post-Humira growth engines (Skyrizi & Rinvoq).",
+            "sector": "Healthcare",
+        },
+        {
+            "ticker": "PG",
+            "name": "Procter & Gamble Co.",
+            "thesis": "Global consumer staples giant with 67 years of dividend increases and pricing power.",
+            "sector": "Consumer Defensive",
+        },
+        {
+            "ticker": "PEP",
+            "name": "PepsiCo, Inc.",
+            "thesis": "Diversified snacks & beverage titan with resilient volumes and 50+ years of dividend hikes.",
+            "sector": "Consumer Defensive",
+        },
+        {
+            "ticker": "CVX",
+            "name": "Chevron Corporation",
+            "thesis": "Energy aristocrat with 36+ years of dividend hikes and conservative debt gearing.",
+            "sector": "Energy",
+        },
+        {
+            "ticker": "O",
+            "name": "Realty Income Corp",
+            "thesis": "'The Monthly Dividend Company' - S&P 500 REIT with 25+ years of consecutive monthly payouts.",
+            "sector": "Real Estate",
+        },
+        {
+            "ticker": "TROW",
+            "name": "T. Rowe Price Group",
+            "thesis": "Debt-free financial asset manager aristocrat with 37+ years of dividend increases.",
+            "sector": "Finance",
+        },
     ],
     "fallen_angels": [
-        {"ticker": "BTI", "name": "British American Tobacco", "thesis": "Deep value tobacco transition player trading at low single-digit P/E with ~8% dividend yield.", "sector": "Consumer Defensive"},
-        {"ticker": "PFE", "name": "Pfizer Inc.", "thesis": "Post-Covid reset deep value pharma with rich oncology pipeline and ~6% dividend yield.", "sector": "Healthcare"},
-        {"ticker": "UNH", "name": "UnitedHealth Group Inc.", "thesis": "Highest-quality healthcare platform in the US trading at a cyclical discount.", "sector": "Healthcare"},
-        {"ticker": "NKE", "name": "Nike, Inc.", "thesis": "Global sportswear giant turnaround play at multi-year valuation troughs.", "sector": "Consumer Cyclical"},
-        {"ticker": "VALE", "name": "Vale S.A.", "thesis": "World's lowest-cost iron ore and nickel producer offering deep commodity value and high dividend.", "sector": "Basic Materials"},
+        {
+            "ticker": "BTI",
+            "name": "British American Tobacco",
+            "thesis": "Deep value tobacco transition player trading at low single-digit P/E with ~8% dividend yield.",
+            "sector": "Consumer Defensive",
+        },
+        {
+            "ticker": "PFE",
+            "name": "Pfizer Inc.",
+            "thesis": "Post-Covid reset deep value pharma with rich oncology pipeline and ~6% dividend yield.",
+            "sector": "Healthcare",
+        },
+        {
+            "ticker": "UNH",
+            "name": "UnitedHealth Group Inc.",
+            "thesis": "Highest-quality healthcare platform in the US trading at a cyclical discount.",
+            "sector": "Healthcare",
+        },
+        {
+            "ticker": "NKE",
+            "name": "Nike, Inc.",
+            "thesis": "Global sportswear giant turnaround play at multi-year valuation troughs.",
+            "sector": "Consumer Cyclical",
+        },
+        {
+            "ticker": "VALE",
+            "name": "Vale S.A.",
+            "thesis": "World's lowest-cost iron ore and nickel producer offering deep commodity value and high dividend.",
+            "sector": "Basic Materials",
+        },
     ],
     "thematic_etfs": [
-        {"ticker": "VTI", "name": "Vanguard Total Stock Market ETF", "thesis": "Ultra-low cost broad US total market diversification.", "sector": "Broad Market"},
-        {"ticker": "VXUS", "name": "Vanguard Total International Stock ETF", "thesis": "Comprehensive ex-US global equity exposure for geographic hedge.", "sector": "Broad Market"},
-        {"ticker": "SCHD", "name": "Schwab U.S. Dividend Equity ETF", "thesis": "High-quality 100 dividend-paying US stocks with strong return on equity and yield.", "sector": "Financials"},
-        {"ticker": "SMH", "name": "VanEck Semiconductor ETF", "thesis": "Concentrated exposure to leading global semiconductor design and foundry leaders.", "sector": "Technology"},
+        {
+            "ticker": "VTI",
+            "name": "Vanguard Total Stock Market ETF",
+            "thesis": "Ultra-low cost broad US total market diversification.",
+            "sector": "Broad Market",
+        },
+        {
+            "ticker": "VXUS",
+            "name": "Vanguard Total International Stock ETF",
+            "thesis": "Comprehensive ex-US global equity exposure for geographic hedge.",
+            "sector": "Broad Market",
+        },
+        {
+            "ticker": "SCHD",
+            "name": "Schwab U.S. Dividend Equity ETF",
+            "thesis": "High-quality 100 dividend-paying US stocks with strong return on equity and yield.",
+            "sector": "Financials",
+        },
+        {
+            "ticker": "SMH",
+            "name": "VanEck Semiconductor ETF",
+            "thesis": "Concentrated exposure to leading global semiconductor design and foundry leaders.",
+            "sector": "Technology",
+        },
     ],
 }
 
 
-def is_quality_asset(candidate_data: Dict[str, Any]) -> bool:
+def is_quality_asset(candidate_data: dict[str, Any]) -> bool:
     """Anti-Junk filter to verify the asset is NOT a penny stock or distressed value trap."""
     # Check market cap format (e.g. 50B, 1.2T)
     mcap = candidate_data.get("market_cap")
@@ -363,11 +521,7 @@ def is_quality_asset(candidate_data: Dict[str, Any]) -> bool:
     return True
 
 
-
-def get_potential_watchlist_items(
-    strategy: Optional[str] = None,
-    limit: int = 5
-) -> List[Dict[str, Any]]:
+def get_potential_watchlist_items(strategy: str | None = None, limit: int = 5) -> list[dict[str, Any]]:
     """Scan and retrieve potential watchlist candidates enriched with live market data, ratings, and valuation metrics.
 
     Args:
@@ -377,7 +531,7 @@ def get_potential_watchlist_items(
     Returns:
         List of candidate dictionaries ready for inspection or note creation.
     """
-    candidates: List[Dict[str, Any]] = []
+    candidates: list[dict[str, Any]] = []
 
     pools = [strategy] if strategy and strategy in CANDIDATE_POOLS else list(CANDIDATE_POOLS.keys())
 
@@ -431,15 +585,13 @@ def get_potential_watchlist_items(
     return candidates
 
 
-def scan_watchlist_candidates(strategy: Optional[str] = None) -> List[Dict[str, Any]]:
+def scan_watchlist_candidates(strategy: str | None = None) -> list[dict[str, Any]]:
     """Scan potential watchlist items and return the candidate list."""
     return get_potential_watchlist_items(strategy=strategy, limit=10)
 
 
 def generate_watchlist_item_note(
-    candidate: Dict[str, Any],
-    target_dir: Optional[str] = None,
-    template_path: Optional[str] = None
+    candidate: dict[str, Any], target_dir: str | None = None, template_path: str | None = None
 ) -> str:
     """Generate Markdown content for a watchlist item using the vault template."""
     now_date = datetime.now().strftime("%Y-%m-%d")
@@ -475,7 +627,11 @@ def generate_watchlist_item_note(
     tags_list = candidate.get("tags", ["watchlist"])
     tags_str = "\n".join([f"  - {t}" for t in tags_list])
 
-    analyst_str = f'  - "{analyst_rating}"' if isinstance(analyst_rating, str) else "\n".join([f'  - "{r}"' for r in analyst_rating])
+    analyst_str = (
+        f'  - "{analyst_rating}"'
+        if isinstance(analyst_rating, str)
+        else "\n".join([f'  - "{r}"' for r in analyst_rating])
+    )
 
     content = f"""---
 ticker: {ticker}
@@ -496,12 +652,12 @@ analyst_rating:
 morningstar_rating: {ms_rating}
 morningstar_risk: {ms_risk}
 pe_ratio: {pe_ratio}
-dividend_yield: {f'"{dividend_yield}"' if dividend_yield and dividend_yield != 'null' else 'null'}
-market_cap: {f'"{market_cap}"' if market_cap and market_cap != 'null' else 'null'}
-volatility: {f'"{volatility}"' if volatility and volatility != 'null' else 'null'}
+dividend_yield: {f'"{dividend_yield}"' if dividend_yield and dividend_yield != "null" else "null"}
+market_cap: {f'"{market_cap}"' if market_cap and market_cap != "null" else "null"}
+volatility: {f'"{volatility}"' if volatility and volatility != "null" else "null"}
 sharpe_ratio: {sharpe_ratio}
-max_drawdown: {f'"{max_drawdown}"' if max_drawdown and max_drawdown != 'null' else 'null'}
-upside_potential: {f'"{upside_potential}"' if upside_potential and upside_potential != 'null' else 'null'}
+max_drawdown: {f'"{max_drawdown}"' if max_drawdown and max_drawdown != "null" else "null"}
+upside_potential: {f'"{upside_potential}"' if upside_potential and upside_potential != "null" else "null"}
 isin: {isin}
 yahoo_ticker: {yahoo_ticker}
 last_updated: "{now_date}"
@@ -540,7 +696,7 @@ tags:
     return content
 
 
-def save_watchlist_item(candidate: Dict[str, Any], output_dir: Optional[str] = None) -> str:
+def save_watchlist_item(candidate: dict[str, Any], output_dir: str | None = None) -> str:
     """Save a candidate as a markdown note in 10_Finance/Watchlist/."""
     if output_dir is None:
         output_dir = os.path.join(vault_root, "10_Finance", "Watchlist")
@@ -552,6 +708,7 @@ def save_watchlist_item(candidate: Dict[str, Any], output_dir: Optional[str] = N
 
     if asset_type == "etf":
         from platforms.common import slugify_asset_name
+
         slug = slugify_asset_name(name, ticker=ticker, asset_type="etf")
         filename = f"{slug}.md"
     else:

@@ -1,7 +1,8 @@
-from typing import Optional, Any
-from .base import BaseAlertRule
-import sys
 import os
+import sys
+from typing import Any
+
+from .base import BaseAlertRule
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 scripts_dir = os.path.dirname(os.path.dirname(current_dir))
@@ -28,7 +29,7 @@ class InsiderSellingRule(BaseAlertRule):
     def description(self) -> str:
         return "Net executive insider selling detected over recent lookback window (default: 90 days)."
 
-    def evaluate(self, asset: Asset, context: Any) -> Optional[bool]:
+    def evaluate(self, asset: Asset, context: Any) -> bool | None:
         if str(asset.asset_type).lower() != "equity":
             return False
 
@@ -50,6 +51,7 @@ class InsiderSellingRule(BaseAlertRule):
 
         try:
             from integrations.finnhub.service import check_insider_sell
+
             symbol = asset.yahoo_ticker or asset.ticker
             if not symbol:
                 return None

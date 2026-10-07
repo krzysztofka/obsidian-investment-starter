@@ -1,7 +1,8 @@
-from typing import Optional, Any
-from .base import BaseAlertRule
-import sys
 import os
+import sys
+from typing import Any
+
+from .base import BaseAlertRule
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 scripts_dir = os.path.dirname(os.path.dirname(current_dir))
@@ -28,7 +29,7 @@ class OvervaluedRule(BaseAlertRule):
     def description(self) -> str:
         return "Trailing P/E ratio exceeds configured upper valuation limit."
 
-    def evaluate(self, asset: Asset, context: Any) -> Optional[bool]:
+    def evaluate(self, asset: Asset, context: Any) -> bool | None:
         # Do not evaluate cash or fixed assets without P/E concept
         if str(asset.asset_type).lower() in ("cash", "real estate", "gold"):
             return False

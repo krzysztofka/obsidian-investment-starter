@@ -1,9 +1,8 @@
-import sys
-import os
 import glob
+import os
 import re
-from typing import Optional, Dict, Any, List, Union
-import requests
+import sys
+from typing import Any
 
 # Ensure integrations root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -25,7 +24,7 @@ HEADERS = {
 }
 
 
-def check_overvalued(pe_ratio: Optional[Union[float, int, str]], threshold: float = OVERVALUED_PE_THRESHOLD) -> bool:
+def check_overvalued(pe_ratio: float | int | str | None, threshold: float = OVERVALUED_PE_THRESHOLD) -> bool:
     """Check if the given PE ratio exceeds the overvalued threshold (default: 40.0)."""
     if pe_ratio is None:
         return False
@@ -36,10 +35,8 @@ def check_overvalued(pe_ratio: Optional[Union[float, int, str]], threshold: floa
 
 
 def apply_overvalued_tag(
-    tags: Optional[Union[List[str], str]],
-    pe_ratio: Optional[Union[float, int, str]],
-    threshold: float = OVERVALUED_PE_THRESHOLD
-) -> List[str]:
+    tags: list[str] | str | None, pe_ratio: float | int | str | None, threshold: float = OVERVALUED_PE_THRESHOLD
+) -> list[str]:
     """Add or remove '#alert/overvalued' from a list of tags based on PE ratio."""
     if tags is None:
         result_tags = []
@@ -60,7 +57,7 @@ def apply_overvalued_tag(
     return result_tags
 
 
-def search_yahoo_symbol(query: str) -> Optional[str]:
+def search_yahoo_symbol(query: str) -> str | None:
     """Search Yahoo Finance for a ticker symbol using an ISIN or name."""
     if not query:
         return None
@@ -77,7 +74,7 @@ def search_yahoo_symbol(query: str) -> Optional[str]:
     return None
 
 
-def calculate_rsi(prices: List[float], period: int = 14) -> Optional[float]:
+def calculate_rsi(prices: list[float], period: int = 14) -> float | None:
     """Calculate the Relative Strength Index (RSI) using Wilder's smoothing method."""
     if not prices or len(prices) <= period:
         return None
@@ -104,18 +101,18 @@ def calculate_rsi(prices: List[float], period: int = 14) -> Optional[float]:
         return None
 
 
-def fetch_yfinance_data(isin: Optional[str], name: str, ticker: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def fetch_yfinance_data(isin: str | None, name: str, ticker: str | None = None) -> dict[str, Any] | None:
     """Fetch metadata from Yahoo Finance via the yfinance library or a HTTP fallback."""
     symbol = search_yahoo_symbol(isin) if isin else None
     if not symbol and ticker:
-        base_ticker = ticker.split('.')[0] if '.' in ticker else ticker
+        base_ticker = ticker.split(".")[0] if "." in ticker else ticker
         symbol = search_yahoo_symbol(ticker) or search_yahoo_symbol(base_ticker)
     if not symbol:
         symbol = search_yahoo_symbol(name)
     if not symbol:
         return None
 
-    data: Dict[str, Any] = {"yahoo_ticker": symbol}
+    data: dict[str, Any] = {"yahoo_ticker": symbol}
 
     if yf is not None:
         try:
@@ -254,7 +251,9 @@ def fetch_yfinance_data(isin: Optional[str], name: str, ticker: Optional[str] = 
     # Fallback via Yahoo Finance public API
     try:
         url = f"https://query1.finance.yahoo.com/v10/finance/quoteSummary/{symbol}"
-        params = {"modules": "summaryProfile,financialData,defaultKeyStatistics,summaryDetail,fundProfile,fundPerformance"}
+        params = {
+            "modules": "summaryProfile,financialData,defaultKeyStatistics,summaryDetail,fundProfile,fundPerformance"
+        }
         resp = resilient_get(url, params=params, headers=HEADERS, timeout=5)
         if resp.status_code == 200:
             raw = resp.json()
@@ -285,7 +284,11 @@ def fetch_yfinance_data(isin: Optional[str], name: str, ticker: Optional[str] = 
                     data["market_cap"] = f"{mcap / 1e6:.2f}M"
                 else:
                     data["market_cap"] = str(mcap)
-            pe = (get_val(financials.get("trailingPE")) or get_val(stats.get("trailingPE")) or get_val(stats.get("forwardPE")))
+            pe = (
+                get_val(financials.get("trailingPE"))
+                or get_val(stats.get("trailingPE"))
+                or get_val(stats.get("forwardPE"))
+            )
             if pe:
                 pe_val = round(pe, 2)
                 data["pe_ratio"] = pe_val
@@ -293,11 +296,13 @@ def fetch_yfinance_data(isin: Optional[str], name: str, ticker: Optional[str] = 
                     tags = data.setdefault("tags", [])
                     if ALERT_OVERVALUED_TAG not in tags:
                         tags.append(ALERT_OVERVALUED_TAG)
-            div = (get_val(financials.get("dividendYield")) or
-                   get_val(stats.get("dividendYield")) or
-                   get_val(financials.get("yield")) or
-                   get_val(stats.get("yield")) or
-                   get_val(stats.get("trailingAnnualDividendYield")))
+            div = (
+                get_val(financials.get("dividendYield"))
+                or get_val(stats.get("dividendYield"))
+                or get_val(financials.get("yield"))
+                or get_val(stats.get("yield"))
+                or get_val(stats.get("trailingAnnualDividendYield"))
+            )
             if div is not None and div > 0:
                 val = div * 100 if div < 1 else div
                 data["dividend_yield"] = f"{val:.2f}%"
@@ -381,7 +386,7 @@ def fetch_yfinance_data(isin: Optional[str], name: str, ticker: Optional[str] = 
     return data if len(data) > 1 else None
 
 
-def fetch_yfinance_analyst_rating(symbol: str) -> Optional[str]:
+def fetch_yfinance_analyst_rating(symbol: str) -> str | None:
     """Fetch analyst recommendation consensus from Yahoo Finance for a ticker symbol."""
     if not symbol:
         return None
@@ -392,7 +397,7 @@ def fetch_yfinance_analyst_rating(symbol: str) -> Optional[str]:
         "hold": "Hold",
         "underperform": "Sell",
         "sell": "Sell",
-        "strong_sell": "Strong Sell"
+        "strong_sell": "Strong Sell",
     }
 
     if yf is not None:
@@ -424,7 +429,7 @@ def fetch_yfinance_analyst_rating(symbol: str) -> Optional[str]:
     return None
 
 
-_fx_cache: Dict[str, float] = {'PLN': 1.0}
+_fx_cache: dict[str, float] = {"PLN": 1.0}
 
 
 def get_fx_rate_to_pln(currency: str) -> float:
@@ -432,7 +437,7 @@ def get_fx_rate_to_pln(currency: str) -> float:
     if not currency:
         return 1.0
     curr = str(currency).strip().upper()
-    if curr == 'PLN':
+    if curr == "PLN":
         return 1.0
     if curr in _fx_cache:
         return _fx_cache[curr]
@@ -442,14 +447,14 @@ def get_fx_rate_to_pln(currency: str) -> float:
         try:
             ticker_obj = yf.Ticker(symbol)
             price = None
-            if hasattr(ticker_obj, 'fast_info') and ticker_obj.fast_info:
-                price = ticker_obj.fast_info.get('last_price')
+            if hasattr(ticker_obj, "fast_info") and ticker_obj.fast_info:
+                price = ticker_obj.fast_info.get("last_price")
             if not price and ticker_obj.info:
-                price = ticker_obj.info.get('regularMarketPrice') or ticker_obj.info.get('previousClose')
+                price = ticker_obj.info.get("regularMarketPrice") or ticker_obj.info.get("previousClose")
             if not price:
                 hist = ticker_obj.history(period="1d")
-                if not hist.empty and 'Close' in hist:
-                    price = float(hist['Close'].iloc[-1])
+                if not hist.empty and "Close" in hist:
+                    price = float(hist["Close"].iloc[-1])
             if price and float(price) > 0:
                 rate = float(price)
                 _fx_cache[curr] = rate
@@ -474,7 +479,7 @@ def get_fx_rate_to_pln(currency: str) -> float:
     return 1.0
 
 
-def calculate_value_pln(quantity: Optional[float], current_price: Optional[float], currency: str) -> Optional[float]:
+def calculate_value_pln(quantity: float | None, current_price: float | None, currency: str) -> float | None:
     """Calculate asset value in PLN based on quantity, current_price, and currency FX rate."""
     if quantity is None or current_price is None:
         return None
@@ -488,20 +493,20 @@ def calculate_value_pln(quantity: Optional[float], current_price: Optional[float
         return None
 
 
-def fetch_yfinance_top_holdings(symbol: str, limit: int = 10) -> List[Dict[str, Any]]:
+def fetch_yfinance_top_holdings(symbol: str, limit: int = 10) -> list[dict[str, Any]]:
     """Fetch top holdings list for an ETF from Yahoo Finance funds_data."""
     if not symbol:
         return []
-    holdings: List[Dict[str, Any]] = []
+    holdings: list[dict[str, Any]] = []
 
     if yf is not None:
         try:
             ticker_obj = yf.Ticker(symbol)
-            if hasattr(ticker_obj, 'funds_data') and ticker_obj.funds_data is not None:
-                th = getattr(ticker_obj.funds_data, 'top_holdings', None)
+            if hasattr(ticker_obj, "funds_data") and ticker_obj.funds_data is not None:
+                th = getattr(ticker_obj.funds_data, "top_holdings", None)
                 if th is not None and not th.empty:
                     for idx, row in th.head(limit).iterrows():
-                        pct = row.get('Holding Percent', 0.0)
+                        pct = row.get("Holding Percent", 0.0)
                         if pct is not None:
                             try:
                                 pct_val = round(float(pct) * 100, 2)
@@ -509,18 +514,20 @@ def fetch_yfinance_top_holdings(symbol: str, limit: int = 10) -> List[Dict[str, 
                                 pct_val = 0.0
                         else:
                             pct_val = 0.0
-                        holdings.append({
-                            "ticker": str(idx).strip(),
-                            "name": str(row.get('Name', '')).strip(),
-                            "weight_pct": pct_val
-                        })
+                        holdings.append(
+                            {
+                                "ticker": str(idx).strip(),
+                                "name": str(row.get("Name", "")).strip(),
+                                "weight_pct": pct_val,
+                            }
+                        )
         except Exception as e:
             sys.stderr.write(f"yfinance funds_data fetch failed for {symbol}: {e}\n")
 
     return holdings[:limit]
 
 
-def normalize_international_ticker(symbol: str, name: Optional[str] = None) -> str:
+def normalize_international_ticker(symbol: str, name: str | None = None) -> str:
     """Normalize international exchange ticker symbols for Yahoo Finance."""
     sym = symbol.strip() if symbol else ""
     if not sym:
@@ -535,13 +542,13 @@ def normalize_international_ticker(symbol: str, name: Optional[str] = None) -> s
         return f"{sym}.KS"
 
     # Brazilian B3 codes: e.g. PETR4 -> PETR4.SA, ITSA4 -> ITSA4.SA, VALE3 -> VALE3.SA
-    if re.match(r'^[A-Z]{4}\d$', sym):
+    if re.match(r"^[A-Z]{4}\d$", sym):
         return f"{sym}.SA"
 
     return sym
 
 
-def fetch_company_fundamentals(symbol_or_name: str, fallback_name: Optional[str] = None) -> Dict[str, Any]:
+def fetch_company_fundamentals(symbol_or_name: str, fallback_name: str | None = None) -> dict[str, Any]:
     """Fetch fundamental details for a single company/holding using Yahoo Finance."""
     if not symbol_or_name:
         return {}
@@ -557,7 +564,7 @@ def fetch_company_fundamentals(symbol_or_name: str, fallback_name: Optional[str]
         if found_symbol:
             symbol = found_symbol
 
-    data: Dict[str, Any] = {
+    data: dict[str, Any] = {
         "ticker": raw_symbol,
         "yahoo_ticker": symbol,
         "name": candidate_name if candidate_name != raw_symbol else raw_symbol,
@@ -568,11 +575,11 @@ def fetch_company_fundamentals(symbol_or_name: str, fallback_name: Optional[str]
         "pe_ratio": None,
         "dividend_yield": None,
         "current_price": None,
-        "currency": "USD"
+        "currency": "USD",
     }
 
     if yf is not None:
-        info = {}
+        info: dict[str, Any] = {}
         try:
             t = yf.Ticker(symbol)
             info = t.info or {}
@@ -637,7 +644,7 @@ def fetch_company_fundamentals(symbol_or_name: str, fallback_name: Optional[str]
     return data
 
 
-def update_overvalued_alerts(assets_dir: Optional[str] = None) -> int:
+def update_overvalued_alerts(assets_dir: str | None = None) -> int:
     """Scan all asset files in 10_Finance/Assets and update #alert/overvalued tags based on pe_ratio."""
     if assets_dir is None:
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -651,22 +658,18 @@ def update_overvalued_alerts(assets_dir: Optional[str] = None) -> int:
     if scripts_dir not in sys.path:
         sys.path.append(scripts_dir)
 
-    try:
-        from model.asset import Asset
-    except ImportError:
-        Asset = None
+    from model.asset import Asset
 
     md_files = glob.glob(os.path.join(assets_dir, "*.md"))
     updated_count = 0
 
     for file_path in md_files:
-        if Asset:
-            asset = Asset.from_file(file_path)
-            new_tags = apply_overvalued_tag(asset.tags, asset.pe_ratio)
-            if new_tags != asset.tags:
-                asset.tags = new_tags
-                asset.save(file_path)
-                updated_count += 1
-                print(f"Updated alerts for {os.path.basename(file_path)}: tags={asset.tags}")
+        asset = Asset.from_file(file_path)
+        new_tags = apply_overvalued_tag(asset.tags, asset.pe_ratio)
+        if new_tags != asset.tags:
+            asset.tags = new_tags
+            asset.save(file_path)
+            updated_count += 1
+            print(f"Updated alerts for {os.path.basename(file_path)}: tags={asset.tags}")
 
     return updated_count

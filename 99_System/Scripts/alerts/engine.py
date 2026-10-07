@@ -1,8 +1,8 @@
+import argparse
+import glob
 import os
 import sys
-import glob
-import argparse
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 # Ensure UTF-8 output on Windows consoles
 if hasattr(sys.stdout, "reconfigure"):
@@ -17,14 +17,15 @@ if scripts_dir not in sys.path:
     sys.path.append(scripts_dir)
 
 from model.asset import Asset
+
 from alerts.context import AlertContext, load_config
-from alerts.rules.base import BaseAlertRule
-from alerts.rules.overvalued import OvervaluedRule
-from alerts.rules.delisting_risk import DelistingRiskRule
 from alerts.rules.allocation_drift import AllocationDriftRule
-from alerts.rules.stop_loss import StopLossRule
+from alerts.rules.base import BaseAlertRule
+from alerts.rules.delisting_risk import DelistingRiskRule
 from alerts.rules.insider_selling import InsiderSellingRule
 from alerts.rules.macro_yield_curve import MacroYieldCurveRule
+from alerts.rules.overvalued import OvervaluedRule
+from alerts.rules.stop_loss import StopLossRule
 
 
 class AlertEngine:
@@ -32,8 +33,8 @@ class AlertEngine:
 
     def __init__(
         self,
-        rules: Optional[List[BaseAlertRule]] = None,
-        config: Optional[Dict[str, Any]] = None,
+        rules: list[BaseAlertRule] | None = None,
+        config: dict[str, Any] | None = None,
     ):
         self.config = config if config is not None else load_config()
 
@@ -42,7 +43,7 @@ class AlertEngine:
         else:
             self.rules = self._get_default_rules()
 
-    def _get_default_rules(self) -> List[BaseAlertRule]:
+    def _get_default_rules(self) -> list[BaseAlertRule]:
         """Instantiate enabled default alert rules based on configuration."""
         alerts_cfg = self.config.get("alerts", {})
 
@@ -55,8 +56,7 @@ class AlertEngine:
             ("macro_yield_curve", MacroYieldCurveRule()),
         ]
 
-
-        active_rules: List[BaseAlertRule] = []
+        active_rules: list[BaseAlertRule] = []
         for key, rule_instance in all_rules:
             cfg = alerts_cfg.get(key, {})
             # If section exists and explicitly has enabled: false, skip it
@@ -66,7 +66,7 @@ class AlertEngine:
 
         return active_rules
 
-    def get_assets_directory(self, custom_path: Optional[str] = None) -> str:
+    def get_assets_directory(self, custom_path: str | None = None) -> str:
         """Resolve absolute path to 10_Finance/Assets directory."""
         if custom_path:
             return os.path.abspath(custom_path)
@@ -77,10 +77,10 @@ class AlertEngine:
 
     def run(
         self,
-        assets_dir: Optional[str] = None,
+        assets_dir: str | None = None,
         save: bool = True,
-        rule_filter: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        rule_filter: str | None = None,
+    ) -> dict[str, Any]:
         """Execute alert evaluation across all assets in the specified directory."""
         target_dir = self.get_assets_directory(assets_dir)
         if not os.path.exists(target_dir):
@@ -90,8 +90,8 @@ class AlertEngine:
         md_files = glob.glob(os.path.join(target_dir, "*.md"))
 
         # 1. Load all assets to construct the portfolio context
-        assets_with_paths: List[tuple] = []
-        loaded_assets: List[Asset] = []
+        assets_with_paths: list[tuple] = []
+        loaded_assets: list[Asset] = []
 
         for p in sorted(md_files):
             try:
@@ -112,7 +112,7 @@ class AlertEngine:
         # 2. Evaluate rules per asset
         updated_count = 0
         details = []
-        alerts_by_type: Dict[str, int] = {r.name: 0 for r in eval_rules}
+        alerts_by_type: dict[str, int] = {r.name: 0 for r in eval_rules}
 
         for path, asset in assets_with_paths:
             asset_modified = False
@@ -132,13 +132,15 @@ class AlertEngine:
             if asset_modified:
                 updated_count += 1
                 tags_after = list(asset.tags) if asset.tags else []
-                details.append({
-                    "file": os.path.basename(path),
-                    "ticker": asset.ticker,
-                    "name": asset.name,
-                    "before": tags_before,
-                    "after": tags_after,
-                })
+                details.append(
+                    {
+                        "file": os.path.basename(path),
+                        "ticker": asset.ticker,
+                        "name": asset.name,
+                        "before": tags_before,
+                        "after": tags_after,
+                    }
+                )
                 if save:
                     asset.save(path)
 

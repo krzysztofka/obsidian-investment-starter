@@ -1,9 +1,9 @@
+from .asset_info_enricher import ExanteAssetInfoEnricher
 from .service import (
     ExanteClient,
-    get_exante_client,
     fetch_exante_portfolio,
+    get_exante_client,
 )
-from .asset_info_enricher import ExanteAssetInfoEnricher
 
 __all__ = [
     "ExanteClient",

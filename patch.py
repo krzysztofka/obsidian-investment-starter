@@ -43,14 +43,16 @@ examples:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "-t", "--target",
+        "-t",
+        "--target",
         dest="target",
         type=str,
         default=None,
         help="Target vault directory to upgrade. Defaults to current vault.",
     )
     parser.add_argument(
-        "-s", "--source",
+        "-s",
+        "--source",
         dest="source",
         type=str,
         default=SCRIPT_DIR,
@@ -67,12 +69,14 @@ examples:
         help="Force re-applying patch even if version is up-to-date.",
     )
     parser.add_argument(
-        "-l", "--list",
+        "-l",
+        "--list",
         action="store_true",
         help="List all registered patches.",
     )
     parser.add_argument(
-        "-v", "--version",
+        "-v",
+        "--version",
         action="store_true",
         help="Print vault version and exit.",
     )

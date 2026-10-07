@@ -2,10 +2,10 @@
 """Unit tests for Rich progress and multi-threaded processing."""
 
 import os
-import sys
-import unittest
-import tempfile
 import shutil
+import sys
+import tempfile
+import unittest
 
 VAULT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SCRIPTS_DIR = os.path.join(VAULT_ROOT, "99_System", "Scripts")
@@ -14,12 +14,12 @@ if VAULT_ROOT not in sys.path:
 if SCRIPTS_DIR not in sys.path:
     sys.path.insert(1, SCRIPTS_DIR)
 
-import ui_progress
-from ui_progress import create_progress, track_parallel, DummyProgress, HAVE_RICH
 from platforms.common import save_or_update_assets_parallel
-from update_currencies import update_currencies
 from sync_etf_holdings import sync_all_etfs
-from run import build_parser, print_summary, TeeLogger
+from ui_progress import HAVE_RICH, DummyProgress, create_progress, track_parallel
+from update_currencies import update_currencies
+
+from run import TeeLogger, build_parser, print_summary
 
 
 class TestRichProgress(unittest.TestCase):
@@ -113,6 +113,7 @@ class TestRichProgress(unittest.TestCase):
     def test_tee_logger_strips_ansi(self):
         """Verify TeeLogger strips ANSI escape codes and consolidates carriage returns for clean log output."""
         import io
+
         stream = io.StringIO()
         with tempfile.NamedTemporaryFile("w+", delete=False, encoding="utf-8") as temp_log:
             temp_log_path = temp_log.name
@@ -125,7 +126,7 @@ class TestRichProgress(unittest.TestCase):
             logger.flush()
             logger.close()
 
-            with open(temp_log_path, "r", encoding="utf-8") as f:
+            with open(temp_log_path, encoding="utf-8") as f:
                 log_content = f.read()
 
             self.assertIn("Line 1", log_content)

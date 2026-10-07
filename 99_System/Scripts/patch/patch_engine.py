@@ -4,10 +4,10 @@ Discovers and executes sequential version patches to upgrade a downstream vault
 from an upstream starter while protecting personal investment data and custom configurations.
 """
 
+import importlib.util
 import os
 import sys
-import importlib.util
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS_ROOT = os.path.dirname(SCRIPT_DIR)
@@ -24,7 +24,7 @@ def get_vault_version(vault_path: str) -> str:
     version_file = os.path.join(vault_path, ".vault_version")
     if os.path.exists(version_file):
         try:
-            with open(version_file, "r", encoding="utf-8") as f:
+            with open(version_file, encoding="utf-8") as f:
                 ver = f.read().strip()
                 if ver:
                     return ver
@@ -38,7 +38,7 @@ def get_vault_version(vault_path: str) -> str:
     return "0.0.0"
 
 
-def discover_patches() -> List[Dict[str, Any]]:
+def discover_patches() -> list[dict[str, Any]]:
     """Discover available patch modules in patches/ directory."""
     patches_dir = os.path.join(SCRIPT_DIR, "patches")
     if not os.path.exists(patches_dir):
@@ -59,13 +59,15 @@ def discover_patches() -> List[Dict[str, Any]]:
                     desc = getattr(mod, "DESCRIPTION", "")
                     apply_fn = getattr(mod, "apply", None)
                     if from_v and to_v and callable(apply_fn):
-                        patches.append({
-                            "from_version": from_v,
-                            "to_version": to_v,
-                            "description": desc,
-                            "apply": apply_fn,
-                            "file": fname,
-                        })
+                        patches.append(
+                            {
+                                "from_version": from_v,
+                                "to_version": to_v,
+                                "description": desc,
+                                "apply": apply_fn,
+                                "file": fname,
+                            }
+                        )
             except Exception as e:
                 print(f"Warning: could not load patch {fname}: {e}")
 
@@ -75,8 +77,8 @@ def discover_patches() -> List[Dict[str, Any]]:
 def build_patch_pipeline(
     current_version: str,
     target_version: str,
-    available_patches: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    available_patches: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """Build a linear chain of patches from current_version to target_version."""
     pipeline = []
     curr = current_version
@@ -100,7 +102,7 @@ def build_patch_pipeline(
 class PatchEngine:
     """Manages vault migrations and version patching."""
 
-    def __init__(self, source_vault: Optional[str] = None):
+    def __init__(self, source_vault: str | None = None):
         self.source_vault = os.path.abspath(source_vault or DEFAULT_SOURCE_VAULT)
         self.source_version = get_vault_version(self.source_vault)
         self.patches = discover_patches()
@@ -174,8 +176,8 @@ class PatchEngine:
 
 
 def run_patch(
-    target_vault: Optional[str] = None,
-    source_vault: Optional[str] = None,
+    target_vault: str | None = None,
+    source_vault: str | None = None,
     dry_run: bool = False,
     force: bool = False,
 ) -> bool:
@@ -190,14 +192,16 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Vault Patch & Migration Engine.")
     parser.add_argument(
-        "-t", "--target",
+        "-t",
+        "--target",
         dest="target",
         type=str,
         default=None,
         help="Target vault path to upgrade. Defaults to current vault.",
     )
     parser.add_argument(
-        "-s", "--source",
+        "-s",
+        "--source",
         dest="source",
         type=str,
         default=None,
@@ -214,12 +218,14 @@ if __name__ == "__main__":
         help="Force re-applying patch even if version matches.",
     )
     parser.add_argument(
-        "-l", "--list",
+        "-l",
+        "--list",
         action="store_true",
         help="List available patches and exit.",
     )
     parser.add_argument(
-        "-v", "--version",
+        "-v",
+        "--version",
         action="store_true",
         help="Display current vault version and exit.",
     )

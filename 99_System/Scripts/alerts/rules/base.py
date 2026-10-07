@@ -1,7 +1,7 @@
-from abc import ABC, abstractmethod
-from typing import Optional, List, Any
-import sys
 import os
+import sys
+from abc import ABC, abstractmethod
+from typing import Any
 
 # Ensure model is importable
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -33,7 +33,7 @@ class BaseAlertRule(ABC):
         return ""
 
     @abstractmethod
-    def evaluate(self, asset: Asset, context: Any) -> Optional[bool]:
+    def evaluate(self, asset: Asset, context: Any) -> bool | None:
         """Evaluate if the alert condition is triggered.
 
         Returns:

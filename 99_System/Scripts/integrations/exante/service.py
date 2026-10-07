@@ -1,12 +1,15 @@
+import base64
 import os
-import sys
 import re
+import sys
 from datetime import datetime
-from typing import Optional, Dict, List, Any, Union, Tuple
+from typing import Any
+
 import requests
 
 try:
-    from dotenv import load_dotenv, find_dotenv
+    from dotenv import find_dotenv, load_dotenv
+
     load_dotenv(find_dotenv(usecwd=True))
 except ImportError:
     pass
@@ -16,11 +19,15 @@ DEFAULT_LIVE_URL = "https://api-live.exante.eu"
 DEFAULT_DEMO_URL = "https://api-demo.exante.eu"
 
 
-def _load_env_config() -> Dict[str, Optional[str]]:
+def _load_env_config() -> dict[str, str | None]:
     """Load Exante configuration from environment variables or .env file."""
     config = {
-        "api_key": os.environ.get("EXANTE_API_KEY") or os.environ.get("EXANTE_APPLICATION_ID") or os.environ.get("EXANTE_CLIENT_ID"),
-        "api_secret": os.environ.get("EXANTE_API_SECRET") or os.environ.get("EXANTE_SHARED_KEY") or os.environ.get("EXANTE_SECRET_KEY"),
+        "api_key": os.environ.get("EXANTE_API_KEY")
+        or os.environ.get("EXANTE_APPLICATION_ID")
+        or os.environ.get("EXANTE_CLIENT_ID"),
+        "api_secret": os.environ.get("EXANTE_API_SECRET")
+        or os.environ.get("EXANTE_SHARED_KEY")
+        or os.environ.get("EXANTE_SECRET_KEY"),
         "account_id": os.environ.get("EXANTE_ACCOUNT_ID"),
         "api_url": os.environ.get("EXANTE_API_URL"),
         "env": (os.environ.get("EXANTE_ENV") or os.environ.get("EXANTE_ENVIRONMENT") or "live").lower(),
@@ -34,16 +41,22 @@ def _load_env_config() -> Dict[str, Optional[str]]:
             env_path = os.path.join(current, ".env")
             if os.path.exists(env_path):
                 try:
-                    with open(env_path, "r", encoding="utf-8") as f:
+                    with open(env_path, encoding="utf-8") as f:
                         for line in f:
                             line = line.strip()
                             if not line or line.startswith("#") or "=" not in line:
                                 continue
                             k, v = line.split("=", 1)
                             k, v = k.strip(), v.strip().strip("'\"")
-                            if k in ("EXANTE_API_KEY", "EXANTE_APPLICATION_ID", "EXANTE_CLIENT_ID") and not config["api_key"]:
+                            if (
+                                k in ("EXANTE_API_KEY", "EXANTE_APPLICATION_ID", "EXANTE_CLIENT_ID")
+                                and not config["api_key"]
+                            ):
                                 config["api_key"] = v
-                            elif k in ("EXANTE_API_SECRET", "EXANTE_SHARED_KEY", "EXANTE_SECRET_KEY") and not config["api_secret"]:
+                            elif (
+                                k in ("EXANTE_API_SECRET", "EXANTE_SHARED_KEY", "EXANTE_SECRET_KEY")
+                                and not config["api_secret"]
+                            ):
                                 config["api_secret"] = v
                             elif k == "EXANTE_ACCOUNT_ID" and not config["account_id"]:
                                 config["account_id"] = v
@@ -71,20 +84,30 @@ def _b64url_encode(data: bytes) -> str:
 def generate_jwt_token(
     app_id: str,
     shared_key: str,
-    client_id: Optional[str] = None,
+    client_id: str | None = None,
     expires_in_seconds: int = 86400,
-    scopes: Optional[List[str]] = None,
+    scopes: list[str] | None = None,
 ) -> str:
     """Generate an Exante OpenAPI JWT token signed with HMAC SHA-256."""
+    import hashlib
+    import hmac
+    import json
     import time
     import uuid
-    import json
-    import hmac
-    import hashlib
 
     now = int(time.time())
-    aud = scopes or ["symbols", "crossrates", "trade", "accounts", "summary", "feed", "change", "transactions", "historical"]
-    
+    aud = scopes or [
+        "symbols",
+        "crossrates",
+        "trade",
+        "accounts",
+        "summary",
+        "feed",
+        "change",
+        "transactions",
+        "historical",
+    ]
+
     header = {"alg": "HS256", "typ": "JWT"}
     payload = {
         "iss": app_id,
@@ -96,9 +119,9 @@ def generate_jwt_token(
     if client_id:
         payload["sub"] = client_id
 
-    header_b64 = _b64url_encode(json.dumps(header, separators=(',', ':')).encode("utf-8"))
-    payload_b64 = _b64url_encode(json.dumps(payload, separators=(',', ':')).encode("utf-8"))
-    to_sign = f"{header_b64}.{payload_b64}".encode("utf-8")
+    header_b64 = _b64url_encode(json.dumps(header, separators=(",", ":")).encode("utf-8"))
+    payload_b64 = _b64url_encode(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+    to_sign = f"{header_b64}.{payload_b64}".encode()
     sig = hmac.new(shared_key.encode("utf-8"), to_sign, hashlib.sha256).digest()
     sig_b64 = _b64url_encode(sig)
 
@@ -110,20 +133,25 @@ class ExanteClient:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        api_secret: Optional[str] = None,
-        account_id: Optional[str] = None,
-        api_url: Optional[str] = None,
-        jwt_token: Optional[str] = None,
-        env: Optional[str] = None,
-        client_id: Optional[str] = None,
+        api_key: str | None = None,
+        api_secret: str | None = None,
+        account_id: str | None = None,
+        api_url: str | None = None,
+        jwt_token: str | None = None,
+        env: str | None = None,
+        client_id: str | None = None,
     ):
         env_cfg = _load_env_config()
         self.api_key = api_key or env_cfg.get("api_key")
         self.api_secret = api_secret or env_cfg.get("api_secret")
         self.account_id = account_id or env_cfg.get("account_id")
         self.jwt_token = jwt_token or env_cfg.get("jwt_token")
-        self.client_id = client_id or env_cfg.get("client_id") or os.environ.get("EXANTE_USER_ID") or os.environ.get("EXANTE_CLIENT_ID")
+        self.client_id = (
+            client_id
+            or env_cfg.get("client_id")
+            or os.environ.get("EXANTE_USER_ID")
+            or os.environ.get("EXANTE_CLIENT_ID")
+        )
         self.env = (env or env_cfg.get("env") or "live").lower()
 
         # If api_key looks like a JWT token (eyJ...)
@@ -135,25 +163,26 @@ class ExanteClient:
         elif env:
             self.base_url = DEFAULT_DEMO_URL if self.env == "demo" else DEFAULT_LIVE_URL
         elif env_cfg.get("api_url"):
-            self.base_url = env_cfg["api_url"].rstrip("/")
+            api_url_cfg = env_cfg.get("api_url")
+            self.base_url = api_url_cfg.rstrip("/") if api_url_cfg else DEFAULT_LIVE_URL
         elif self.env == "demo":
             self.base_url = DEFAULT_DEMO_URL
         else:
             self.base_url = DEFAULT_LIVE_URL
 
-        self._symbol_cache: Dict[str, Dict[str, Any]] = {}
+        self._symbol_cache: dict[str, dict[str, Any]] = {}
 
     def is_configured(self) -> bool:
         """Check whether sufficient credentials exist to connect to Exante API."""
         return bool(self.jwt_token or (self.api_key and self.api_secret))
 
-    def _get_auth_headers(self) -> Tuple[Optional[Tuple[str, str]], Dict[str, str]]:
+    def _get_auth_headers(self) -> tuple[tuple[str, str] | None, dict[str, str]]:
         """Get HTTP auth parameters and headers."""
         headers = {
             "Accept": "application/json",
             "User-Agent": "InvestmentSecondBrain/1.0",
         }
-        auth: Optional[Tuple[str, str]] = None
+        auth: tuple[str, str] | None = None
 
         if self.jwt_token:
             headers["Authorization"] = f"Bearer {self.jwt_token}"
@@ -165,7 +194,7 @@ class ExanteClient:
     def _request(
         self,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         timeout: int = 15,
         silent: bool = False,
     ) -> Any:
@@ -198,7 +227,7 @@ class ExanteClient:
                 sys.stderr.write(f"Exante API request failed for {endpoint}: {e}\n")
             raise
 
-    def get_accounts(self) -> List[Dict[str, Any]]:
+    def get_accounts(self) -> list[dict[str, Any]]:
         """Retrieve list of accounts accessible by current credentials."""
         endpoints_to_try = [
             "md/3.0/accounts",
@@ -217,9 +246,9 @@ class ExanteClient:
 
     def get_account_summary(
         self,
-        account_id: Optional[str] = None,
+        account_id: str | None = None,
         currency: str = "EUR",
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Retrieve account summary (balances, positions, NAV) for the given account."""
         acc_id = account_id or self.account_id
         if not acc_id:
@@ -251,7 +280,7 @@ class ExanteClient:
             raise last_error
         return None
 
-    def get_positions(self, account_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_positions(self, account_id: str | None = None) -> list[dict[str, Any]]:
         """Retrieve active open positions for the given account."""
         acc_id = account_id or self.account_id
         endpoints = []
@@ -270,7 +299,7 @@ class ExanteClient:
                 pass
         return []
 
-    def get_symbol_info(self, symbol_id: str) -> Optional[Dict[str, Any]]:
+    def get_symbol_info(self, symbol_id: str) -> dict[str, Any] | None:
         """Retrieve metadata (ticker, description, ISIN, currency) for a symbol."""
         if not symbol_id:
             return None
@@ -290,9 +319,9 @@ class ExanteClient:
 
     def fetch_portfolio(
         self,
-        account_id: Optional[str] = None,
+        account_id: str | None = None,
         summary_currency: str = "EUR",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Fetch unified portfolio state (cash balances and open positions) from Exante API.
 
         Returns a structured dictionary matching the format expected by platforms/exante.py:
@@ -348,7 +377,7 @@ class ExanteClient:
 
         # 1. Parse cash balances
         currencies_raw = summary.get("currencies") or summary.get("cash") or summary.get("balances") or []
-        cash_balances: List[Dict[str, Any]] = []
+        cash_balances: list[dict[str, Any]] = []
 
         if isinstance(currencies_raw, list):
             for c in currencies_raw:
@@ -363,12 +392,14 @@ class ExanteClient:
                 except ValueError:
                     val = 0.0
 
-                cash_balances.append({
-                    "instrument": f"{code} Cash Balance",
-                    "iso": code,
-                    "value": val,
-                    "currency": code,
-                })
+                cash_balances.append(
+                    {
+                        "instrument": f"{code} Cash Balance",
+                        "iso": code,
+                        "value": val,
+                        "currency": code,
+                    }
+                )
         elif isinstance(currencies_raw, dict):
             for code, raw_val in currencies_raw.items():
                 code_clean = str(code).strip().upper()
@@ -376,12 +407,14 @@ class ExanteClient:
                     val = float(str(raw_val).replace(",", ".").strip())
                 except ValueError:
                     val = 0.0
-                cash_balances.append({
-                    "instrument": f"{code_clean} Cash Balance",
-                    "iso": code_clean,
-                    "value": val,
-                    "currency": code_clean,
-                })
+                cash_balances.append(
+                    {
+                        "instrument": f"{code_clean} Cash Balance",
+                        "iso": code_clean,
+                        "value": val,
+                        "currency": code_clean,
+                    }
+                )
 
         # 2. Parse positions
         positions_raw = summary.get("positions") or []
@@ -389,7 +422,7 @@ class ExanteClient:
             # Fallback to direct positions endpoint if summary positions are empty
             positions_raw = self.get_positions(acc_id)
 
-        parsed_positions: List[Dict[str, Any]] = []
+        parsed_positions: list[dict[str, Any]] = []
         for p in positions_raw:
             if not isinstance(p, dict):
                 continue
@@ -406,13 +439,21 @@ class ExanteClient:
             if quantity <= 0:
                 continue
 
-            raw_price = p.get("price") if "price" in p else p.get("currentPrice") if "currentPrice" in p else p.get("lastPrice")
+            raw_price = (
+                p.get("price") if "price" in p else p.get("currentPrice") if "currentPrice" in p else p.get("lastPrice")
+            )
             try:
                 current_price = float(str(raw_price).replace(",", ".").strip()) if raw_price is not None else 0.0
             except ValueError:
                 current_price = 0.0
 
-            raw_avg = p.get("averagePrice") if "averagePrice" in p else p.get("avgPrice") if "avgPrice" in p else p.get("openPrice")
+            raw_avg = (
+                p.get("averagePrice")
+                if "averagePrice" in p
+                else p.get("avgPrice")
+                if "avgPrice" in p
+                else p.get("openPrice")
+            )
             try:
                 avg_price = float(str(raw_avg).replace(",", ".").strip()) if raw_avg is not None else None
             except ValueError:
@@ -427,7 +468,9 @@ class ExanteClient:
                 sym_info = self.get_symbol_info(symbol_id)
                 if sym_info:
                     if not name:
-                        name = sym_info.get("name") or sym_info.get("description") or sym_info.get("ticker") or symbol_id
+                        name = (
+                            sym_info.get("name") or sym_info.get("description") or sym_info.get("ticker") or symbol_id
+                        )
                     if not isin and sym_info.get("isin"):
                         isin = sym_info["isin"]
                     if not currency and sym_info.get("currency"):
@@ -438,16 +481,18 @@ class ExanteClient:
             if not currency:
                 currency = "EUR"
 
-            parsed_positions.append({
-                "ticker": symbol_id,
-                "instrument": symbol_id,
-                "name": name,
-                "quantity": quantity,
-                "avg_price": avg_price,
-                "current_price": current_price,
-                "currency": currency,
-                "isin": isin or None,
-            })
+            parsed_positions.append(
+                {
+                    "ticker": symbol_id,
+                    "instrument": symbol_id,
+                    "name": name,
+                    "quantity": quantity,
+                    "avg_price": avg_price,
+                    "current_price": current_price,
+                    "currency": currency,
+                    "isin": isin or None,
+                }
+            )
 
         nav_raw = summary.get("netAssetValue") or summary.get("nav") or summary.get("equity")
         try:
@@ -465,12 +510,12 @@ class ExanteClient:
 
 
 def get_exante_client(
-    api_key: Optional[str] = None,
-    api_secret: Optional[str] = None,
-    account_id: Optional[str] = None,
-    api_url: Optional[str] = None,
-    jwt_token: Optional[str] = None,
-) -> Optional[ExanteClient]:
+    api_key: str | None = None,
+    api_secret: str | None = None,
+    account_id: str | None = None,
+    api_url: str | None = None,
+    jwt_token: str | None = None,
+) -> ExanteClient | None:
     """Create and return an ExanteClient instance if credentials are valid."""
     client = ExanteClient(
         api_key=api_key,
@@ -483,9 +528,9 @@ def get_exante_client(
 
 
 def fetch_exante_portfolio(
-    account_id: Optional[str] = None,
-    client: Optional[ExanteClient] = None,
-) -> Optional[Dict[str, Any]]:
+    account_id: str | None = None,
+    client: ExanteClient | None = None,
+) -> dict[str, Any] | None:
     """Fetch portfolio balances and positions directly from Exante API."""
     cli = client or get_exante_client(account_id=account_id)
     if not cli:

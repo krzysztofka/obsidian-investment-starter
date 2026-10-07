@@ -11,12 +11,12 @@ Provides a unified command interface to execute portfolio pipeline actions:
   --all           : Execute all portfolio pipeline actions in logical sequence
 """
 
-import os
-import sys
-import re
-import time
 import argparse
-from typing import Optional, List, Tuple, Dict, Any
+import os
+import re
+import sys
+import time
+from typing import Any
 
 # Configure UTF-8 encoding and line buffering for stdout/stderr on Windows consoles
 if hasattr(sys.stdout, "reconfigure"):
@@ -41,7 +41,7 @@ LOG_FILE_PATH = os.path.join(VAULT_ROOT, "99_System", "runner.log")
 class TeeLogger:
     """Tees output to terminal stream and a persistent runner.log file."""
 
-    ANSI_ESCAPE_RE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    ANSI_ESCAPE_RE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
     def __init__(self, stream, log_path: str):
         self.stream = stream
@@ -63,13 +63,13 @@ class TeeLogger:
         if self._file:
             try:
                 # Strip ANSI sequences to keep log file clean plaintext
-                clean_chunk = self.ANSI_ESCAPE_RE.sub('', data)
+                clean_chunk = self.ANSI_ESCAPE_RE.sub("", data)
                 self._line_buffer += clean_chunk
-                if '\n' in self._line_buffer:
-                    lines = self._line_buffer.replace('\r\n', '\n').split('\n')
+                if "\n" in self._line_buffer:
+                    lines = self._line_buffer.replace("\r\n", "\n").split("\n")
                     for line in lines[:-1]:
-                        final_line = line.split('\r')[-1]
-                        self._file.write(final_line + '\n')
+                        final_line = line.split("\r")[-1]
+                        self._file.write(final_line + "\n")
                     self._line_buffer = lines[-1]
                 self._file.flush()
             except Exception:
@@ -83,9 +83,9 @@ class TeeLogger:
         if self._file:
             try:
                 if self._line_buffer:
-                    final_line = self._line_buffer.split('\r')[-1]
+                    final_line = self._line_buffer.split("\r")[-1]
                     if final_line:
-                        self._file.write(final_line + '\n')
+                        self._file.write(final_line + "\n")
                     self._line_buffer = ""
                 self._file.flush()
             except Exception:
@@ -116,10 +116,10 @@ sys.stderr = TeeLogger(sys.stderr, LOG_FILE_PATH)
 # Pipeline Step Implementations
 # ==============================================================================
 
-def run_import_step(args: argparse.Namespace, vault_root: str) -> Dict[str, Any]:
+
+def run_import_step(args: argparse.Namespace, vault_root: str) -> dict[str, Any]:
     """Execute broker asset import."""
     from import_assets import import_assets
-
     from platforms.common import load_import_config
 
     platform = getattr(args, "platform", None)
@@ -144,11 +144,12 @@ def run_import_step(args: argparse.Namespace, vault_root: str) -> Dict[str, Any]
         print(f"   Target file: {file_path}")
     elif platform:
         print(f"   Target platform: {platform}")
-    elif effective_use_api:
-        print("   Target: Degiro (CSV), Exante (REST API), mBM (IKE/IKZE CSV) & PKO BP (Excel)")
     else:
-        print("   Target: All supported platforms (Degiro, Exante, mBM & PKO BP)")
+        from platforms.base import PlatformRegistry
 
+        enabled_platforms = PlatformRegistry.get_enabled(base_dir=vault_root)
+        enabled_names = ", ".join(p.display_name for p in enabled_platforms.values()) if enabled_platforms else "None"
+        print(f"   Target: Enabled platforms ({enabled_names})")
 
     show_progress = not getattr(args, "no_progress", False)
     results = import_assets(
@@ -165,7 +166,7 @@ def run_import_step(args: argparse.Namespace, vault_root: str) -> Dict[str, Any]
     return {"status": "ok", "details": results, "count": total_imported}
 
 
-def run_update_rates_step(args: argparse.Namespace, vault_root: str) -> Dict[str, Any]:
+def run_update_rates_step(args: argparse.Namespace, vault_root: str) -> dict[str, Any]:
     """Execute currency FX rates update and PLN valuation calculation."""
     from update_currencies import update_currencies
 
@@ -177,7 +178,7 @@ def run_update_rates_step(args: argparse.Namespace, vault_root: str) -> Dict[str
     return {"status": "ok"}
 
 
-def run_macro_step(args: argparse.Namespace, vault_root: str) -> Dict[str, Any]:
+def run_macro_step(args: argparse.Namespace, vault_root: str) -> dict[str, Any]:
     """Execute macroeconomic dashboard synchronization."""
     from sync_macro import sync_macro
 
@@ -192,7 +193,7 @@ def run_macro_step(args: argparse.Namespace, vault_root: str) -> Dict[str, Any]:
     return {"status": "ok", "details": result}
 
 
-def run_sync_etfs_step(args: argparse.Namespace, vault_root: str) -> Dict[str, Any]:
+def run_sync_etfs_step(args: argparse.Namespace, vault_root: str) -> dict[str, Any]:
     """Execute ETF top holdings and cross-exposure synchronization."""
     from sync_etf_holdings import sync_all_etfs
 
@@ -224,7 +225,7 @@ def run_sync_etfs_step(args: argparse.Namespace, vault_root: str) -> Dict[str, A
     return {"status": "ok"}
 
 
-def run_alerts_step(args: argparse.Namespace, vault_root: str) -> Dict[str, Any]:
+def run_alerts_step(args: argparse.Namespace, vault_root: str) -> dict[str, Any]:
     """Execute Alert Rules Engine scan."""
     from alerts.engine import AlertEngine
 
@@ -252,7 +253,7 @@ def run_alerts_step(args: argparse.Namespace, vault_root: str) -> Dict[str, Any]
     return {"status": "ok", "scanned": scanned, "updated": updated, "active_alerts": active_alerts}
 
 
-def run_history_step(args: argparse.Namespace, vault_root: str) -> Dict[str, Any]:
+def run_history_step(args: argparse.Namespace, vault_root: str) -> dict[str, Any]:
     """Execute portfolio historical snapshot synchronization."""
     from history.update_portfolio import update_portfolio_history
 
@@ -262,7 +263,7 @@ def run_history_step(args: argparse.Namespace, vault_root: str) -> Dict[str, Any
     return {"status": "ok", "file": csv_file}
 
 
-def run_export_template_step(args: argparse.Namespace, vault_root: str) -> Dict[str, Any]:
+def run_export_template_step(args: argparse.Namespace, vault_root: str) -> dict[str, Any]:
     """Execute clean template repository export."""
     from export_template import export_template
 
@@ -271,7 +272,7 @@ def run_export_template_step(args: argparse.Namespace, vault_root: str) -> Dict[
     return {"status": "ok", "target_dir": exported_path}
 
 
-def run_patch_step(args: argparse.Namespace, vault_root: str) -> Dict[str, Any]:
+def run_patch_step(args: argparse.Namespace, vault_root: str) -> dict[str, Any]:
     """Execute vault version patching and synchronization."""
     from patch.patch_engine import PatchEngine
 
@@ -301,8 +302,9 @@ PIPELINE_STEPS = [
 ]
 
 
-def print_banner(vault_root: str, max_workers: Optional[int] = None):
+def print_banner(vault_root: str, max_workers: int | None = None):
     from platforms.common import get_max_workers
+
     workers = get_max_workers(max_workers, base_dir=vault_root)
     cpu_count = os.cpu_count() or "N/A"
     print("=" * 72)
@@ -315,17 +317,20 @@ def print_banner(vault_root: str, max_workers: Optional[int] = None):
     print()
 
 
-def print_summary(results: List[Tuple[str, str, str, float]], use_rich: bool = True):
+def print_summary(results: list[tuple[str, str, str, float]], use_rich: bool = True):
     try:
         from rich.table import Table
         from ui_progress import get_console
+
         console = get_console() if use_rich else None
     except ImportError:
         console = None
 
     if console and console.is_terminal:
         print()
-        table = Table(title="📋  EXECUTION SUMMARY REPORT", show_header=True, header_style="bold cyan", border_style="dim")
+        table = Table(
+            title="📋  EXECUTION SUMMARY REPORT", show_header=True, header_style="bold cyan", border_style="dim"
+        )
         table.add_column("Step", style="bold", width=16)
         table.add_column("Description", width=42)
         table.add_column("Status", width=12)
@@ -416,37 +421,45 @@ examples:
         help="Run all pipeline actions in canonical sequence.",
     )
     actions_group.add_argument(
-        "-i", "--import",
+        "-i",
+        "--import",
         dest="action_import",
         action="store_true",
         help="Import broker positions from Degiro / Exante / mBM CSV exports or REST API.",
     )
     actions_group.add_argument(
-        "-r", "--update-rates", "--rates",
+        "-r",
+        "--update-rates",
+        "--rates",
         dest="action_update_rates",
         action="store_true",
         help="Refresh currency FX rates to PLN and update asset valuations.",
     )
     actions_group.add_argument(
-        "-m", "--macro", "--sync-macro",
+        "-m",
+        "--macro",
+        "--sync-macro",
         dest="action_macro",
         action="store_true",
         help="Synchronize macroeconomic indicators, Treasury yields, and rates to Macro.md.",
     )
     actions_group.add_argument(
-        "-s", "--sync-etfs",
+        "-s",
+        "--sync-etfs",
         dest="action_sync_etfs",
         action="store_true",
         help="Synchronize ETF top holdings, overlap & exposures.",
     )
     actions_group.add_argument(
-        "-a", "--alerts",
+        "-a",
+        "--alerts",
         dest="action_alerts",
         action="store_true",
         help="Scan and evaluate portfolio alerts (Alert Rules Engine).",
     )
     actions_group.add_argument(
-        "-H", "--history",
+        "-H",
+        "--history",
         dest="action_history",
         action="store_true",
         help="Synchronize portfolio historical timeline into portfolio.csv.",
@@ -472,17 +485,43 @@ examples:
         help="Synchronize and patch updates into target downstream vault (e.g., ../trader).",
     )
 
+    # Platform extensions management
+    platform_opts = parser.add_argument_group("platform extensions")
+    platform_opts.add_argument(
+        "--list-platforms",
+        action="store_true",
+        help="List available platform extensions and their enabled status.",
+    )
+    platform_opts.add_argument(
+        "--enable-platform",
+        dest="enable_platform",
+        type=str,
+        default=None,
+        metavar="PLATFORM_ID",
+        help="Enable a platform extension in config.yaml.",
+    )
+    platform_opts.add_argument(
+        "--disable-platform",
+        dest="disable_platform",
+        type=str,
+        default=None,
+        metavar="PLATFORM_ID",
+        help="Disable a platform extension in config.yaml.",
+    )
+
     # Step-specific fine-tuning options
     step_opts = parser.add_argument_group("action options")
     step_opts.add_argument(
-        "-p", "--platform",
+        "-p",
+        "--platform",
         type=str,
         default=None,
-        help="[--import] Broker platform (e.g., 'degiro', 'exante', 'mbm', 'ike', 'ikze', 'pkobp'). Default: all.",
+        help="[--import] Broker platform (e.g., 'pko_bp_bonds', 'mbank_ike', 'mbank_ikze', 'degiro', 'exante'). Default: enabled platforms.",
     )
 
     step_opts.add_argument(
-        "-f", "--file",
+        "-f",
+        "--file",
         type=str,
         default=None,
         help="[--import] Path to specific broker CSV file.",
@@ -536,7 +575,8 @@ examples:
     # Global runtime options
     global_opts = parser.add_argument_group("global options")
     global_opts.add_argument(
-        "-w", "--workers",
+        "-w",
+        "--workers",
         dest="max_workers",
         type=int,
         default=None,
@@ -581,6 +621,33 @@ def main() -> int:
     # Determine vault root
     vault_root = os.path.abspath(args.base_dir) if args.base_dir else VAULT_ROOT
 
+    # Platform management actions
+    if args.list_platforms:
+        from platforms.base import PlatformRegistry
+
+        print("\nRegistered Platform Extensions:")
+        print(f"{'ID':<16} {'Display Name':<20} {'Raw Folder':<16} {'Enabled':<10}")
+        print("-" * 65)
+        for item in PlatformRegistry.list_platforms(base_dir=vault_root):
+            status = "✓ Yes" if item["enabled"] else "✗ No"
+            print(f"{item['id']:<16} {item['display_name']:<20} {item['raw_folder']:<16} {status:<10}")
+        print()
+        return 0
+
+    if args.enable_platform:
+        from platforms.base import PlatformRegistry
+
+        PlatformRegistry.set_platform_enabled(args.enable_platform, True, base_dir=vault_root)
+        print(f"✓ Platform '{args.enable_platform}' enabled in config.yaml.")
+        return 0
+
+    if args.disable_platform:
+        from platforms.base import PlatformRegistry
+
+        PlatformRegistry.set_platform_enabled(args.disable_platform, False, base_dir=vault_root)
+        print(f"✓ Platform '{args.disable_platform}' disabled in config.yaml.")
+        return 0
+
     # Determine requested actions
     requested_steps = []
     run_all = args.all
@@ -615,7 +682,7 @@ def main() -> int:
         print("⚡ Global dry-run mode active")
     print()
 
-    results: List[Tuple[str, str, str, float]] = []
+    results: list[tuple[str, str, str, float]] = []
     total_steps = len(requested_steps)
     step_index = 0
 

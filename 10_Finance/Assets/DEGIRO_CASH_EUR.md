@@ -1,17 +1,19 @@
 ---
 ticker: DEGIRO_CASH_EUR
 name: Degiro Cash Balance (EUR)
-asset_class: cash
-currency: EUR
-quantity: 2500.0
+platform: Degiro
+quantity: 2500
+avg_price: null
 current_price: 1.0
-avg_purchase_price: 1.0
-value_pln: 10750.0
-portfolio: safety
-broker: Degiro
+value_pln: 10954.25
+currency: EUR
+asset_type: cash
+dominant_sector: Cash
+industry: Cash
+morningstar_rating: null
+morningstar_risk: null
+last_updated: "2026-10-05"
 source: platform
-last_updated: "2026-09-19"
-alerts: []
 ---
 # Degiro Cash Balance (EUR)
 

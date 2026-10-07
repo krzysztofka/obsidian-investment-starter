@@ -1,47 +1,19 @@
 from .base import BaseAssetInfoEnricher
-from .multi_source_asset_enricher import MultiSourceAssetEnricher
-from .justetf import (
-    JustETFAssetInfoEnricher,
-    fetch_justetf_data,
-    fetch_justetf_sectors,
-    check_delisting_risk,
-    apply_delisting_risk_tag,
-    update_delisting_risk_alerts,
-)
-from .yfinance import (
-    YFinanceAssetInfoEnricher,
-    fetch_yfinance_data,
-    fetch_yfinance_analyst_rating,
-    get_fx_rate_to_pln,
-    calculate_value_pln,
-    check_overvalued,
-    apply_overvalued_tag,
-    search_yahoo_symbol,
-    update_overvalued_alerts,
+from .exante import (
+    ExanteAssetInfoEnricher,
+    ExanteClient,
+    fetch_exante_portfolio,
+    get_exante_client,
 )
 from .finnhub import (
+    ALERT_INSIDER_SELL_TAG,
     FinnhubAssetInfoEnricher,
+    apply_insider_sell_tag,
+    check_insider_sell,
     fetch_analyst_rating,
     fetch_insider_sentiment,
     fetch_insider_transactions,
-    check_insider_sell,
-    apply_insider_sell_tag,
     get_finnhub_client,
-    ALERT_INSIDER_SELL_TAG,
-)
-from .openbb import (
-    OpenBBAssetInfoEnricher,
-    fetch_openbb_data,
-    fetch_morningstar_rating,
-    get_potential_watchlist_items,
-    scan_watchlist_candidates,
-    generate_watchlist_item_note,
-    save_watchlist_item,
-)
-from .sector_classifier import (
-    determine_dominant_sector,
-    load_sector_config,
-    fetch_etf_holdings_data,
 )
 from .ishares import (
     ISharesAssetInfoEnricher,
@@ -49,11 +21,34 @@ from .ishares import (
     fetch_ishares_url,
     get_ishares_catalog,
 )
-from .vanguard import (
-    VanguardAssetInfoEnricher,
-    fetch_vanguard_data,
-    fetch_vanguard_url,
-    get_vanguard_catalog,
+from .justetf import (
+    JustETFAssetInfoEnricher,
+    apply_delisting_risk_tag,
+    check_delisting_risk,
+    fetch_justetf_data,
+    fetch_justetf_sectors,
+    update_delisting_risk_alerts,
+)
+from .multi_source_asset_enricher import MultiSourceAssetEnricher
+from .openbb import (
+    OpenBBAssetInfoEnricher,
+    fetch_morningstar_rating,
+    fetch_openbb_data,
+    generate_watchlist_item_note,
+    get_potential_watchlist_items,
+    save_watchlist_item,
+    scan_watchlist_candidates,
+)
+from .sector_classifier import (
+    determine_dominant_sector,
+    fetch_etf_holdings_data,
+    load_sector_config,
+)
+from .stooq import (
+    KNOWN_ISIN_STOOQ_MAP,
+    KNOWN_TICKER_STOOQ_MAP,
+    StooqAssetInfoEnricher,
+    resolve_stooq_ticker,
 )
 from .vaneck import (
     VanEckAssetInfoEnricher,
@@ -61,17 +56,22 @@ from .vaneck import (
     fetch_vaneck_url,
     get_vaneck_catalog,
 )
-from .exante import (
-    ExanteClient,
-    get_exante_client,
-    fetch_exante_portfolio,
-    ExanteAssetInfoEnricher,
+from .vanguard import (
+    VanguardAssetInfoEnricher,
+    fetch_vanguard_data,
+    fetch_vanguard_url,
+    get_vanguard_catalog,
 )
-from .stooq import (
-    StooqAssetInfoEnricher,
-    resolve_stooq_ticker,
-    KNOWN_ISIN_STOOQ_MAP,
-    KNOWN_TICKER_STOOQ_MAP,
+from .yfinance import (
+    YFinanceAssetInfoEnricher,
+    apply_overvalued_tag,
+    calculate_value_pln,
+    check_overvalued,
+    fetch_yfinance_analyst_rating,
+    fetch_yfinance_data,
+    get_fx_rate_to_pln,
+    search_yahoo_symbol,
+    update_overvalued_alerts,
 )
 
 __all__ = [

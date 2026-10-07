@@ -7,11 +7,10 @@ to a clean standalone template repository (default: ../obsidian-investment-start
 """
 
 import os
-import sys
 import shutil
 import subprocess
+import sys
 from datetime import datetime
-from typing import Optional, List, Dict, Any
 
 # Resolve current vault root
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -24,7 +23,7 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 
-def copy_tree_filtered(src: str, dst: str, ignore_patterns: List[str] = None):
+def copy_tree_filtered(src: str, dst: str, ignore_patterns: list[str] | None = None):
     """Recursively copy directory tree ignoring specified file/folder patterns."""
     if ignore_patterns is None:
         ignore_patterns = ["__pycache__", ".pytest_cache", ".git", ".DS_Store", "*.pyc", "*.log"]
@@ -54,18 +53,19 @@ def copy_tree_filtered(src: str, dst: str, ignore_patterns: List[str] = None):
 def create_sample_raw_files(target_dir: str):
     """Create sanitized sample broker exports in 00_Raw/."""
     raw_dir = os.path.join(target_dir, "00_Raw")
-    os.makedirs(os.path.join(raw_dir, "Degiro"), exist_ok=True)
-    os.makedirs(os.path.join(raw_dir, "Exante"), exist_ok=True)
-    os.makedirs(os.path.join(raw_dir, "mBM"), exist_ok=True)
-    os.makedirs(os.path.join(raw_dir, "pkobp"), exist_ok=True)
+    os.makedirs(os.path.join(raw_dir, "degiro"), exist_ok=True)
+    os.makedirs(os.path.join(raw_dir, "exante"), exist_ok=True)
+    os.makedirs(os.path.join(raw_dir, "mbank_ike"), exist_ok=True)
+    os.makedirs(os.path.join(raw_dir, "mbank_ikze"), exist_ok=True)
+    os.makedirs(os.path.join(raw_dir, "pko_bp_bonds"), exist_ok=True)
     os.makedirs(os.path.join(raw_dir, "Articles"), exist_ok=True)
 
-    # pkobp .gitkeep
-    with open(os.path.join(raw_dir, "pkobp", ".gitkeep"), "w", encoding="utf-8") as f:
+    # pko_bp_bonds .gitkeep
+    with open(os.path.join(raw_dir, "pko_bp_bonds", ".gitkeep"), "w", encoding="utf-8") as f:
         f.write("")
 
     # 1. Degiro sample CSV
-    degiro_sample_path = os.path.join(raw_dir, "Degiro", "sample_degiro.csv")
+    degiro_sample_path = os.path.join(raw_dir, "degiro", "sample_degiro.csv")
     degiro_content = """Produkt,Symbol/ISIN,Suma,Kurs,Lokalna wartość,,Wartość w EUR
 CASH & CASH FUND & FTX CASH (EUR),,,,EUR,"2500,00","2500,00"
 MICROSOFT CORPORATION,US5949181045,10,"420,50",EUR,"4205,00","4205,00"
@@ -77,7 +77,7 @@ KGHM POLSKA MIEDZ SA,PLKGHM000017,50,"350,00",PLN,"17500,00","4050,00"
         f.write(degiro_content)
 
     # 2. Exante sample CSV (UTF-16LE tab-separated)
-    exante_sample_path = os.path.join(raw_dir, "Exante", "sample_exante.csv")
+    exante_sample_path = os.path.join(raw_dir, "exante", "sample_exante.csv")
     exante_content = """Cash Balances
 Instrument\tISO\tValue\tCurrency
 EUR Cash\tEUR\t1500.00\tEUR
@@ -91,8 +91,8 @@ V80A.XETRA\tVanguard LifeStrategy 80% Equity\t100\t40.00\t43.80\tEUR\tIE00BMVB5R
     with open(exante_sample_path, "w", encoding="utf-16") as f:
         f.write(exante_content)
 
-    # 3. mBM sample IKE CSV
-    mbm_ike_path = os.path.join(raw_dir, "mBM", "sample_ike.csv")
+    # 3. mBank sample IKE CSV
+    mbm_ike_path = os.path.join(raw_dir, "mbank_ike", "sample_ike.csv")
     mbm_ike_content = """mBank S.A. Bankowość Detaliczna
 Skrytka Pocztowa 2108
 90-959 Łódź 2
@@ -123,8 +123,8 @@ VWCE GR ETF;DEU-XETRA;30;125,50;EUR;16 189,50;PLN
     with open(mbm_ike_path, "w", encoding="utf-8") as f:
         f.write(mbm_ike_content)
 
-    # 4. mBM sample IKZE CSV
-    mbm_ikze_path = os.path.join(raw_dir, "mBM", "sample_ikze.csv")
+    # 4. mBank sample IKZE CSV
+    mbm_ikze_path = os.path.join(raw_dir, "mbank_ikze", "sample_ikze.csv")
     mbm_ikze_content = """mBank S.A. Bankowość Detaliczna
 Skrytka Pocztowa 2108
 90-959 Łódź 2
@@ -156,9 +156,10 @@ V80A GR ETF;DEU-XETRA;85;43,63;EUR;15 978,58;PLN
         f.write(mbm_ikze_content)
 
     # 5. PKO BP sample XLS
-    pkobp_sample_path = os.path.join(raw_dir, "pkobp", "sample_pkobp.xls")
+    pkobp_sample_path = os.path.join(raw_dir, "pko_bp_bonds", "sample_pkobp.xls")
     try:
         import xlwt
+
         wb = xlwt.Workbook(encoding="utf-8")
         sheet = wb.add_sheet("Stan Rachunku Rejestrowego")
         headers = [
@@ -195,241 +196,333 @@ def create_sample_assets(target_dir: str):
 
     sample_assets = [
         # --- Safety Net ---
-        ("SAMPLE_BANK_DEPOSIT.md", """---
+        (
+            "SAMPLE_BANK_DEPOSIT.md",
+            """---
 ticker: SAMPLE_BANK_DEPOSIT
 name: Emergency Bank High-Yield Savings
-asset_class: cash
-currency: PLN
+platform: Bank
+portfolio: "Safety net"
 quantity: 50000.0
+avg_price: 1.0
 current_price: 1.0
-avg_purchase_price: 1.0
 value_pln: 50000.0
-portfolio: safety
-broker: Bank
-source: manual
+currency: PLN
+asset_type: cash
+asset_allocation:
+  cash: 100
+dominant_sector: Cash
+industry: Cash
+sector: Cash
+country: Poland
 last_updated: "2026-09-19"
-alerts: []
+source: manual
+tags: []
 ---
-# Emergency Bank High-Yield Savings
+# Emergency Bank High-Yield Savings (SAMPLE_BANK_DEPOSIT)
+
+**Platform:** [[Bank]]
 
 Primary emergency fund liquidity buffer maintaining 6 months of living expenses.
-"""),
-        ("SAMPLE_EDO_BOND.md", """---
+""",
+        ),
+        (
+            "SAMPLE_EDO_BOND.md",
+            """---
 ticker: SAMPLE_EDO_BOND
 name: Polish Retail 10-Year Inflation Bond (EDO)
-asset_class: bond
-currency: PLN
+platform: Treasury Direct
+portfolio: "Safety net"
 quantity: 300.0
+avg_price: 100.0
 current_price: 100.0
-avg_purchase_price: 100.0
 value_pln: 30000.0
-portfolio: safety
-broker: Treasury Direct
-source: manual
+currency: PLN
+asset_type: bond
+asset_allocation:
+  bonds: 100
+dominant_sector: Sovereign
+industry: Sovereign
+sector: Sovereign
+country: Poland
+stooq_ticker: 10ply.b
 last_updated: "2026-09-19"
-alerts: []
+source: manual
+tags: []
 ---
-# Polish Retail 10-Year Inflation Bond (EDO)
+# Polish Retail 10-Year Inflation Bond (EDO) (SAMPLE_EDO_BOND)
+
+**Platform:** [[Treasury Direct]]
 
 Inflation-indexed retail sovereign treasury bond guaranteeing capital preservation against domestic CPI inflation.
-"""),
-        ("DEGIRO_CASH_EUR.md", """---
+""",
+        ),
+        (
+            "DEGIRO_CASH_EUR.md",
+            """---
 ticker: DEGIRO_CASH_EUR
 name: Degiro Cash Balance (EUR)
-asset_class: cash
-currency: EUR
+platform: Degiro
 quantity: 2500.0
+avg_price: 1.0
 current_price: 1.0
-avg_purchase_price: 1.0
 value_pln: 10750.0
-portfolio: safety
-broker: Degiro
-source: platform
+currency: EUR
+asset_type: cash
+asset_allocation:
+  cash: 100
+dominant_sector: Cash
+industry: Cash
 last_updated: "2026-09-19"
-alerts: []
+source: platform
+tags: []
 ---
 # Degiro Cash Balance (EUR)
 
-Unallocated dry powder and settlement cash balance held on Degiro.
-"""),
+**Platform:** [[Degiro]]
 
+Unallocated dry powder and settlement cash balance held on Degiro.
+""",
+        ),
         # --- Long Term ---
-        ("IE00BMVB5R75.md", """---
+        (
+            "IE00BMVB5R75.md",
+            """---
 ticker: IE00BMVB5R75
 name: Vanguard LifeStrategy 80% Equity UCITS ETF (EUR) Acc
-asset_class: etf
+platform: Degiro
+portfolio: "Long term"
+quantity: 100.0
+avg_price: 39.50
+current_price: 43.80
+value_pln: 18834.0
 currency: EUR
+asset_type: etf
+asset_allocation:
+  equity: 80.0
+  bonds: 20.0
+  cash: 0.0
+dominant_sector: Diversified
+industry: Diversified
 isin: IE00BMVB5R75
 yahoo_ticker: V80A.DE
 justetf_slug: vanguard-lifestrategy-80-percent-equity-ucits-etf-eur-accumulating
 stooq_ticker: v80a.de
-quantity: 100.0
-current_price: 43.80
-avg_purchase_price: 39.50
-value_pln: 18834.0
-portfolio: long_term
-broker: Degiro
-source: platform
-ter: 0.25
-allocation:
-  equity: 80.0
-  bonds: 20.0
-  cash: 0.0
+ter: "0.25% p.a."
 last_updated: "2026-09-19"
-alerts: []
+source: platform
+tags: []
 ---
 # Vanguard LifeStrategy 80% Equity UCITS ETF
 
+**Platform:** [[Degiro]]
+
 Core multi-asset global index foundation combining 80% world equity allocation with 20% global sovereign and aggregate fixed income.
-"""),
-        ("IE00BK5BQT80.md", """---
+""",
+        ),
+        (
+            "IE00BK5BQT80.md",
+            """---
 ticker: IE00BK5BQT80
 name: Vanguard FTSE All-World UCITS ETF (USD) Acc
-asset_class: etf
+platform: mBM
+portfolio: "Long term"
+quantity: 30.0
+avg_price: 110.00
+current_price: 125.50
+value_pln: 16189.5
 currency: EUR
+asset_type: etf
+asset_allocation:
+  equity: 100.0
+  bonds: 0.0
+  cash: 0.0
+dominant_sector: Diversified
+industry: Diversified
 isin: IE00BK5BQT80
 yahoo_ticker: VWCE.DE
 justetf_slug: vanguard-ftse-all-world-ucits-etf-usd-accumulating
 stooq_ticker: vwce.de
-quantity: 30.0
-current_price: 125.50
-avg_purchase_price: 110.00
-value_pln: 16189.5
-portfolio: long_term
-broker: mBM
-source: platform
-ter: 0.22
-allocation:
-  equity: 100.0
-  bonds: 0.0
-  cash: 0.0
+ter: "0.22% p.a."
 last_updated: "2026-09-19"
-alerts: []
+source: platform
+tags: []
 ---
 # Vanguard FTSE All-World UCITS ETF
 
+**Platform:** [[mBM]]
+
 All-cap world equity index tracker providing diversified global equity exposure across developed and emerging economies.
-"""),
-        ("SAMPLE_PHYSICAL_GOLD.md", """---
+""",
+        ),
+        (
+            "SAMPLE_PHYSICAL_GOLD.md",
+            """---
 ticker: SAMPLE_PHYSICAL_GOLD
 name: 1 oz Physical Gold Bullion (Vienna Philharmonic)
-asset_class: commodity
-currency: PLN
+platform: Vault
+portfolio: "Long term"
 quantity: 1.0
+avg_price: 8200.0
 current_price: 10500.0
-avg_purchase_price: 8200.0
 value_pln: 10500.0
-portfolio: long_term
-broker: Vault
-source: manual
+currency: PLN
+asset_type: commodity
+asset_allocation:
+  commodities: 100
+dominant_sector: Precious Metals
+industry: Gold
+sector: Commodities
+stooq_ticker: xauusd
 last_updated: "2026-09-19"
-alerts: []
+source: manual
+tags: []
 ---
-# 1 oz Physical Gold Bullion
+# 1 oz Physical Gold Bullion (SAMPLE_PHYSICAL_GOLD)
+
+**Platform:** [[Vault]]
 
 Allocated physical investment gold serving as a sovereign risk hedge and non-correlated currency store of value.
-"""),
-        ("SAMPLE_REAL_ESTATE.md", """---
+""",
+        ),
+        (
+            "SAMPLE_REAL_ESTATE.md",
+            """---
 ticker: SAMPLE_REAL_ESTATE
 name: Investment Studio Apartment
-asset_class: real_estate
-currency: PLN
+platform: Physical
+portfolio: "Long term"
 quantity: 1.0
+avg_price: 280000.0
 current_price: 350000.0
-avg_purchase_price: 280000.0
 value_pln: 350000.0
-portfolio: long_term
-broker: Physical
-source: manual
+currency: PLN
+asset_type: real_estate
+asset_allocation:
+  real_estate: 100
+dominant_sector: Real Estate
+industry: Residential Real Estate
+sector: Real Estate
+country: Poland
 last_updated: "2026-09-19"
-alerts: []
+source: manual
+tags: []
 ---
-# Investment Studio Apartment
+# Investment Studio Apartment (SAMPLE_REAL_ESTATE)
+
+**Platform:** [[Physical]]
 
 Residential rental property providing defensive positive cash flow and real asset inflation indexing.
-"""),
-
+""",
+        ),
         # --- Aggressive ---
-        ("microsoft_corp.md", """---
+        (
+            "microsoft_corp.md",
+            """---
 ticker: US5949181045
 name: Microsoft Corporation
-asset_class: equity
+platform: Degiro
+portfolio: "Aggressive"
+quantity: 10.0
+avg_price: 380.0
+current_price: 425.0
+value_pln: 16575.0
 currency: USD
+asset_type: equity
+asset_allocation:
+  equity: 100
+dominant_sector: Technology
+industry: "Software - Infrastructure"
+sector: Technology
+country: United States
+market_cap: 3150000000000
+pe_ratio: 35.2
+dividend_yield: 0.72
 isin: US5949181045
 yahoo_ticker: MSFT
 stooq_ticker: msft.us
-quantity: 10.0
-current_price: 425.0
-avg_purchase_price: 380.0
-value_pln: 16575.0
-portfolio: aggressive
-broker: Degiro
-source: platform
-sector: Technology
-pe_ratio: 35.2
-dividend_yield: 0.72
-market_cap: 3150000000000
 last_updated: "2026-09-19"
-alerts: []
+source: platform
+tags: []
 ---
 # Microsoft Corporation
 
+**Platform:** [[Degiro]]
+
 Core enterprise cloud and AI infrastructure provider with compounding high return on invested capital (ROIC).
-"""),
-        ("vaneck_defense_ucits_etf.md", """---
+""",
+        ),
+        (
+            "vaneck_defense_ucits_etf.md",
+            """---
 ticker: IE000YYE6WK5
 name: VanEck Defense UCITS ETF (USD) Acc
-asset_class: etf
+platform: Degiro
+portfolio: "Aggressive"
+quantity: 50.0
+avg_price: 35.00
+current_price: 44.20
+value_pln: 11094.0
 currency: GBP
+asset_type: etf
+asset_allocation:
+  equity: 100.0
+  bonds: 0.0
+  cash: 0.0
+dominant_sector: Industrials
+industry: Industrials
 isin: IE000YYE6WK5
 yahoo_ticker: DFNS.L
 justetf_slug: vaneck-defense-ucits-etf-a
 stooq_ticker: dfns.uk
-quantity: 50.0
-current_price: 44.20
-avg_purchase_price: 35.00
-value_pln: 11094.0
-portfolio: aggressive
-broker: Degiro
-source: platform
-ter: 0.55
-allocation:
-  equity: 100.0
-  bonds: 0.0
-  cash: 0.0
+ter: "0.55% p.a."
 last_updated: "2026-09-19"
-alerts: []
+source: platform
+tags: []
 ---
 # VanEck Defense UCITS ETF
 
+**Platform:** [[Degiro]]
+
 Thematic exposure to global defense industry contractors, aerospace systems, and cybersecurity infrastructure.
-"""),
-        ("kghm_polska_miedz_sa.md", """---
+""",
+        ),
+        (
+            "kghm_polska_miedz_sa.md",
+            """---
 ticker: PLKGHM000017
 name: KGHM Polska Miedz SA
-asset_class: equity
+platform: Degiro
+portfolio: "Aggressive"
+quantity: 50.0
+avg_price: 210.0
+current_price: 350.0
+value_pln: 17500.0
 currency: PLN
+asset_type: equity
+asset_allocation:
+  equity: 100
+dominant_sector: Basic Materials
+industry: Copper
+sector: Basic Materials
+country: Poland
+market_cap: 70000000000
+pe_ratio: 14.5
+dividend_yield: 2.1
 isin: PLKGHM000017
 yahoo_ticker: KGH.WA
 stooq_ticker: kgh.pl
-quantity: 50.0
-current_price: 350.0
-avg_purchase_price: 210.0
-value_pln: 17500.0
-portfolio: aggressive
-broker: Degiro
-source: platform
-sector: Basic Materials
-pe_ratio: 14.5
-dividend_yield: 2.1
-market_cap: 70000000000
 last_updated: "2026-09-19"
-alerts: []
+source: platform
+tags: []
 ---
 # KGHM Polska Miedz SA
 
+**Platform:** [[Degiro]]
+
 Cyclical copper and silver producer benefiting from global electrification and grid infrastructure demand.
-"""),
+""",
+        ),
     ]
 
     for filename, content in sample_assets:
@@ -464,7 +557,9 @@ SORT sum_exposure_pln DESC
         f.write(overview_content)
 
     sample_holdings = [
-        ("MSFT.md", """---
+        (
+            "MSFT.md",
+            """---
 ticker: MSFT
 holding_name: Microsoft Corp.
 sector: Technology
@@ -478,8 +573,11 @@ direct_position_pln: 16575.00
 total_combined_pln: 17825.40
 ---
 # Microsoft Corp. (Underlying Holding)
-"""),
-        ("AAPL.md", """---
+""",
+        ),
+        (
+            "AAPL.md",
+            """---
 ticker: AAPL
 holding_name: Apple Inc.
 sector: Technology
@@ -493,8 +591,11 @@ direct_position_pln: 0.00
 total_combined_pln: 1180.20
 ---
 # Apple Inc. (Underlying Holding)
-"""),
-        ("NVDA.md", """---
+""",
+        ),
+        (
+            "NVDA.md",
+            """---
 ticker: NVDA
 holding_name: NVIDIA Corporation
 sector: Technology
@@ -508,8 +609,11 @@ direct_position_pln: 0.00
 total_combined_pln: 940.80
 ---
 # NVIDIA Corporation (Underlying Holding)
-"""),
-        ("RHM.DE.md", """---
+""",
+        ),
+        (
+            "RHM.DE.md",
+            """---
 ticker: RHM.DE
 holding_name: Rheinmetall AG
 sector: Industrials
@@ -522,7 +626,8 @@ direct_position_pln: 0.00
 total_combined_pln: 980.50
 ---
 # Rheinmetall AG (Underlying Holding)
-"""),
+""",
+        ),
     ]
 
     for filename, content in sample_holdings:
@@ -766,7 +871,7 @@ SOFTWARE.
 
 
 def export_template(
-    target_dir: Optional[str] = None,
+    target_dir: str | None = None,
     init_git: bool = True,
 ) -> str:
     """Execute full template export pipeline."""
@@ -774,7 +879,7 @@ def export_template(
         # Default to ../obsidian-investment-starter
         target_dir = os.path.abspath(os.path.join(VAULT_ROOT, "..", "obsidian-investment-starter"))
 
-    print(f"🚀 Exporting Obsidian Investment Template...")
+    print("🚀 Exporting Obsidian Investment Template...")
     print(f"   Source Vault : {VAULT_ROOT}")
     print(f"   Target Dir   : {target_dir}")
 
@@ -798,11 +903,6 @@ def export_template(
         copy_tree_filtered(
             os.path.join(VAULT_ROOT, "99_System", "Tests"),
             os.path.join(target_dir, "99_System", "Tests"),
-        )
-    if os.path.exists(os.path.join(VAULT_ROOT, "99_System", "config.yaml")):
-        shutil.copy2(
-            os.path.join(VAULT_ROOT, "99_System", "config.yaml"),
-            os.path.join(target_dir, "99_System", "config.yaml"),
         )
     if os.path.exists(os.path.join(VAULT_ROOT, "99_System", "docs")):
         copy_tree_filtered(

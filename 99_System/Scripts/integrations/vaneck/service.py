@@ -1,10 +1,11 @@
-import os
-import sys
-import re
 import json
-import time
 import logging
-from typing import Dict, Any, Optional, List
+import os
+import re
+import sys
+import time
+from typing import Any
+
 import requests
 
 # Ensure integrations root is in sys.path
@@ -17,22 +18,18 @@ from resilience import resilient_get, retry_with_backoff
 
 logger = logging.getLogger("vaneck_service")
 
-CACHE_FILE = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "../../../.cache/vaneck_products_cache.json")
-)
+CACHE_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.cache/vaneck_products_cache.json"))
 CACHE_TTL_SECONDS = 86400 * 3  # 3 days
 
 USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/124.0.0.0 Safari/537.36"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 )
 
 EU_SEARCH_URL = "https://www.vaneck.com/Main/FundSearchPanelBlock/GetSearchPanelData"
 US_SEARCH_URL = "https://www.vaneck.com/Main/FundListingUs/GetFundData"
 
 
-def _fetch_eu_products() -> List[Dict[str, Any]]:
+def _fetch_eu_products() -> list[dict[str, Any]]:
     """Fetch European UCITS ETF product catalog from VanEck search panel endpoint."""
     headers = {
         "User-Agent": USER_AGENT,
@@ -69,15 +66,17 @@ def _fetch_eu_products() -> List[Dict[str, Any]]:
                     if len(base_t) <= 8 and base_t not in tickers:
                         tickers.append(base_t)
 
-                products.append({
-                    "name": name,
-                    "isin": isin,
-                    "url": full_url,
-                    "ter": f"{ter} p.a." if ter and not ter.endswith("p.a.") else ter,
-                    "fund_size": fund_size,
-                    "tickers": tickers,
-                    "region": "EU",
-                })
+                products.append(
+                    {
+                        "name": name,
+                        "isin": isin,
+                        "url": full_url,
+                        "ter": f"{ter} p.a." if ter and not ter.endswith("p.a.") else ter,
+                        "fund_size": fund_size,
+                        "tickers": tickers,
+                        "region": "EU",
+                    }
+                )
             return products
     except Exception as e:
         logger.debug(f"Failed to fetch European VanEck products: {e}")
@@ -85,7 +84,7 @@ def _fetch_eu_products() -> List[Dict[str, Any]]:
 
 
 @retry_with_backoff(domain="vaneck.com")
-def _fetch_us_products() -> List[Dict[str, Any]]:
+def _fetch_us_products() -> list[dict[str, Any]]:
     """Fetch US ETF product catalog from VanEck FundListingUs endpoint."""
     headers = {
         "User-Agent": USER_AGENT,
@@ -95,14 +94,16 @@ def _fetch_us_products() -> List[Dict[str, Any]]:
         "Referer": "https://www.vaneck.com/us/en/etf-mutual-fund-finder/etfs/",
     }
     payload = {
-        "filterJson": json.dumps({
-            "InvType": "all",
-            "Strategies": [],
-            "Funds": [],
-            "ShareClass": [],
-            "TableType": "search",
-            "CurrentPageId": "5517",
-        })
+        "filterJson": json.dumps(
+            {
+                "InvType": "all",
+                "Strategies": [],
+                "Funds": [],
+                "ShareClass": [],
+                "TableType": "search",
+                "CurrentPageId": "5517",
+            }
+        )
     }
     try:
         r = requests.post(US_SEARCH_URL, headers=headers, data=payload, timeout=12)
@@ -121,28 +122,30 @@ def _fetch_us_products() -> List[Dict[str, Any]]:
                 if not rel_url and not ticker:
                     continue
                 full_url = f"https://www.vaneck.com{rel_url}" if rel_url and rel_url.startswith("/") else rel_url
-                products.append({
-                    "name": name,
-                    "isin": None,
-                    "url": full_url,
-                    "ter": None,
-                    "fund_size": None,
-                    "tickers": [ticker.strip().upper()] if ticker else [],
-                    "region": "US",
-                })
+                products.append(
+                    {
+                        "name": name,
+                        "isin": None,
+                        "url": full_url,
+                        "ter": None,
+                        "fund_size": None,
+                        "tickers": [ticker.strip().upper()] if ticker else [],
+                        "region": "US",
+                    }
+                )
             return products
     except Exception as e:
         logger.debug(f"Failed to fetch US VanEck products: {e}")
     return []
 
 
-def get_vaneck_catalog(force_refresh: bool = False) -> Dict[str, Any]:
+def get_vaneck_catalog(force_refresh: bool = False) -> dict[str, Any]:
     """Load cached VanEck product URLs or fetch fresh ones from European and US endpoints."""
     if not force_refresh and os.path.exists(CACHE_FILE):
         try:
             mtime = os.path.getmtime(CACHE_FILE)
             if (time.time() - mtime) < CACHE_TTL_SECONDS:
-                with open(CACHE_FILE, "r", encoding="utf-8") as f:
+                with open(CACHE_FILE, encoding="utf-8") as f:
                     return json.load(f)
         except Exception:
             pass
@@ -151,8 +154,8 @@ def get_vaneck_catalog(force_refresh: bool = False) -> Dict[str, Any]:
     us_products = _fetch_us_products()
     all_products = eu_products + us_products
 
-    by_isin: Dict[str, Dict[str, Any]] = {}
-    by_ticker: Dict[str, Dict[str, Any]] = {}
+    by_isin: dict[str, dict[str, Any]] = {}
+    by_ticker: dict[str, dict[str, Any]] = {}
 
     for prod in all_products:
         isin = prod.get("isin")
@@ -179,22 +182,22 @@ def get_vaneck_catalog(force_refresh: bool = False) -> Dict[str, Any]:
 
 
 def fetch_vaneck_url(
-    ticker: Optional[str] = None,
-    isin: Optional[str] = None,
-    name: Optional[str] = None,
-    yahoo_ticker: Optional[str] = None,
-) -> Optional[str]:
+    ticker: str | None = None,
+    isin: str | None = None,
+    name: str | None = None,
+    yahoo_ticker: str | None = None,
+) -> str | None:
     """Find the official VanEck product URL dynamically."""
     data = fetch_vaneck_data(ticker=ticker, isin=isin, name=name, yahoo_ticker=yahoo_ticker)
     return data.get("issuer_url") if data else None
 
 
 def fetch_vaneck_data(
-    ticker: Optional[str] = None,
-    isin: Optional[str] = None,
-    name: Optional[str] = None,
-    yahoo_ticker: Optional[str] = None,
-) -> Optional[Dict[str, Any]]:
+    ticker: str | None = None,
+    isin: str | None = None,
+    name: str | None = None,
+    yahoo_ticker: str | None = None,
+) -> dict[str, Any] | None:
     """Fetch VanEck product data (official URL, TER, fund size)."""
     catalog = get_vaneck_catalog()
     by_isin = catalog.get("by_isin", {})

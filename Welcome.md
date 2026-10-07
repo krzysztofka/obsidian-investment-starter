@@ -47,10 +47,10 @@ Follow this guide to synchronize holdings from **Degiro** and **Exante**:
 
 ### 1. Import Modes & Configuration
 
-The vault supports both **live REST API synchronization** and **raw CSV exports**. Default import modes are configured in [[99_System/config.yaml]]:
+The vault supports both **live REST API synchronization** and **raw CSV exports**. Default import modes are configured in [[config.yaml]]:
 
 ```yaml
-# 99_System/config.yaml
+# config.yaml
 import:
   exante:
     default_mode: "api"  # Options: 'api' (live Exante REST API) or 'csv' (00_Raw/Exante)

@@ -1,18 +1,15 @@
 import os
-import sys
-import time
 import random
+import sys
 import threading
+import time
 import urllib.parse
-from typing import Optional, Dict, Any, Callable, TypeVar, Tuple, Type, Union
+from collections.abc import Callable
 from functools import wraps
+from typing import Any, TypeVar
+
 import requests
 from requests.adapters import HTTPAdapter
-
-try:
-    import yaml
-except ImportError:
-    yaml = None
 
 # Ensure script root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +18,7 @@ vault_root = os.path.dirname(scripts_dir)
 if scripts_dir not in sys.path:
     sys.path.append(scripts_dir)
 
-F = TypeVar('F', bound=Callable[..., Any])
+F = TypeVar("F", bound=Callable[..., Any])
 
 # Default resilience configuration
 DEFAULT_MAX_RETRIES = 3
@@ -31,24 +28,25 @@ DEFAULT_JITTER = True
 DEFAULT_RETRYABLE_STATUS_CODES = (429, 500, 502, 503, 504)
 
 DEFAULT_RATE_LIMITS = {
-    'finnhub.io': 10.0,
-    'query1.finance.yahoo.com': 15.0,
-    'query2.finance.yahoo.com': 15.0,
-    'justetf.com': 5.0,
-    'stooq.com': 8.0,
-    'stooq.pl': 8.0,
-    'ishares.com': 6.0,
-    'vanguard.com': 6.0,
-    'vanguard.co.uk': 6.0,
-    'vaneck.com': 6.0,
-    'api.nbp.pl': 10.0,
+    "finnhub.io": 10.0,
+    "query1.finance.yahoo.com": 15.0,
+    "query2.finance.yahoo.com": 15.0,
+    "justetf.com": 5.0,
+    "stooq.com": 8.0,
+    "stooq.pl": 8.0,
+    "ishares.com": 6.0,
+    "vanguard.com": 6.0,
+    "vanguard.co.uk": 6.0,
+    "vaneck.com": 6.0,
+    "api.nbp.pl": 10.0,
 }
 
 
-def load_resilience_config(base_dir: Optional[str] = None) -> Dict[str, Any]:
+def load_resilience_config(base_dir: str | None = None) -> dict[str, Any]:
     """Load resilience configuration from config.yaml via Pydantic VaultConfig."""
     try:
         from model.config import load_vault_config
+
         cfg = load_vault_config(base_dir=base_dir)
         return cfg.resilience.model_dump()
     except Exception:
@@ -64,11 +62,11 @@ def load_resilience_config(base_dir: Optional[str] = None) -> Dict[str, Any]:
 class DomainRateLimiter:
     """Thread-safe Token Bucket / Rate Limiter per network domain."""
 
-    def __init__(self, rate_limits: Optional[Dict[str, float]] = None):
+    def __init__(self, rate_limits: dict[str, float] | None = None):
         self._lock = threading.Lock()
         self._rate_limits = dict(rate_limits or DEFAULT_RATE_LIMITS)
         # state per domain: (last_timestamp, current_tokens)
-        self._state: Dict[str, Tuple[float, float]] = {}
+        self._state: dict[str, tuple[float, float]] = {}
 
     def extract_domain(self, url_or_domain: str) -> str:
         """Extract clean hostname from URL or return domain name directly."""
@@ -94,7 +92,7 @@ class DomainRateLimiter:
         with self._lock:
             self._rate_limits[domain.lower()] = float(rate)
 
-    def acquire(self, url_or_domain: str, min_interval: Optional[float] = None) -> float:
+    def acquire(self, url_or_domain: str, min_interval: float | None = None) -> float:
         """Thread-safely acquire permission to execute request. Blocks if rate limit is reached.
 
         Returns:
@@ -146,7 +144,7 @@ def calculate_backoff_delay(
         backoff = min(max_delay, base_delay * (2 ** attempt))
         delay = random.uniform(base_delay * 0.5, backoff) if jitter else backoff
     """
-    backoff = min(max_delay, base_delay * (2 ** attempt))
+    backoff = min(max_delay, base_delay * (2**attempt))
     if jitter:
         min_bound = base_delay * 0.5
         if backoff <= min_bound:
@@ -155,7 +153,7 @@ def calculate_backoff_delay(
     return backoff
 
 
-def parse_retry_after(response_or_header: Any) -> Optional[float]:
+def parse_retry_after(response_or_header: Any) -> float | None:
     """Extract and parse Retry-After header value in seconds."""
     if hasattr(response_or_header, "headers"):
         header_val = response_or_header.headers.get("Retry-After")
@@ -175,8 +173,10 @@ def parse_retry_after(response_or_header: Any) -> Optional[float]:
 
     try:
         import email.utils
+
         target_date = email.utils.parsedate_to_datetime(header_val)
         import datetime
+
         now = datetime.datetime.now(datetime.timezone.utc)
         diff = (target_date - now).total_seconds()
         return max(0.0, diff)
@@ -189,9 +189,9 @@ def retry_with_backoff(
     base_delay: float = DEFAULT_BASE_DELAY,
     max_delay: float = DEFAULT_MAX_DELAY,
     jitter: bool = DEFAULT_JITTER,
-    retryable_exceptions: Tuple[Type[Exception], ...] = (requests.RequestException, TimeoutError, ConnectionError),
-    retryable_status_codes: Tuple[int, ...] = DEFAULT_RETRYABLE_STATUS_CODES,
-    domain: Optional[str] = None,
+    retryable_exceptions: tuple[type[Exception], ...] = (requests.RequestException, TimeoutError, ConnectionError),
+    retryable_status_codes: tuple[int, ...] = DEFAULT_RETRYABLE_STATUS_CODES,
+    domain: str | None = None,
 ) -> Callable[[F], F]:
     """Decorator to retry a function using thread-safe exponential backoff with jitter."""
 
@@ -210,7 +210,11 @@ def retry_with_backoff(
                     if hasattr(res, "status_code") and res.status_code in retryable_status_codes:
                         if attempt < max_retries:
                             retry_after = parse_retry_after(res)
-                            sleep_time = retry_after if retry_after is not None else calculate_backoff_delay(attempt, base_delay, max_delay, jitter)
+                            sleep_time = (
+                                retry_after
+                                if retry_after is not None
+                                else calculate_backoff_delay(attempt, base_delay, max_delay, jitter)
+                            )
                             sys.stderr.write(
                                 f"⚠️ [{func.__name__}] HTTP {res.status_code} received. "
                                 f"Retrying in {sleep_time:.2f}s (attempt {attempt + 1}/{max_retries})...\n"
@@ -226,7 +230,11 @@ def retry_with_backoff(
                         if hasattr(exc, "response") and exc.response is not None:
                             retry_after = parse_retry_after(exc.response)
 
-                        sleep_time = retry_after if retry_after is not None else calculate_backoff_delay(attempt, base_delay, max_delay, jitter)
+                        sleep_time = (
+                            retry_after
+                            if retry_after is not None
+                            else calculate_backoff_delay(attempt, base_delay, max_delay, jitter)
+                        )
                         sys.stderr.write(
                             f"⚠️ [{func.__name__}] {type(exc).__name__}: {exc}. "
                             f"Retrying in {sleep_time:.2f}s (attempt {attempt + 1}/{max_retries})...\n"
@@ -245,7 +253,7 @@ def retry_with_backoff(
 
 
 _session_lock = threading.Lock()
-_shared_session: Optional[requests.Session] = None
+_shared_session: requests.Session | None = None
 
 
 def get_resilient_session(pool_size: int = 50) -> requests.Session:
@@ -259,22 +267,22 @@ def get_resilient_session(pool_size: int = 50) -> requests.Session:
                 pool_maxsize=pool_size,
                 max_retries=0,  # We handle intelligent retries at the request layer with jitter
             )
-            session.mount('https://', adapter)
-            session.mount('http://', adapter)
+            session.mount("https://", adapter)
+            session.mount("http://", adapter)
             _shared_session = session
         return _shared_session
 
 
 def resilient_get(
     url: str,
-    params: Optional[Dict[str, Any]] = None,
-    headers: Optional[Dict[str, str]] = None,
+    params: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
     timeout: float = 10.0,
     max_retries: int = DEFAULT_MAX_RETRIES,
     base_delay: float = DEFAULT_BASE_DELAY,
     max_delay: float = DEFAULT_MAX_DELAY,
     jitter: bool = DEFAULT_JITTER,
-    retryable_status_codes: Tuple[int, ...] = DEFAULT_RETRYABLE_STATUS_CODES,
+    retryable_status_codes: tuple[int, ...] = DEFAULT_RETRYABLE_STATUS_CODES,
     **kwargs: Any,
 ) -> requests.Response:
     """Execute HTTP GET with domain throttling, connection pooling, exponential backoff, and full jitter."""
@@ -299,7 +307,11 @@ def resilient_get(
                 last_response = resp
                 if attempt < max_retries:
                     retry_after = parse_retry_after(resp)
-                    sleep_time = retry_after if retry_after is not None else calculate_backoff_delay(attempt, base_delay, max_delay, jitter)
+                    sleep_time = (
+                        retry_after
+                        if retry_after is not None
+                        else calculate_backoff_delay(attempt, base_delay, max_delay, jitter)
+                    )
                     sys.stderr.write(
                         f"⚠️ HTTP {resp.status_code} from {urllib.parse.urlparse(url).netloc}. "
                         f"Retrying in {sleep_time:.2f}s (attempt {attempt + 1}/{max_retries})...\n"

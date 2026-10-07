@@ -1,7 +1,6 @@
+import copy
 import os
 import sys
-import copy
-from typing import Optional, List, Dict
 
 # Ensure scripts dir is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -11,24 +10,25 @@ for p in (scripts_dir, current_dir):
         sys.path.append(p)
 
 from model.asset import Asset
+
 from integrations.base import BaseAssetInfoEnricher
-from integrations.justetf.asset_info_enricher import JustETFAssetInfoEnricher
-from integrations.ishares.asset_info_enricher import ISharesAssetInfoEnricher
-from integrations.yfinance.asset_info_enricher import YFinanceAssetInfoEnricher
-from integrations.finnhub.asset_info_enricher import FinnhubAssetInfoEnricher
-from integrations.openbb.asset_info_enricher import OpenBBAssetInfoEnricher
-from integrations.vanguard.asset_info_enricher import VanguardAssetInfoEnricher
-from integrations.vaneck.asset_info_enricher import VanEckAssetInfoEnricher
 from integrations.exante.asset_info_enricher import ExanteAssetInfoEnricher
-from integrations.stooq.asset_info_enricher import StooqAssetInfoEnricher
-from integrations.yfinance.service import (
-    calculate_value_pln,
-    apply_overvalued_tag,
-)
+from integrations.finnhub.asset_info_enricher import FinnhubAssetInfoEnricher
+from integrations.ishares.asset_info_enricher import ISharesAssetInfoEnricher
+from integrations.justetf.asset_info_enricher import JustETFAssetInfoEnricher
 from integrations.justetf.service import (
     apply_delisting_risk_tag,
 )
+from integrations.openbb.asset_info_enricher import OpenBBAssetInfoEnricher
 from integrations.sector_classifier import determine_dominant_sector
+from integrations.stooq.asset_info_enricher import StooqAssetInfoEnricher
+from integrations.vaneck.asset_info_enricher import VanEckAssetInfoEnricher
+from integrations.vanguard.asset_info_enricher import VanguardAssetInfoEnricher
+from integrations.yfinance.asset_info_enricher import YFinanceAssetInfoEnricher
+from integrations.yfinance.service import (
+    apply_overvalued_tag,
+    calculate_value_pln,
+)
 
 
 class MultiSourceAssetEnricher(BaseAssetInfoEnricher):
@@ -46,7 +46,7 @@ class MultiSourceAssetEnricher(BaseAssetInfoEnricher):
         - Total value in PLN is updated via live FX exchange rates.
     """
 
-    def __init__(self, enrichers: Optional[List[BaseAssetInfoEnricher]] = None):
+    def __init__(self, enrichers: list[BaseAssetInfoEnricher] | None = None):
         if enrichers is not None:
             self.enrichers = enrichers
         else:
@@ -73,10 +73,12 @@ class MultiSourceAssetEnricher(BaseAssetInfoEnricher):
         merged = copy.deepcopy(asset)
 
         # Handle Cash holdings
-        if merged.asset_type == 'cash' or (merged.ticker and merged.ticker.startswith(f"{merged.platform.upper()}_CASH")):
-            merged.asset_type = 'cash'
-            merged.dominant_sector = 'Cash'
-            merged.industry = 'Cash'
+        if merged.asset_type == "cash" or (
+            merged.ticker and merged.ticker.startswith(f"{merged.platform.upper()}_CASH")
+        ):
+            merged.asset_type = "cash"
+            merged.dominant_sector = "Cash"
+            merged.industry = "Cash"
             merged.sector = None
             merged.country = None
             merged.market_cap = None
@@ -103,41 +105,76 @@ class MultiSourceAssetEnricher(BaseAssetInfoEnricher):
             merged.fund_domicile = None
             merged.top_holdings = None
             merged.extra_properties = {}
-            merged.tags = [t for t in (merged.tags or []) if not (str(t).startswith('#alert') or str(t).startswith('alert/'))]
-            if merged.platform and merged.platform.lower() in ('degiro', 'exante'):
+            merged.tags = [
+                t for t in (merged.tags or []) if not (str(t).startswith("#alert") or str(t).startswith("alert/"))
+            ]
+            if merged.platform and merged.platform.lower() in ("degiro", "exante"):
                 merged.portfolio = None
-            merged.value_pln = calculate_value_pln(merged.quantity, merged.current_price, merged.currency) or merged.value_pln
+            merged.value_pln = (
+                calculate_value_pln(merged.quantity, merged.current_price, merged.currency) or merged.value_pln
+            )
             return merged
 
         # Handle Bond holdings (e.g. Polish treasury retail bonds)
-        if merged.asset_type == 'bond' or (merged.platform and merged.platform.upper() == 'PKOBP'):
-            merged.asset_type = 'bond'
-            merged.dominant_sector = 'Sovereign'
-            merged.industry = 'Sovereign'
-            merged.sector = 'Sovereign'
+        if merged.asset_type == "bond" or (merged.platform and merged.platform.upper() == "PKOBP"):
+            merged.asset_type = "bond"
+            merged.dominant_sector = "Sovereign"
+            merged.industry = "Sovereign"
+            merged.sector = "Sovereign"
             if not merged.stooq_ticker:
-                merged.stooq_ticker = '10ply.b'
+                merged.stooq_ticker = "10ply.b"
             if not merged.asset_allocation:
-                merged.asset_allocation = {'bonds': 100}
-            merged.tags = [t for t in (merged.tags or []) if not (str(t).startswith('#alert') or str(t).startswith('alert/'))]
-            merged.value_pln = calculate_value_pln(merged.quantity, merged.current_price, merged.currency) or (merged.quantity * merged.current_price)
+                merged.asset_allocation = {"bonds": 100}
+            merged.tags = [
+                t for t in (merged.tags or []) if not (str(t).startswith("#alert") or str(t).startswith("alert/"))
+            ]
+            merged.value_pln = calculate_value_pln(merged.quantity, merged.current_price, merged.currency) or (
+                merged.quantity * merged.current_price
+            )
             return merged
 
         scalar_fields = [
-            'justetf_url', 'issuer', 'issuer_url', 'ter', 'fund_size', 'distribution_policy', 'replication',
-            'fund_domicile', 'yahoo_ticker', 'stooq_ticker', 'isin', 'country', 'market_cap',
-            'pe_ratio', 'forward_pe', 'dividend_yield', 'beta',
-            'fifty_two_week_high', 'fifty_two_week_low', 'drawdown_52w',
-            'sma_50', 'sma_200', 'rsi_14',
-            'volatility', 'sharpe_ratio', 'max_drawdown', 'upside_potential',
-            'morningstar_rating', 'morningstar_risk', 'sector', 'industry', 'dominant_sector'
+            "justetf_url",
+            "issuer",
+            "issuer_url",
+            "ter",
+            "fund_size",
+            "distribution_policy",
+            "replication",
+            "fund_domicile",
+            "yahoo_ticker",
+            "stooq_ticker",
+            "isin",
+            "country",
+            "market_cap",
+            "pe_ratio",
+            "forward_pe",
+            "dividend_yield",
+            "beta",
+            "fifty_two_week_high",
+            "fifty_two_week_low",
+            "drawdown_52w",
+            "sma_50",
+            "sma_200",
+            "rsi_14",
+            "volatility",
+            "sharpe_ratio",
+            "max_drawdown",
+            "upside_potential",
+            "morningstar_rating",
+            "morningstar_risk",
+            "sector",
+            "industry",
+            "dominant_sector",
         ]
 
         # Accumulators: initialize tags with only non-alert tags from the existing asset.
         # Active alert tags will be populated dynamically from new enriched data.
-        non_alert_tags = [t for t in (merged.tags or []) if not (str(t).startswith('#alert') or str(t).startswith('alert/'))]
-        collected_tags: List[str] = list(non_alert_tags)
-        collected_ratings: Dict[str, str] = {}  # source_name -> rating
+        non_alert_tags = [
+            t for t in (merged.tags or []) if not (str(t).startswith("#alert") or str(t).startswith("alert/"))
+        ]
+        collected_tags: list[str] = list(non_alert_tags)
+        collected_ratings: dict[str, str] = {}  # source_name -> rating
         populated_fields = set()
 
         # Existing rating on asset (if any)
@@ -145,16 +182,16 @@ class MultiSourceAssetEnricher(BaseAssetInfoEnricher):
         if merged.analyst_rating:
             if isinstance(merged.analyst_rating, list):
                 for r in merged.analyst_rating:
-                    if ':' in str(r):
-                        src, val = str(r).split(':', 1)
-                        if src.strip() != 'Initial':
+                    if ":" in str(r):
+                        src, val = str(r).split(":", 1)
+                        if src.strip() != "Initial":
                             collected_ratings[src.strip()] = val.strip()
                     else:
                         initial_rating = str(r).strip()
             elif isinstance(merged.analyst_rating, str):
-                if ':' in merged.analyst_rating:
-                    src, val = merged.analyst_rating.split(':', 1)
-                    if src.strip() != 'Initial':
+                if ":" in merged.analyst_rating:
+                    src, val = merged.analyst_rating.split(":", 1)
+                    if src.strip() != "Initial":
                         collected_ratings[src.strip()] = val.strip()
                 else:
                     initial_rating = merged.analyst_rating.strip()
@@ -196,8 +233,8 @@ class MultiSourceAssetEnricher(BaseAssetInfoEnricher):
                     collected_ratings[enricher.name] = r_val.strip()
                 elif isinstance(r_val, list):
                     for item in r_val:
-                        if ':' in str(item):
-                            s, v = str(item).split(':', 1)
+                        if ":" in str(item):
+                            s, v = str(item).split(":", 1)
                             collected_ratings[s.strip()] = v.strip()
                         else:
                             collected_ratings[enricher.name] = str(item).strip()
@@ -222,9 +259,10 @@ class MultiSourceAssetEnricher(BaseAssetInfoEnricher):
         # Ensure dominant sector fallback if available
         if not merged.dominant_sector and (merged.sector or merged.industry):
             raw = merged.sector or merged.industry
-            merged.dominant_sector = determine_dominant_sector({raw: 100.0})
-            if not merged.industry:
-                merged.industry = merged.dominant_sector
+            if raw:
+                merged.dominant_sector = determine_dominant_sector({raw: 100.0})
+                if not merged.industry:
+                    merged.industry = merged.dominant_sector
 
         # Recalculate value in PLN using live FX rates
         new_val_pln = calculate_value_pln(merged.quantity, merged.current_price, merged.currency)

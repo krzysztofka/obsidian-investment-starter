@@ -29,7 +29,7 @@ let myPages = [];
 // Filter function for Safety Net portfolio
 function isSafetyPortfolio(p) {
     let port = (p.portfolio || "").toLowerCase().trim();
-    return port === "safety net" || port === "safety" || port === "safety_net" || port === "safty" || port === "safty net" || port === "safty_net";
+    return port === "safety net" || port === "safety" || port === "safety_net";
 }
 
 for (let p of allPages) {

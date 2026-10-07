@@ -7,7 +7,7 @@ directly from the National Bank of Poland (Narodowy Bank Polski) Web APIs and XM
 import os
 import sys
 import xml.etree.ElementTree as ET
-from typing import Dict, Any, Optional, List
+from typing import Any
 
 # Ensure integrations root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -20,10 +20,7 @@ try:
 except ImportError:
     resilient_get = None
 
-try:
-    import requests
-except ImportError:
-    requests = None
+import requests
 
 
 class NBPMacroSupplier:
@@ -37,7 +34,7 @@ class NBPMacroSupplier:
     TROY_OUNCE_TO_GRAMS = 31.1034768
 
     @classmethod
-    def _get(cls, url: str, timeout: int = 6) -> Optional[Any]:
+    def _get(cls, url: str, timeout: int = 6) -> Any | None:
         """Perform resilient HTTP GET request."""
         try:
             get_fn = resilient_get if resilient_get else (requests.get if requests else None)
@@ -48,7 +45,7 @@ class NBPMacroSupplier:
             return None
 
     @classmethod
-    def fetch_exchange_rates(cls, target_currencies: Optional[List[str]] = None) -> Dict[str, float]:
+    def fetch_exchange_rates(cls, target_currencies: list[str] | None = None) -> dict[str, float]:
         """Fetch official reference exchange rates from NBP Web API (Table A).
 
         Args:
@@ -58,7 +55,7 @@ class NBPMacroSupplier:
         Returns:
             Dict mapping currency codes to mid rates in PLN.
         """
-        rates: Dict[str, float] = {}
+        rates: dict[str, float] = {}
         resp = cls._get(cls.NBP_TABLE_A_URL)
         if resp and resp.status_code == 200:
             try:
@@ -75,7 +72,7 @@ class NBPMacroSupplier:
         return rates
 
     @classmethod
-    def fetch_gold_fixing(cls) -> Optional[Dict[str, Any]]:
+    def fetch_gold_fixing(cls) -> dict[str, Any] | None:
         """Fetch official domestic gold price fixing from NBP Web API.
 
         Returns:
@@ -98,14 +95,14 @@ class NBPMacroSupplier:
         return None
 
     @classmethod
-    def fetch_base_rates(cls) -> Dict[str, Any]:
+    def fetch_base_rates(cls) -> dict[str, Any]:
         """Fetch official Polish central bank interest rates from NBP XML feed.
 
         Returns:
             Dict containing reference rate, lombard rate, deposit rate, publication date,
             valid_from date, and trend description in English.
         """
-        default_result = {
+        default_result: dict[str, Any] = {
             "ref_rate": 3.75,
             "lombard_rate": 4.25,
             "deposit_rate": 3.25,
@@ -121,9 +118,9 @@ class NBPMacroSupplier:
         try:
             root = ET.fromstring(resp.content)
             pub_date = root.attrib.get("data_publikacji", default_result["last_decision_date"])
-            ref_rate = None
-            lom_rate = None
-            dep_rate = None
+            ref_rate: float | None = None
+            lom_rate: float | None = None
+            dep_rate: float | None = None
             trend_str = "Neutral / Pause"
             valid_from = pub_date
 
@@ -131,7 +128,7 @@ class NBPMacroSupplier:
                 pos_id = pos.attrib.get("id")
                 rate_val = pos.attrib.get("oprocentowanie", "").replace(",", ".").strip()
                 if pos_id == "ref":
-                    ref_rate = float(rate_val) if rate_val else default_result["ref_rate"]
+                    ref_rate = float(rate_val) if rate_val else float(default_result["ref_rate"])
                     valid_from = pos.attrib.get("obowiazuje_od", pub_date)
                     raw_trend = pos.attrib.get("trend", "").lower()
                     if "spadek" in raw_trend:
@@ -141,9 +138,9 @@ class NBPMacroSupplier:
                     else:
                         trend_str = "Neutral / Pause"
                 elif pos_id == "lom":
-                    lom_rate = float(rate_val) if rate_val else default_result["lombard_rate"]
+                    lom_rate = float(rate_val) if rate_val else float(default_result["lombard_rate"])
                 elif pos_id == "dep":
-                    dep_rate = float(rate_val) if rate_val else default_result["deposit_rate"]
+                    dep_rate = float(rate_val) if rate_val else float(default_result["deposit_rate"])
 
             if ref_rate is not None:
                 return {

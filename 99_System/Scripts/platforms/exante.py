@@ -1,9 +1,9 @@
-import os
-import sys
 import csv
+import os
 import re
+import sys
 from datetime import datetime
-from typing import Optional, List, Dict, Set, Any
+from typing import Any
 
 # Ensure scripts directory is in sys.path
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -11,44 +11,44 @@ parent_scripts_dir = os.path.dirname(script_dir)
 if parent_scripts_dir not in sys.path:
     sys.path.append(parent_scripts_dir)
 
-from platforms.common import (
-    parse_number,
-    load_template,
-    save_or_update_asset,
-    save_or_update_assets_parallel,
-    remove_missing_platform_assets,
-    load_import_config,
-    clean_asset_display_name,
-    KNOWN_ETF_NAMES,
-)
 from history.update_portfolio import update_portfolio_history
 
+from platforms.base import BasePlatform, PlatformRegistry
+from platforms.common import (
+    clean_asset_display_name,
+    load_import_config,
+    load_template,
+    parse_number,
+    remove_missing_platform_assets,
+    save_or_update_assets_parallel,
+)
 
-def find_exante_csv(base_dir: str, custom_path: Optional[str] = None) -> Optional[str]:
+
+def find_exante_csv(base_dir: str, custom_path: str | None = None) -> str | None:
     """Return the most recent Exante CSV file path."""
     if custom_path and os.path.exists(custom_path):
         return custom_path
 
-    if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):
-        return sys.argv[1]
-
-    exante_dir = os.path.join(base_dir, "00_Raw", "Exante")
-    if not os.path.exists(exante_dir):
-        return None
-    candidates = [os.path.join(exante_dir, f) for f in os.listdir(exante_dir) if f.lower().endswith('.csv')]
+    candidates = []
+    for folder in ["exante", "Exante"]:
+        exante_dir = os.path.join(base_dir, "00_Raw", folder)
+        if os.path.exists(exante_dir):
+            for f in os.listdir(exante_dir):
+                if f.lower().endswith(".csv"):
+                    candidates.append(os.path.join(exante_dir, f))
     if not candidates:
         return None
 
     def file_sort_key(filepath: str):
-        m = re.search(r'\d{4}-\d{2}-\d{2}', os.path.basename(filepath))
-        date_str = m.group(0) if m else ''
+        m = re.search(r"\d{4}-\d{2}-\d{2}", os.path.basename(filepath))
+        date_str = m.group(0) if m else ""
         return (date_str, os.path.getmtime(filepath))
 
     candidates.sort(key=file_sort_key, reverse=True)
     return candidates[0]
 
 
-def find_section(lines: List[str], *keywords: str) -> List[Dict[str, str]]:
+def find_section(lines: list[str], *keywords: str) -> list[dict[str, str]]:
     """Find a section by matching all keywords (case-insensitive) in the title line.
 
     The Exante CSV is structured as consecutive sections separated by blank lines.
@@ -76,18 +76,18 @@ def find_section(lines: List[str], *keywords: str) -> List[Dict[str, str]]:
     section_end = len(lines)
     for j in range(header_idx + 1, len(lines)):
         stripped = lines[j].strip()
-        if not stripped or '\t' not in lines[j]:
+        if not stripped or "\t" not in lines[j]:
             section_end = j
             break
 
-    return list(csv.DictReader(lines[header_idx:section_end], delimiter='\t'))
+    return list(csv.DictReader(lines[header_idx:section_end], delimiter="\t"))
 
 
 def import_exante_api(
-    account_id: Optional[str] = None,
-    base_dir: Optional[str] = None,
-    client: Optional[Any] = None,
-    max_workers: Optional[int] = None,
+    account_id: str | None = None,
+    base_dir: str | None = None,
+    client: Any | None = None,
+    max_workers: int | None = None,
     show_progress: bool = True,
 ) -> int:
     """Import positions and cash balances directly from Exante REST API into 10_Finance/Assets."""
@@ -127,21 +127,23 @@ def import_exante_api(
         value = cash.get("value", 0.0)
         ticker = f"EXANTE_CASH_{currency_code}"
 
-        asset_tasks.append({
-            "vault_assets_dir": vault_assets_dir,
-            "platform": "Exante",
-            "ticker": ticker,
-            "name": instrument,
-            "quantity": value,
-            "current_price": 1.0,
-            "currency": currency_code,
-            "avg_price": None,
-            "isin": None,
-            "current_date": current_date,
-            "template_fm": template_fm,
-            "template_body": template_body,
-            "source": "platform",
-        })
+        asset_tasks.append(
+            {
+                "vault_assets_dir": vault_assets_dir,
+                "platform": "Exante",
+                "ticker": ticker,
+                "name": instrument,
+                "quantity": value,
+                "current_price": 1.0,
+                "currency": currency_code,
+                "avg_price": None,
+                "isin": None,
+                "current_date": current_date,
+                "template_fm": template_fm,
+                "template_body": template_body,
+                "source": "platform",
+            }
+        )
 
     # 2. Process stocks & ETFs positions
     for pos in portfolio_data.get("positions", []):
@@ -158,21 +160,23 @@ def import_exante_api(
 
         name = clean_asset_display_name(name, isin=isin, ticker=ticker)
 
-        asset_tasks.append({
-            "vault_assets_dir": vault_assets_dir,
-            "platform": "Exante",
-            "ticker": ticker,
-            "name": name,
-            "quantity": quantity,
-            "current_price": current_price,
-            "currency": currency,
-            "avg_price": avg_price,
-            "isin": isin,
-            "current_date": current_date,
-            "template_fm": template_fm,
-            "template_body": template_body,
-            "source": "platform",
-        })
+        asset_tasks.append(
+            {
+                "vault_assets_dir": vault_assets_dir,
+                "platform": "Exante",
+                "ticker": ticker,
+                "name": name,
+                "quantity": quantity,
+                "current_price": current_price,
+                "currency": currency,
+                "avg_price": avg_price,
+                "isin": isin,
+                "current_date": current_date,
+                "template_fm": template_fm,
+                "template_body": template_body,
+                "source": "platform",
+            }
+        )
 
     active_asset_paths, active_tickers, imported_count = save_or_update_assets_parallel(
         asset_tasks=asset_tasks,
@@ -195,11 +199,11 @@ def import_exante_api(
 
 
 def import_exante(
-    csv_file_path: Optional[str] = None,
-    base_dir: Optional[str] = None,
-    use_api: Optional[bool] = None,
-    account_id: Optional[str] = None,
-    max_workers: Optional[int] = None,
+    csv_file_path: str | None = None,
+    base_dir: str | None = None,
+    use_api: bool | None = None,
+    account_id: str | None = None,
+    max_workers: int | None = None,
     show_progress: bool = True,
 ) -> int:
     """Import positions from Exante CSV export or Exante REST API into 10_Finance/Assets."""
@@ -215,7 +219,9 @@ def import_exante(
             use_api = cfg.get("exante", {}).get("default_mode", "api").lower() == "api"
 
     if use_api:
-        return import_exante_api(account_id=account_id, base_dir=base_dir, max_workers=max_workers, show_progress=show_progress)
+        return import_exante_api(
+            account_id=account_id, base_dir=base_dir, max_workers=max_workers, show_progress=show_progress
+        )
 
     vault_assets_dir = os.path.join(base_dir, "10_Finance", "Assets")
     os.makedirs(vault_assets_dir, exist_ok=True)
@@ -233,49 +239,51 @@ def import_exante(
 
     template_fm, template_body = load_template(base_dir)
 
-    with open(csv_file, mode='r', encoding='utf-16') as f:
-        lines = [ln.rstrip('\r') for ln in f]
+    with open(csv_file, encoding="utf-16") as f:
+        lines = [ln.rstrip("\r") for ln in f]
 
     asset_tasks = []
 
     # 1. Process cash balance section
-    cash_rows = find_section(lines, 'cash', 'balance')
+    cash_rows = find_section(lines, "cash", "balance")
     for row in cash_rows:
-        instrument = (row.get('Instrument') or '').strip()
-        iso = (row.get('ISO') or '').strip()
-        value = parse_number(row.get('Value'))
+        instrument = (row.get("Instrument") or "").strip()
+        iso = (row.get("ISO") or "").strip()
+        value = parse_number(row.get("Value"))
         if not instrument:
             continue
 
-        currency_code = iso or 'EUR'
+        currency_code = iso or "EUR"
         ticker = f"EXANTE_CASH_{currency_code}"
 
-        asset_tasks.append({
-            "vault_assets_dir": vault_assets_dir,
-            "platform": 'Exante',
-            "ticker": ticker,
-            "name": instrument,
-            "quantity": value,
-            "current_price": 1.0,
-            "currency": currency_code,
-            "avg_price": None,
-            "isin": None,
-            "current_date": current_date,
-            "template_fm": template_fm,
-            "template_body": template_body,
-            "source": 'platform',
-        })
+        asset_tasks.append(
+            {
+                "vault_assets_dir": vault_assets_dir,
+                "platform": "Exante",
+                "ticker": ticker,
+                "name": instrument,
+                "quantity": value,
+                "current_price": 1.0,
+                "currency": currency_code,
+                "avg_price": None,
+                "isin": None,
+                "current_date": current_date,
+                "template_fm": template_fm,
+                "template_body": template_body,
+                "source": "platform",
+            }
+        )
 
     # 2. Process stocks & ETFs section
-    stock_rows = find_section(lines, 'stocks', 'etfs')
+    stock_rows = find_section(lines, "stocks", "etfs")
     for row in stock_rows:
-        instrument = (row.get('Instrument') or '').strip()
-        name = (row.get('Name') or '').strip()
-        quantity = parse_number(row.get('QTY'))
-        avg_price = parse_number(row.get('Avg Price'))
-        current_price = parse_number(row.get('Price'))
-        currency = (row.get('Currency') or 'EUR').strip()
-        isin = (row.get('ISIN') or '').strip()
+        instrument = (row.get("Instrument") or "").strip()
+        name = (row.get("Name") or "").strip()
+        quantity = parse_number(row.get("QTY"))
+        avg_price = parse_number(row.get("Avg Price"))
+        current_price = parse_number(row.get("Price"))
+        currency = (row.get("Currency") or "EUR").strip()
+        isin = (row.get("ISIN") or "").strip()
         if not instrument:
             continue
         if quantity <= 0:
@@ -283,21 +291,23 @@ def import_exante(
 
         name = clean_asset_display_name(name, isin=isin, ticker=instrument)
 
-        asset_tasks.append({
-            "vault_assets_dir": vault_assets_dir,
-            "platform": 'Exante',
-            "ticker": instrument,
-            "name": name,
-            "quantity": quantity,
-            "current_price": current_price,
-            "currency": currency,
-            "avg_price": avg_price,
-            "isin": isin,
-            "current_date": current_date,
-            "template_fm": template_fm,
-            "template_body": template_body,
-            "source": 'platform',
-        })
+        asset_tasks.append(
+            {
+                "vault_assets_dir": vault_assets_dir,
+                "platform": "Exante",
+                "ticker": instrument,
+                "name": name,
+                "quantity": quantity,
+                "current_price": current_price,
+                "currency": currency,
+                "avg_price": avg_price,
+                "isin": isin,
+                "current_date": current_date,
+                "template_fm": template_fm,
+                "template_body": template_body,
+                "source": "platform",
+            }
+        )
 
     active_asset_paths, active_tickers, imported_count = save_or_update_assets_parallel(
         asset_tasks=asset_tasks,
@@ -309,7 +319,7 @@ def import_exante(
     # 3. Verify existing platform assets against new import file and remove missing
     remove_missing_platform_assets(
         vault_assets_dir=vault_assets_dir,
-        platform='Exante',
+        platform="Exante",
         active_asset_paths=active_asset_paths,
         active_tickers=active_tickers,
     )
@@ -319,11 +329,46 @@ def import_exante(
     return imported_count
 
 
-if __name__ == '__main__':
+@PlatformRegistry.register
+class ExantePlatform(BasePlatform):
+    """Exante Broker Platform Extension (CSV & REST API)."""
+
+    id = "exante"
+    display_name = "Exante"
+    raw_folder = "exante"
+    default_mode = "csv"
+    aliases = ["ex"]
+
+    def can_handle_file(self, file_path: str) -> bool:
+        norm = os.path.normpath(file_path).lower()
+        return "exante" in norm
+
+    def run_import(
+        self,
+        file_path: str | None = None,
+        use_api: bool | None = None,
+        account_id: str | None = None,
+        max_workers: int | None = None,
+        show_progress: bool = True,
+    ) -> int:
+        return import_exante(
+            csv_file_path=file_path,
+            base_dir=self.base_dir,
+            use_api=use_api,
+            account_id=account_id,
+            max_workers=max_workers,
+            show_progress=show_progress,
+        )
+
+
+if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser(description="Import assets from Exante CSV or REST API.")
     parser.add_argument("-f", "--file", dest="file", type=str, default=None, help="Path to Exante CSV file.")
-    parser.add_argument("--api", dest="api", action="store_true", default=None, help="Fetch portfolio from Exante REST API.")
+    parser.add_argument(
+        "--api", dest="api", action="store_true", default=None, help="Fetch portfolio from Exante REST API."
+    )
     parser.add_argument("--csv", dest="csv", action="store_true", default=False, help="Force CSV import mode.")
     parser.add_argument("--account", dest="account_id", type=str, default=None, help="Exante account ID.")
     parser.add_argument("-w", "--workers", dest="max_workers", type=int, default=None, help="Number of worker threads.")
@@ -333,4 +378,3 @@ if __name__ == '__main__':
     target_file = args.file or args.positional_file
     use_api = False if args.csv else (True if args.api else None)
     import_exante(csv_file_path=target_file, use_api=use_api, account_id=args.account_id, max_workers=args.max_workers)
-

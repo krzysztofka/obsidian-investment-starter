@@ -1,7 +1,6 @@
-from abc import ABC, abstractmethod
-from typing import Optional
 import os
 import sys
+from abc import ABC, abstractmethod
 
 # Ensure scripts dir is in sys.path
 scripts_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -25,7 +24,7 @@ class BaseAssetInfoEnricher(ABC):
         return True
 
     @abstractmethod
-    def enrich(self, asset: Asset) -> Optional[Asset]:
+    def enrich(self, asset: Asset) -> Asset | None:
         """Enrich asset metadata and return a new cloned Asset object.
 
         Args:

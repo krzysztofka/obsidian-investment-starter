@@ -1,7 +1,8 @@
-from typing import Optional, Any
-from .base import BaseAlertRule
-import sys
 import os
+import sys
+from typing import Any
+
+from .base import BaseAlertRule
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 scripts_dir = os.path.dirname(os.path.dirname(current_dir))
@@ -26,7 +27,7 @@ class StopLossRule(BaseAlertRule):
     def description(self) -> str:
         return "Asset market price has hit or dropped below designated stop_loss price."
 
-    def evaluate(self, asset: Asset, context: Any) -> Optional[bool]:
+    def evaluate(self, asset: Asset, context: Any) -> bool | None:
         cfg = context.get_alert_config("stop_loss", {}) if hasattr(context, "get_alert_config") else {}
         if isinstance(cfg, dict) and cfg.get("enabled") is False:
             return False

@@ -2,18 +2,41 @@
 
 ## ⚡ Current Milestone: v0.7 Code Quality, Testing & Reliability
 
-- [ ] **Automated Test Suite (`pytest`):**
-  - [X] Unit tests for broker platform parsers (`PKOBP` in `99_System/Tests/test_pkobp.py`).
+- [X] **Automated Test Suite (`pytest` - 77 Passing Tests):**
+  - [X] Dedicated test package for platform extensions (`99_System/Tests/platforms/`).
+  - [X] Unit tests for all broker platform parsers (`PKO BP`, `mBank IKE/IKZE`, `Degiro`, `Exante`).
+  - [X] Unit tests for Platform Registry, aliases, path detection, and dynamic enable/disable.
   - [X] Unit tests for Vault Patch Engine and Sequential Migration System (`99_System/Tests/test_patch.py`).
-  - [ ] Unit tests for broker platform parsers (`Degiro`, `Exante`, `mBM`).
-  - [ ] Unit tests for currency conversion and PLN portfolio valuation logic.
-  - [ ] Unit tests for Alert Rules Engine evaluation & tagging.
-  - [ ] Mock tests for external API enrichers (`yfinance`, `finnhub`, `justetf`).
-- [ ] **Type Hints, Linting & Formatting:**
-  - [ ] Full static typing and type annotations across all scripts in `99_System/Scripts/`.
-  - [ ] Standardized linter & code formatter configuration (`ruff` / `black`).
-- [ ] **Integrations Health Check & Connectivity Diagnostics (`health_check.py` / CLI):**
-  - [ ] Standardized linter & code formatter configuration (`ruff` / `black`).
+  - [X] Unit tests for Rich progress and multi-threaded processing (`99_System/Tests/test_rich_progress.py`).
+  - [X] Unit tests for currency conversion and PLN portfolio valuation logic (`99_System/Tests/test_update_currencies.py`).
+  - [X] Unit tests for Alert Rules Engine evaluation & tagging (`99_System/Tests/alerts/test_rules.py`, `test_engine.py`).
+  - [X] Unit tests for portfolio historical snapshot timeline and CSV handling (`99_System/Tests/history/test_update_portfolio.py`).
+  - [X] Unit tests for macroeconomic dashboard engine and Jinja2 rendering (`99_System/Tests/macro/test_sync_macro.py`).
+  - [X] Unit tests for modular platform storage persistence and template rendering (`99_System/Tests/platforms/test_storage.py`, `test_template.py`).
+  - [X] Mock tests for external API enrichers (`yfinance`, `finnhub`, `justetf`, `stooq`, `nbp`, `multi_source`).
+- [X] **Codebase Architecture & System Deduplication (Review #1):**
+  - [X] Single source of truth configuration: unified root `config.yaml` and eliminated duplicate `99_System/config.yaml`.
+  - [X] Standardized all modules to use canonical `load_vault_config()` Pydantic loader.
+  - [X] Removed obsolete secondary CLI runner (`99_System/Scripts/run.py`).
+  - [X] Standardized DataviewJS view subdirectory structure (`99_System/Views/<view>/view.js`) and created `runner_widget/view.js`.
+  - [X] Standardized legacy sample asset notes to canonical `asset_template.md` frontmatter schema.
+  - [X] Modularized monolithic `platforms/common.py` into `platforms/storage.py` and `platforms/template.py`.
+  - [X] Declared missing `jinja2>=3.1.0` dependency in `pyproject.toml` and `requirements.txt`.
+  - [X] Structured logging utility (`99_System/Scripts/logging_util.py`) with `rich.logging.RichHandler`.
+- [X] **Type Hints, Linting & Formatting:**
+  - [X] Full static typing and type annotations across all scripts in `99_System/Scripts/`.
+  - [X] Standardized linter & code formatter configuration (`ruff` / `black`).
+- [ ] **Data Retention & History Archival:**
+  - [ ] Portfolio history archival: retain daily entries for up to 2 years, archiving older records to `history-archive-YYYY.csv`.
+  - [ ] Ephemeral raw data rotation: automatically archive or prune raw CSV/Excel exports older than 1 year.
+- [X] **Resilient Error Handling & Logging:**
+  - [X] Structured logging utility (`logging_util.py`) and informative error handling.
+  - [X] Input validation for manual and imported note frontmatters (Pydantic `Asset` & `VaultConfig` models).
+
+---
+
+## 🩺 Milestone: v0.8 Integrations Health Check & Connectivity Diagnostics
+
 - [ ] **Integrations Health Check & Connectivity Diagnostics (`health_check.py` / CLI):**
   - [ ] Dedicated diagnostic runner script and CLI flag (`python run.py --health` or `python 99_System/Scripts/health_check.py`).
   - [ ] Automated connectivity and response probes for all external integrations:
@@ -26,16 +49,10 @@
     - [ ] `stooq`: check quote service accessibility.
     - [ ] `openbb`: verify local environment availability and fallback status.
   - [ ] Visual CLI diagnostic report with latency metrics, status badges (✅ OK / ⚠️ WARN / ❌ FAIL), and troubleshooting hints for missing `.env` keys, rate limits, or network timeouts.
-- [ ] **Data Retention & History Archival:**
-  - [ ] Portfolio history archival: retain daily entries for up to 2 years, archiving older records to `history-archive-YYYY.csv`.
-  - [ ] Ephemeral raw data rotation: automatically archive or prune raw CSV/Excel exports older than 1 year.
-- [ ] **Resilient Error Handling & Logging:**
-  - [ ] Structured logging and informative error handling for network/API failures.
-  - [X] Input validation for manual and imported note frontmatters (Pydantic `Asset` & `VaultConfig` models).
 
 ---
 
-## ⚖️ Milestone: v0.8 Investment Strategy, Model Portfolios & AI Rebalance Advisor
+## ⚖️ Milestone: v0.9 Investment Strategy, Model Portfolios & AI Rebalance Advisor
 
 - [ ] **Model Portfolio Configuration (`config.yaml`):**
   - [ ] Target allocation schema per portfolio (*Safety Net*, *Long Term*, *Aggressive*): by asset class, dominant sector, or specific key assets.
@@ -53,7 +70,9 @@
   - [ ] Asset-specific cost & friction awareness (EDO bond early redemption penalty, physical gold bid-ask spreads, IKE/IKZE annual limit maximization, tax drag on taxable brokers).
   - [ ] Quarterly review integration: automated rebalance recommendations linked with `20_Decisions/YYYY-QN_Retrospective.md` and automated decision drafting via `decision_template.md`.
 
-## 🏠 Milestone: v0.9 Real Estate Valuation & Property Management
+---
+
+## 🏠 Milestone: v1.0 Real Estate Valuation & Property Management
 
 - [ ] **Property Parameterization & Schema Expansion:**
   - [ ] Extended frontmatter schema for real estate assets: area (`area_sqm`), floor (`floor`, `total_floors`), rooms, year built, building type, condition, garage/parking, storage room.

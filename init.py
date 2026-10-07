@@ -24,7 +24,8 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(description="Initialize new investment vault from starter.")
     parser.add_argument(
-        "-t", "--target",
+        "-t",
+        "--target",
         dest="target",
         type=str,
         default=None,

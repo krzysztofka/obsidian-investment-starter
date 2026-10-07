@@ -1,7 +1,8 @@
-from typing import Optional, Any
-from .base import BaseAlertRule
-import sys
 import os
+import sys
+from typing import Any
+
+from .base import BaseAlertRule
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 scripts_dir = os.path.dirname(os.path.dirname(current_dir))
@@ -28,7 +29,7 @@ class AllocationDriftRule(BaseAlertRule):
     def description(self) -> str:
         return "Single stock position exceeds maximum prudent portfolio concentration threshold (default: 15%)."
 
-    def evaluate(self, asset: Asset, context: Any) -> Optional[bool]:
+    def evaluate(self, asset: Asset, context: Any) -> bool | None:
         # Cash, physical gold, and real estate are foundation assets and excluded from single-stock concentration checks
         asset_type = str(asset.asset_type or "").lower().strip()
         if asset_type in ("cash", "real estate", "gold"):

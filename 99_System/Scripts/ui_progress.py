@@ -6,36 +6,36 @@ powered by the `rich` library with graceful fallback support for headless/CI
 or non-interactive environments.
 """
 
-import os
-import sys
 import concurrent.futures
-from typing import Optional, Any, Callable, Sequence, List, Tuple, TypeVar, Dict
+from collections.abc import Callable, Sequence
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 R = TypeVar("R")
 
 try:
     from rich.console import Console
-    from rich.text import Text
     from rich.progress import (
+        BarColumn,
+        MofNCompleteColumn,
         Progress,
         SpinnerColumn,
-        TextColumn,
-        BarColumn,
-        TaskProgressColumn,
-        MofNCompleteColumn,
-        TimeElapsedColumn,
         Task,
+        TaskProgressColumn,
+        TextColumn,
+        TimeElapsedColumn,
     )
+    from rich.text import Text
+
     HAVE_RICH = True
 except ImportError:
     HAVE_RICH = False
-    Console = None
-    Text = None
-    Progress = None
-    Task = None
+    Console = None  # type: ignore[assignment, misc]
+    Text = None  # type: ignore[assignment, misc]
+    Progress = None  # type: ignore[assignment, misc]
+    Task = None  # type: ignore[assignment, misc]
 
-_global_console: Optional[Any] = None
+_global_console: Any | None = None
 
 
 def get_console() -> Any:
@@ -49,6 +49,7 @@ def get_console() -> Any:
 
 
 if HAVE_RICH:
+
     class StatusColumn(TextColumn):
         """Custom TextColumn that safely extracts task.fields['status'] without throwing KeyError."""
 
@@ -61,15 +62,17 @@ if HAVE_RICH:
                 return Text("")
             return super().render(task)
 else:
+
     class StatusColumn:  # type: ignore
         pass
 
 
 class DummyTask:
     """Fallback dummy task for environments without Rich."""
+
     def __init__(self, task_id: int = 0):
         self.id = task_id
-        self.fields: Dict[str, Any] = {}
+        self.fields: dict[str, Any] = {}
 
 
 class DummyProgress:
@@ -84,13 +87,13 @@ class DummyProgress:
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
-    def add_task(self, description: str, total: Optional[int] = None, **kwargs) -> int:
+    def add_task(self, description: str, total: int | None = None, **kwargs) -> int:
         return 0
 
     def advance(self, task_id: int, advance: float = 1.0):
         pass
 
-    def update(self, task_id: int, advance: Optional[float] = None, **kwargs):
+    def update(self, task_id: int, advance: float | None = None, **kwargs):
         pass
 
     def print(self, *args, **kwargs):
@@ -98,11 +101,11 @@ class DummyProgress:
 
 
 def create_progress(
-    description: Optional[str] = None,
-    total: Optional[int] = None,
+    description: str | None = None,
+    total: int | None = None,
     transient: bool = False,
     disable: bool = False,
-    console: Optional[Any] = None,
+    console: Any | None = None,
     redirect_stdout: bool = True,
     redirect_stderr: bool = True,
 ) -> Any:
@@ -163,11 +166,11 @@ def track_parallel(
     worker_fn: Callable[[T], R],
     max_workers: int,
     description: str = "Processing...",
-    get_item_label: Optional[Callable[[T], str]] = None,
+    get_item_label: Callable[[T], str] | None = None,
     disable: bool = False,
-    on_complete: Optional[Callable[[T, R], None]] = None,
-    on_error: Optional[Callable[[T, Exception], None]] = None,
-) -> List[Tuple[T, Optional[R], Optional[Exception]]]:
+    on_complete: Callable[[T, R], None] | None = None,
+    on_error: Callable[[T, Exception], None] | None = None,
+) -> list[tuple[T, R | None, Exception | None]]:
     """Execute tasks concurrently across worker threads with a real-time Rich progress bar.
 
     Parameters:
@@ -186,7 +189,7 @@ def track_parallel(
     if not tasks:
         return []
 
-    results: List[Tuple[T, Optional[R], Optional[Exception]]] = []
+    results: list[tuple[T, R | None, Exception | None]] = []
 
     with create_progress(disable=disable) as progress:
         task_id = progress.add_task(description, total=len(tasks), status="Starting...")

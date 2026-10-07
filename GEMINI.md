@@ -59,10 +59,11 @@ The vault enforces a **three-bucket framework** with complete independence betwe
 ```text
 trader/
 ├── 00_Raw/                         # Raw broker data exports (gitignored / ephemeral)
-│   ├── Degiro/                     # Degiro CSV export files
-│   ├── Exante/                     # Exante CSV export files
-│   ├── mBM/                        # mBM CSV export files (ike-YYYY-MM-DD.csv & ikze-YYYY-MM-DD.csv)
-│   └── pkobp/                      # PKO BP Excel export files (StanRachunkuRejestrowego_YYYY-MM-DD.xls)
+│   ├── pko_bp_bonds/               # PKO BP retail bonds Excel files (StanRachunkuRejestrowego_*.xls)
+│   ├── mbank_ike/                  # mBank eMakler IKE CSV files (*.csv)
+│   ├── mbank_ikze/                 # mBank eMakler IKZE CSV files (*.csv)
+│   ├── degiro/                     # Degiro CSV export files (*.csv)
+│   └── exante/                     # Exante CSV export files (*.csv)
 ├── 10_Finance/                     # Core financial tracking
 │   ├── Assets/                     # 1 Markdown note per asset/cash holding
 │   ├── ETF_Holdings/               # Underlying company notes tracked inside portfolio ETFs
@@ -87,9 +88,7 @@ trader/
 │   │   ├── decision_template.md    # Template for investment decisions
 │   │   ├── retrospective_template.md # Template for decision reviews
 │   │   └── watchlist_item_template.md # Template for watchlist items
-│   ├── Tests/                      # Automated unit test suite (pytest)
-│   ├── Views/                      # Reusable DataviewJS custom views (e.g., alert_banner.js, open_decisions.js)
-│   └── config.yaml                 # Dominant sector thresholds & mapping configuration
+│   └── Views/                      # Reusable DataviewJS custom views (e.g., alert_banner, open_decisions, stooq_chart)
 ├── Alerts.md                       # Active alerts dashboard (Dataview)
 ├── Portfolio_performance.md        # Historical performance & valuation charts (DataviewJS + Charts)
 ├── Overview.md                     # Portfolio valuation, sector breakdown chart & table
@@ -128,33 +127,34 @@ All scripts are executed with Python 3.x using the virtual environment / install
 pip install .
 
 # 🚀 UNIFIED RUNNER (run.py): Execute all or specific pipeline actions
-python run.py --all                      # Run full pipeline: import -> rates -> macro -> etfs -> alerts -> history
-python run.py --import                   # Import broker exports (all platforms or use --platform / --file)
-python run.py --import --platform pkobp  # Import PKO BP treasury retail bonds
-python run.py --import --platform mbm    # Import mBM positions (IKE & IKZE)
-python run.py --import --platform ikze   # Import mBM IKZE positions
-python run.py --import --platform ike    # Import mBM IKE positions
-python run.py --import --api             # Import live positions directly via Exante REST API
-python run.py --update-rates             # Refresh live FX rates and update value_pln
-python run.py --macro                    # Synchronize macroeconomic dashboard indicators, yields & rates
-python run.py --sync-etfs                # Synchronize ETF top holdings, overlap & exposures
-python run.py --alerts                   # Scan and evaluate portfolio alerts (Alert Rules Engine)
-python run.py --history                  # Synchronize historical snapshots to portfolio.csv
-python run.py --update-rates --alerts    # Chain multiple actions together
+python run.py --all                               # Run full pipeline: import -> rates -> macro -> etfs -> alerts -> history
+python run.py --import                            # Import broker exports (enabled platforms or use --platform / --file)
+python run.py --list-platforms                    # List available platform extensions and their enabled status
+python run.py --enable-platform <id>              # Enable a platform extension in config.yaml
+python run.py --disable-platform <id>             # Disable a platform extension in config.yaml
+python run.py --import --platform pko_bp_bonds    # Import PKO BP treasury retail bonds
+python run.py --import --platform mbank_ike       # Import mBank IKE positions
+python run.py --import --platform mbank_ikze      # Import mBank IKZE positions
+python run.py --import --platform degiro          # Import Degiro positions
+python run.py --import --platform exante          # Import Exante positions (CSV or API)
+python run.py --import --api                      # Import live positions directly via Exante REST API
+python run.py --update-rates                      # Refresh live FX rates and update value_pln
+python run.py --macro                             # Synchronize macroeconomic dashboard indicators, yields & rates
+python run.py --sync-etfs                         # Synchronize ETF top holdings, overlap & exposures
+python run.py --alerts                            # Scan and evaluate portfolio alerts (Alert Rules Engine)
+python run.py --history                           # Synchronize historical snapshots to portfolio.csv
+python run.py --update-rates --alerts             # Chain multiple actions together
 
 # --- Or run individual modules directly ---
-# 2. Import broker exports (all platforms or specific platform/file/API)
+# 2. Import broker exports (enabled platforms or specific platform/file/API)
 python 99_System/Scripts/import_assets.py
-# (Or: python 99_System/Scripts/platforms/pkobp.py)
-# (Or: python 99_System/Scripts/import_assets.py --platform pkobp)
-# (Or: python 99_System/Scripts/import_assets.py --platform degiro)
-# (Or: python 99_System/Scripts/import_assets.py --platform exante)
-# (Or: python 99_System/Scripts/import_assets.py --platform mbm)
-# (Or: python 99_System/Scripts/platforms/mbm.py --account ikze)
-# (Or: python 99_System/Scripts/platforms/mbm.py --account ike)
-# (Or: python 99_System/Scripts/import_assets.py --api)
-# (Or: python 99_System/Scripts/import_assets.py --file 00_Raw/pkobp/sample_pkobp.xls)
-# (Or: python 99_System/Scripts/import_assets.py --file 00_Raw/mBM/sample_ikze.csv)
+# (Or: python 99_System/Scripts/platforms/pko_bp_bonds.py)
+# (Or: python 99_System/Scripts/platforms/mbank_ike.py)
+# (Or: python 99_System/Scripts/platforms/mbank_ikze.py)
+# (Or: python 99_System/Scripts/platforms/degiro.py)
+# (Or: python 99_System/Scripts/platforms/exante.py --api)
+# (Or: python 99_System/Scripts/import_assets.py --file 00_Raw/pko_bp_bonds/sample_pkobp.xls)
+# (Or: python 99_System/Scripts/import_assets.py --file 00_Raw/mbank_ikze/sample_ikze.csv)
 
 
 # 3. Synchronize macroeconomic indicators & yield curves
@@ -182,6 +182,12 @@ python 99_System/Scripts/sync_etf_holdings.py
 
 # 9. Run automated unit test suite (pytest)
 python -m pytest
+
+# 10. Linting, code formatting, and static type checking
+python -m ruff check .                           # Run linter checks
+python -m ruff format --check .                  # Check formatting style
+python -m ruff format .                          # Auto-format codebase
+python -m mypy 99_System/Scripts                 # Static type checking
 ```
 
 ---

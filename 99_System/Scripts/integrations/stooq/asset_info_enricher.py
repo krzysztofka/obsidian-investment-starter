@@ -1,7 +1,6 @@
+import copy
 import os
 import sys
-import copy
-from typing import Optional
 
 # Ensure scripts dir is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -11,8 +10,9 @@ for p in (scripts_dir, integrations_dir):
     if p not in sys.path:
         sys.path.append(p)
 
-from integrations.base import BaseAssetInfoEnricher
 from model.asset import Asset
+
+from integrations.base import BaseAssetInfoEnricher
 from integrations.stooq.service import resolve_stooq_ticker
 
 
@@ -33,12 +33,12 @@ class StooqAssetInfoEnricher(BaseAssetInfoEnricher):
             return False
         return True
 
-    def enrich(self, asset: Asset) -> Optional[Asset]:
+    def enrich(self, asset: Asset) -> Asset | None:
         """Resolve the Stooq ticker symbol and return an enriched clone of the Asset."""
         cloned = copy.deepcopy(asset)
 
         # If already specified manually, preserve it
-        if getattr(cloned, 'stooq_ticker', None):
+        if getattr(cloned, "stooq_ticker", None):
             return cloned
 
         stooq_sym = resolve_stooq_ticker(

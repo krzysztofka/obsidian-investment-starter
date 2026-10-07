@@ -1,7 +1,8 @@
+import csv
 import os
 import sys
-import csv
 from datetime import datetime
+from typing import Any
 
 # Ensure script root is in sys.path
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -17,12 +18,12 @@ def get_base_dir() -> str:
     return os.path.abspath(os.path.join(script_dir, "../../.."))
 
 
-def format_val(val) -> str:
+def format_val(val: Any) -> str:
     """Format a frontmatter value for CSV export, returning empty string for missing/null values."""
     if val is None:
         return ""
     val_str = str(val).strip()
-    if val_str.lower() in ('null', 'none', '~', ''):
+    if val_str.lower() in ("null", "none", "~", ""):
         return ""
     try:
         f = float(val_str)
@@ -31,7 +32,7 @@ def format_val(val) -> str:
         return val_str
 
 
-def update_portfolio_history(base_dir: str = None) -> str:
+def update_portfolio_history(base_dir: str | None = None) -> str:
     """Synchronize, deduplicate, and sort all historical portfolio snapshots into 10_Finance/History/portfolio.csv.
 
     Reads existing entries from portfolio.csv, updates with current state from 10_Finance/Assets/*.md,
@@ -47,7 +48,7 @@ def update_portfolio_history(base_dir: str = None) -> str:
     portfolio_file = os.path.join(history_dir, "portfolio.csv")
     old_md_file = os.path.join(history_dir, "portfolio.md")
 
-    fieldnames = ['date', 'ticker', 'name', 'value_pln', 'current_price', 'pe_ratio', 'quantity', 'portfolio']
+    fieldnames = ["date", "ticker", "name", "value_pln", "current_price", "pe_ratio", "quantity", "portfolio"]
 
     # Map of (date, ticker) -> row dict
     entries = {}
@@ -58,11 +59,12 @@ def update_portfolio_history(base_dir: str = None) -> str:
     if os.path.exists(decisions_dir):
         for root, _, files in os.walk(decisions_dir):
             for fname in files:
-                if fname.endswith('.md'):
+                if fname.endswith(".md"):
                     try:
-                        with open(os.path.join(root, fname), 'r', encoding='utf-8') as df:
+                        with open(os.path.join(root, fname), encoding="utf-8") as df:
                             content = df.read()
                         import re
+
                         m_tick = re.search(r'^ticker:\s*["\']?([^"\'\n\r]+)["\']?', content, re.M)
                         m_port = re.search(r'^portfolio:\s*["\']?([^"\'\n\r]+)["\']?', content, re.M)
                         if m_tick and m_port:
@@ -72,27 +74,27 @@ def update_portfolio_history(base_dir: str = None) -> str:
 
     # 1. Read existing entries from portfolio.csv if present
     if os.path.exists(portfolio_file):
-        with open(portfolio_file, mode='r', encoding='utf-8') as f:
+        with open(portfolio_file, encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                date_val = (row.get('date') or '').strip()
-                ticker_val = (row.get('ticker') or '').strip()
+                date_val = (row.get("date") or "").strip()
+                ticker_val = (row.get("ticker") or "").strip()
                 if date_val and ticker_val:
                     entries[(date_val, ticker_val)] = {
-                        'date': date_val,
-                        'ticker': ticker_val,
-                        'name': (row.get('name') or ticker_val).strip(),
-                        'value_pln': format_val(row.get('value_pln')),
-                        'current_price': format_val(row.get('current_price')),
-                        'pe_ratio': format_val(row.get('pe_ratio')),
-                        'quantity': format_val(row.get('quantity')),
-                        'portfolio': format_val(row.get('portfolio')),
+                        "date": date_val,
+                        "ticker": ticker_val,
+                        "name": (row.get("name") or ticker_val).strip(),
+                        "value_pln": format_val(row.get("value_pln")),
+                        "current_price": format_val(row.get("current_price")),
+                        "pe_ratio": format_val(row.get("pe_ratio")),
+                        "quantity": format_val(row.get("quantity")),
+                        "portfolio": format_val(row.get("portfolio")),
                     }
 
     # 2. Populate / update entries using files in 10_Finance/Assets
     if os.path.exists(assets_dir):
         for fname in os.listdir(assets_dir):
-            if fname.endswith('.md'):
+            if fname.endswith(".md"):
                 fpath = os.path.join(assets_dir, fname)
                 try:
                     asset = Asset.from_file(fpath)
@@ -105,29 +107,29 @@ def update_portfolio_history(base_dir: str = None) -> str:
 
                     if date_val and ticker_val:
                         entries[(date_val, ticker_val)] = {
-                            'date': date_val,
-                            'ticker': ticker_val,
-                            'name': name_val,
-                            'value_pln': format_val(asset.value_pln),
-                            'current_price': format_val(asset.current_price),
-                            'pe_ratio': format_val(asset.pe_ratio),
-                            'quantity': format_val(asset.quantity),
-                            'portfolio': format_val(asset.portfolio),
+                            "date": date_val,
+                            "ticker": ticker_val,
+                            "name": name_val,
+                            "value_pln": format_val(asset.value_pln),
+                            "current_price": format_val(asset.current_price),
+                            "pe_ratio": format_val(asset.pe_ratio),
+                            "quantity": format_val(asset.quantity),
+                            "portfolio": format_val(asset.portfolio),
                         }
                 except Exception as e:
                     print(f"Warning: could not process asset file {fname}: {e}")
 
     # Backfill missing portfolio values for historical entries
     for (d, t), item in entries.items():
-        if not item.get('portfolio') and t in asset_portfolio_map:
-            item['portfolio'] = format_val(asset_portfolio_map[t])
+        if not item.get("portfolio") and t in asset_portfolio_map:
+            item["portfolio"] = format_val(asset_portfolio_map[t])
 
     # 3. Sort entries by date ascending, then ticker ascending
-    sorted_entries = sorted(list(entries.values()), key=lambda x: (x['date'], x['ticker']))
+    sorted_entries = sorted(list(entries.values()), key=lambda x: (x["date"], x["ticker"]))
 
     # 4. Write back to portfolio.csv
-    with open(portfolio_file, mode='w', encoding='utf-8', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames, lineterminator='\n')
+    with open(portfolio_file, mode="w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         writer.writerows(sorted_entries)
 
@@ -147,5 +149,5 @@ def main():
     update_portfolio_history(base_dir)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

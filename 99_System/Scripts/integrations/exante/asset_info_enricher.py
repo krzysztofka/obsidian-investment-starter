@@ -1,7 +1,6 @@
+import copy
 import os
 import sys
-import copy
-from typing import Optional
 
 # Ensure scripts dir is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -10,14 +9,15 @@ if scripts_dir not in sys.path:
     sys.path.append(scripts_dir)
 
 from model.asset import Asset
+
 from integrations.base import BaseAssetInfoEnricher
-from integrations.exante.service import get_exante_client, ExanteClient
+from integrations.exante.service import ExanteClient, get_exante_client
 
 
 class ExanteAssetInfoEnricher(BaseAssetInfoEnricher):
     """Enricher that resolves Exante asset metadata using the Exante REST API."""
 
-    def __init__(self, client: Optional[ExanteClient] = None):
+    def __init__(self, client: ExanteClient | None = None):
         self.client = client
 
     @property
@@ -32,7 +32,7 @@ class ExanteAssetInfoEnricher(BaseAssetInfoEnricher):
         has_exchange_suffix = "." in asset.ticker and not asset.ticker.startswith("EXANTE_CASH_")
         return platform_matches or has_exchange_suffix
 
-    def enrich(self, asset: Asset) -> Optional[Asset]:
+    def enrich(self, asset: Asset) -> Asset | None:
         if not self.can_enrich(asset):
             return None
 
@@ -48,8 +48,9 @@ class ExanteAssetInfoEnricher(BaseAssetInfoEnricher):
             cloned = copy.deepcopy(asset)
             if not cloned.isin and info.get("isin"):
                 cloned.isin = info["isin"]
-            if (not cloned.name or cloned.name == cloned.ticker) and (info.get("name") or info.get("description")):
-                cloned.name = info.get("name") or info.get("description")
+            name_candidate = info.get("name") or info.get("description")
+            if (not cloned.name or cloned.name == cloned.ticker) and name_candidate:
+                cloned.name = str(name_candidate)
             if not cloned.currency and info.get("currency"):
                 cloned.currency = str(info["currency"]).upper()
 

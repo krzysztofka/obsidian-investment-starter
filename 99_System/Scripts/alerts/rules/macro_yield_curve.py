@@ -1,7 +1,9 @@
-from typing import Optional, Any
 import os
 import sys
+from typing import Any
+
 import yaml
+
 from .base import BaseAlertRule
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -17,9 +19,9 @@ class MacroYieldCurveRule(BaseAlertRule):
 
     DEFAULT_INVERSION_THRESHOLD_BPS = 0.0
 
-    def __init__(self, macro_file_path: Optional[str] = None):
+    def __init__(self, macro_file_path: str | None = None):
         self.macro_file_path = macro_file_path
-        self._cached_spread_bps: Optional[float] = None
+        self._cached_spread_bps: float | None = None
         self._macro_checked: bool = False
 
     @property
@@ -34,7 +36,7 @@ class MacroYieldCurveRule(BaseAlertRule):
     def description(self) -> str:
         return "US 10Y-2Y Treasury yield curve spread is inverted, signaling late-cycle recession risk for equities."
 
-    def _get_yield_spread_bps(self) -> Optional[float]:
+    def _get_yield_spread_bps(self) -> float | None:
         """Read current yield_spread_10y_2y_bps from 10_Finance/Macro.md frontmatter."""
         if self._macro_checked:
             return self._cached_spread_bps
@@ -50,7 +52,7 @@ class MacroYieldCurveRule(BaseAlertRule):
             return None
 
         try:
-            with open(target_path, "r", encoding="utf-8") as f:
+            with open(target_path, encoding="utf-8") as f:
                 content = f.read()
             if content.startswith("---"):
                 parts = content.split("---", 2)
@@ -63,7 +65,7 @@ class MacroYieldCurveRule(BaseAlertRule):
 
         return self._cached_spread_bps
 
-    def evaluate(self, asset: Asset, context: Any) -> Optional[bool]:
+    def evaluate(self, asset: Asset, context: Any) -> bool | None:
         # Cash, bonds, real estate, and physical gold are capital preservation / safe-haven assets, not recession-risk equities
         asset_type = str(asset.asset_type or "").strip().lower()
         if asset_type in ("cash", "bond", "real estate", "gold", "deposit"):

@@ -1,7 +1,6 @@
 import os
 import sys
-from typing import Dict, Any, List, Optional
-import yaml
+from typing import Any
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 scripts_dir = os.path.dirname(current_dir)
@@ -9,29 +8,15 @@ if scripts_dir not in sys.path:
     sys.path.append(scripts_dir)
 
 from model.asset import Asset
+from model.config import load_vault_config
 
 
-def load_config() -> Dict[str, Any]:
-    """Load configuration from config.yaml searching standard vault locations."""
+def load_config() -> dict[str, Any]:
+    """Load configuration from config.yaml via canonical load_vault_config."""
     system_dir = os.path.abspath(os.path.join(current_dir, "..", ".."))
     vault_root = os.path.abspath(os.path.join(system_dir, ".."))
-
-    candidate_paths = [
-        os.path.join(vault_root, "config.yaml"),
-        os.path.join(system_dir, "config.yaml"),
-    ]
-
-    for p in candidate_paths:
-        if os.path.exists(p):
-            try:
-                with open(p, "r", encoding="utf-8") as f:
-                    content = yaml.safe_load(f)
-                    if isinstance(content, dict):
-                        return content
-            except Exception as e:
-                sys.stderr.write(f"Warning: Failed to parse config from {p}: {e}\n")
-
-    return {}
+    cfg = load_vault_config(base_dir=vault_root)
+    return cfg.model_dump(by_alias=True)
 
 
 class AlertContext:
@@ -39,15 +24,15 @@ class AlertContext:
 
     def __init__(
         self,
-        assets: Optional[List[Asset]] = None,
-        config: Optional[Dict[str, Any]] = None,
+        assets: list[Asset] | None = None,
+        config: dict[str, Any] | None = None,
     ):
-        self.config: Dict[str, Any] = config if config is not None else load_config()
-        self.assets: List[Asset] = assets or []
+        self.config: dict[str, Any] = config if config is not None else load_config()
+        self.assets: list[Asset] = assets or []
 
         # Precompute portfolio values
         self.total_portfolio_value: float = 0.0
-        self.portfolio_values: Dict[str, float] = {
+        self.portfolio_values: dict[str, float] = {
             "safety net": 0.0,
             "long term": 0.0,
             "aggressive": 0.0,

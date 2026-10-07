@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import Dict, Optional, Tuple, Any
+from typing import Any
 
 # Ensure script directories are accessible
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -9,10 +9,7 @@ for p in (scripts_dir, current_dir):
     if p not in sys.path:
         sys.path.append(p)
 
-try:
-    import yaml
-except ImportError:
-    yaml = None
+import yaml
 
 DEFAULT_CONFIG = {
     "dominant_sector": {
@@ -66,41 +63,35 @@ DEFAULT_CONFIG = {
             "basic_materials": "Basic Materials",
             "materials": "Basic Materials",
             "communication_services": "Communication Services",
-        }
+        },
     }
 }
 
 
-def load_sector_config(config_path: Optional[str] = None) -> Dict[str, Any]:
+def load_sector_config(config_path: str | None = None) -> dict[str, Any]:
     """Load configuration from config.yaml with built-in fallbacks."""
-    candidate_paths = []
-    if config_path:
-        candidate_paths.append(config_path)
+    if config_path and os.path.exists(config_path):
+        try:
+            with open(config_path, encoding="utf-8") as f:
+                loaded = yaml.safe_load(f) if yaml else None
+                if isinstance(loaded, dict) and "dominant_sector" in loaded:
+                    return loaded
+        except Exception:
+            pass
 
     workspace_root = os.path.abspath(os.path.join(scripts_dir, "../.."))
-    system_dir = os.path.join(workspace_root, "99_System")
+    try:
+        from model.config import load_vault_config
 
-    candidate_paths.extend([
-        os.path.join(system_dir, "config.yaml"),
-        os.path.join(workspace_root, "config.yaml"),
-    ])
-
-    for path in candidate_paths:
-        if os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    content = f.read()
-                if yaml:
-                    loaded = yaml.safe_load(content)
-                    if isinstance(loaded, dict) and "dominant_sector" in loaded:
-                        return loaded
-            except Exception:
-                pass
+        cfg = load_vault_config(base_dir=workspace_root)
+        return cfg.model_dump()
+    except Exception:
+        pass
 
     return DEFAULT_CONFIG
 
 
-def determine_dominant_sector(holdings_data: Optional[Dict[str, float]], config: Optional[Dict[str, Any]] = None) -> str:
+def determine_dominant_sector(holdings_data: dict[str, float] | None, config: dict[str, Any] | None = None) -> str:
     """Determine the dominant sector for an asset/ETF based on sector percentage breakdown.
 
     Args:
@@ -126,7 +117,7 @@ def determine_dominant_sector(holdings_data: Optional[Dict[str, float]], config:
     if not holdings_data or not isinstance(holdings_data, dict):
         return diversified_label
 
-    cleaned_data: Dict[str, float] = {}
+    cleaned_data: dict[str, float] = {}
     for k, v in holdings_data.items():
         if k is None or v is None:
             continue
@@ -144,7 +135,7 @@ def determine_dominant_sector(holdings_data: Optional[Dict[str, float]], config:
     if max_raw_val <= 1.0:
         cleaned_data = {k: v * 100.0 for k, v in cleaned_data.items()}
 
-    aggregated_sectors: Dict[str, float] = {}
+    aggregated_sectors: dict[str, float] = {}
     for raw_sector, pct in cleaned_data.items():
         lower_raw = raw_sector.lower()
         mapped_name = mappings_lower.get(lower_raw)
@@ -165,21 +156,24 @@ def determine_dominant_sector(holdings_data: Optional[Dict[str, float]], config:
         return diversified_label
 
 
-def fetch_etf_holdings_data(isin: Optional[str], ticker: Optional[str] = None, name: Optional[str] = None) -> Tuple[Dict[str, float], str]:
+def fetch_etf_holdings_data(
+    isin: str | None, ticker: str | None = None, name: str | None = None
+) -> tuple[dict[str, float], str]:
     """Fetch ETF sector breakdown structure from yfinance or JustETF.
 
     Returns:
         Tuple of (holdings_dict, source_name).
     """
-    holdings: Dict[str, float] = {}
+    holdings: dict[str, float] = {}
     source = "none"
 
     if ticker:
-        sym = ticker.split('.')[0] if '.' in ticker else ticker
+        sym = ticker.split(".")[0] if "." in ticker else ticker
         try:
             import yfinance as yf
+
             t = yf.Ticker(sym)
-            sw = getattr(t, 'funds_data', None) and getattr(t.funds_data, 'sector_weightings', None)
+            sw = getattr(t, "funds_data", None) and getattr(t.funds_data, "sector_weightings", None)
             if sw and isinstance(sw, dict):
                 holdings = {k: float(v) for k, v in sw.items() if v is not None}
                 source = "yfinance"
@@ -189,6 +183,7 @@ def fetch_etf_holdings_data(isin: Optional[str], ticker: Optional[str] = None, n
     if not holdings and isin:
         try:
             from integrations.justetf.service import fetch_justetf_sectors
+
             justetf_sectors = fetch_justetf_sectors(isin)
             if justetf_sectors:
                 holdings = justetf_sectors

@@ -1,7 +1,6 @@
+import copy
 import os
 import sys
-import copy
-from typing import Optional
 
 # Ensure scripts dir is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -11,11 +10,11 @@ for p in (scripts_dir, integrations_dir):
     if p not in sys.path:
         sys.path.append(p)
 
-from integrations.base import BaseAssetInfoEnricher
 from model.asset import Asset
+
+from integrations.base import BaseAssetInfoEnricher
 from integrations.openbb.service import (
     fetch_openbb_data,
-    fetch_morningstar_rating,
 )
 
 
@@ -31,9 +30,9 @@ class OpenBBAssetInfoEnricher(BaseAssetInfoEnricher):
 
     def can_enrich(self, asset: Asset) -> bool:
         """OpenBB enricher supports equities and ETFs (skips cash)."""
-        return asset.asset_type != 'cash'
+        return asset.asset_type != "cash"
 
-    def _resolve_symbol(self, asset: Asset) -> Optional[str]:
+    def _resolve_symbol(self, asset: Asset) -> str | None:
         """Resolve ticker symbol suitable for OpenBB / Morningstar queries."""
         if asset.yahoo_ticker:
             return asset.yahoo_ticker
@@ -41,7 +40,7 @@ class OpenBBAssetInfoEnricher(BaseAssetInfoEnricher):
             return asset.ticker
         return None
 
-    def enrich(self, asset: Asset) -> Optional[Asset]:
+    def enrich(self, asset: Asset) -> Asset | None:
         """Fetch Morningstar ratings and OpenBB data to return a cloned enriched Asset."""
         symbol = self._resolve_symbol(asset)
         if not symbol:

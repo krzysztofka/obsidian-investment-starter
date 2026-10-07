@@ -55,8 +55,7 @@ The system enforces an autonomous **three-bucket capital allocation framework**:
 │   │   ├── sync_etf_holdings.py    # ETF top holdings synchronization engine
 │   │   └── sync_macro.py           # Macroeconomic data synchronization
 │   ├── Templates/                  # Note templates (assets, decisions, watchlists)
-│   ├── Views/                      # Reusable DataviewJS UI views & widgets
-│   └── config.yaml                 # System configurations & sector mapping
+│   └── Views/                      # Reusable DataviewJS UI views & widgets
 ├── Alerts.md                       # Active risk & valuation alerts dashboard
 ├── Overview.md                     # Portfolio valuation & sector breakdown
 ├── Portfolio_performance.md        # Historical valuation & equity performance charts

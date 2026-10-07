@@ -1,27 +1,29 @@
 ---
-ticker: IE00BK5BQT80
+ticker: VWCE
 name: Vanguard FTSE All-World UCITS ETF (USD) Acc
-asset_class: etf
+platform: mBM
+portfolio: "Long term"
+quantity: 30.0
+avg_price: 110.00
+current_price: 125.50
+value_pln: 16189.5
 currency: EUR
+asset_type: etf
+asset_allocation:
+  equity: 100
+dominant_sector: Diversified
+industry: Diversified
 isin: IE00BK5BQT80
 yahoo_ticker: VWCE.DE
-justetf_slug: vanguard-ftse-all-world-ucits-etf-usd-accumulating
 stooq_ticker: vwce.de
-quantity: 30.0
-current_price: 125.50
-avg_purchase_price: 110.00
-value_pln: 16189.5
-portfolio: long_term
-broker: mBM
-source: platform
-ter: 0.22
-allocation:
-  equity: 100.0
-  bonds: 0.0
-  cash: 0.0
+ter: "0.22% p.a."
 last_updated: "2026-09-19"
-alerts: []
+source: platform
+tags: []
 ---
-# Vanguard FTSE All-World UCITS ETF
+
+# Vanguard FTSE All-World UCITS ETF (VWCE)
+
+**Platform:** [[mBM]]
 
 All-cap world equity index tracker providing diversified global equity exposure across developed and emerging economies.

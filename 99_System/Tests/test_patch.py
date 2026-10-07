@@ -3,8 +3,6 @@
 import os
 import sys
 import tempfile
-import shutil
-import pytest
 
 # Ensure scripts dir is on sys.path
 SCRIPTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "Scripts"))
@@ -12,10 +10,10 @@ if SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, SCRIPTS_DIR)
 
 from patch.patch_engine import (
-    get_vault_version,
-    discover_patches,
-    build_patch_pipeline,
     PatchEngine,
+    build_patch_pipeline,
+    discover_patches,
+    get_vault_version,
 )
 
 
@@ -103,20 +101,20 @@ def test_patch_application_and_private_data_preservation():
         # VERIFICATIONS:
         # A. Private data strictly preserved
         assert os.path.exists(my_asset)
-        with open(my_asset, "r", encoding="utf-8") as f:
+        with open(my_asset, encoding="utf-8") as f:
             assert "My Secret Stock" in f.read()
 
         assert os.path.exists(my_raw)
-        with open(my_raw, "r", encoding="utf-8") as f:
+        with open(my_raw, encoding="utf-8") as f:
             assert "Secret private CSV content" in f.read()
 
         assert os.path.exists(my_env)
-        with open(my_env, "r", encoding="utf-8") as f:
+        with open(my_env, encoding="utf-8") as f:
             assert "supersecret123" in f.read()
 
         # B. Custom config preserved
         assert os.path.exists(custom_cfg)
-        with open(custom_cfg, "r", encoding="utf-8") as f:
+        with open(custom_cfg, encoding="utf-8") as f:
             assert "custom_user_setting: true" in f.read()
 
         # C. Downstream todo.md deleted

@@ -5,9 +5,9 @@ Scans market opportunities across Quality Growth, Dividend Value, and Thematic E
 enriches them with OpenBB / Morningstar / analyst ratings, and saves notes to 10_Finance/Watchlist/.
 """
 
+import argparse
 import os
 import sys
-import argparse
 
 # Ensure scripts dir is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -15,10 +15,10 @@ if current_dir not in sys.path:
     sys.path.append(current_dir)
 
 from integrations.openbb.service import (
-    get_potential_watchlist_items,
     fetch_openbb_data,
-    save_watchlist_item,
+    get_potential_watchlist_items,
     is_openbb_available,
+    save_watchlist_item,
 )
 
 
@@ -33,16 +33,18 @@ def print_table(candidates):
     print("-" * len(header))
 
     for c in candidates:
-        ticker = c.get('ticker', '')
-        name = (c.get('name', '')[:22] + '...') if len(c.get('name', '')) > 24 else c.get('name', '')
+        ticker = c.get("ticker", "")
+        name = (c.get("name", "")[:22] + "...") if len(c.get("name", "")) > 24 else c.get("name", "")
         tgt = f"{c.get('target_entry_price', '')} {c.get('currency', '')}"
         price = f"{c.get('current_price', '')} {c.get('currency', '')}"
-        upside = str(c.get('upside_potential', '-')) if c.get('upside_potential') else '-'
-        sharpe = str(c.get('sharpe_ratio', '-')) if c.get('sharpe_ratio') is not None else '-'
-        vol = str(c.get('volatility', '-')) if c.get('volatility') else '-'
-        maxdd = str(c.get('max_drawdown', '-')) if c.get('max_drawdown') else '-'
-        rating = str(c.get('analyst_rating', '-')) if c.get('analyst_rating') else '-'
-        print(f"{ticker:<8} | {name:<24} | {tgt:<10} | {price:<10} | {upside:<8} | {sharpe:<7} | {vol:<8} | {maxdd:<8} | {rating:<11}")
+        upside = str(c.get("upside_potential", "-")) if c.get("upside_potential") else "-"
+        sharpe = str(c.get("sharpe_ratio", "-")) if c.get("sharpe_ratio") is not None else "-"
+        vol = str(c.get("volatility", "-")) if c.get("volatility") else "-"
+        maxdd = str(c.get("max_drawdown", "-")) if c.get("max_drawdown") else "-"
+        rating = str(c.get("analyst_rating", "-")) if c.get("analyst_rating") else "-"
+        print(
+            f"{ticker:<8} | {name:<24} | {tgt:<10} | {price:<10} | {upside:<8} | {sharpe:<7} | {vol:<8} | {maxdd:<8} | {rating:<11}"
+        )
     print("-" * len(header))
 
 
@@ -64,11 +66,15 @@ def main():
     )
     parser.add_argument("--limit", type=int, default=10, help="Maximum number of candidates to scan")
     parser.add_argument("--add", type=str, help="Single ticker symbol to enrich and add directly to watchlist")
-    parser.add_argument("--save-all", action="store_true", help="Save all scanned candidates as Markdown notes in 10_Finance/Watchlist")
+    parser.add_argument(
+        "--save-all", action="store_true", help="Save all scanned candidates as Markdown notes in 10_Finance/Watchlist"
+    )
 
     args = parser.parse_args()
 
-    print(f"OpenBB Integration Status: {'[AVAILABLE]' if is_openbb_available() else '[FALLBACK ACTIVE (yfinance/market data)]'}\n")
+    print(
+        f"OpenBB Integration Status: {'[AVAILABLE]' if is_openbb_available() else '[FALLBACK ACTIVE (yfinance/market data)]'}\n"
+    )
 
     if args.add:
         sym = args.add.strip().upper()
@@ -76,7 +82,7 @@ def main():
         enriched = fetch_openbb_data(sym)
         curr_price = enriched.get("current_price") or 100.0
         target_entry = round(curr_price * 0.88, 2) if curr_price else None
-        
+
         candidate = {
             "ticker": sym,
             "name": enriched.get("name") or sym,

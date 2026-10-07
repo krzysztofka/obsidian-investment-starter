@@ -1,26 +1,25 @@
-import os
-import sys
-import glob
 import argparse
 import concurrent.futures
+import glob
+import os
+import sys
 from datetime import datetime
-from typing import Optional
 
 # Ensure script directory is in sys.path
 script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
     sys.path.append(script_dir)
 
-from model.asset import Asset
 from integrations.yfinance import calculate_value_pln, get_fx_rate_to_pln
+from model.asset import Asset
 from platforms.common import get_max_workers
 from ui_progress import create_progress
 
 
 def update_currencies(
     assets_dir: str,
-    max_workers: Optional[int] = None,
-    base_dir: Optional[str] = None,
+    max_workers: int | None = None,
+    base_dir: str | None = None,
     show_progress: bool = True,
     verbose: bool = False,
 ):
@@ -48,7 +47,7 @@ def update_currencies(
             if not asset.ticker and not asset.name:
                 return None, f"Skipping {filename} (no valid asset data)"
 
-            currency = asset.currency or 'PLN'
+            currency = asset.currency or "PLN"
             rate = get_fx_rate_to_pln(currency)
             val_pln = calculate_value_pln(asset.quantity, asset.current_price, currency)
 
@@ -57,7 +56,7 @@ def update_currencies(
             asset.save(file_path)
 
             val_str = f"{val_pln:,.2f} PLN" if val_pln is not None else "N/A"
-            rate_str = "1.0" if currency.upper() == 'PLN' else f"{rate:.4f}"
+            rate_str = "1.0" if currency.upper() == "PLN" else f"{rate:.4f}"
             msg = f"Updated {filename:<25} | Currency: {currency:<4} | Rate: {rate_str:<7} | value_pln: {val_str}"
             return val_pln, msg
         except Exception as e:
@@ -100,10 +99,25 @@ def update_currencies(
 
 def main():
     parser = argparse.ArgumentParser(description="Update currency values (value_pln) for all assets.")
-    parser.add_argument("-w", "--workers", dest="max_workers", type=int, default=None, help="Number of concurrent worker threads.")
+    parser.add_argument(
+        "-w", "--workers", dest="max_workers", type=int, default=None, help="Number of concurrent worker threads."
+    )
     parser.add_argument("--assets-dir", dest="assets_dir", type=str, default=None, help="Path to assets directory.")
-    parser.add_argument("--no-progress", dest="no_progress", action="store_true", default=False, help="Disable interactive rich progress bars.")
-    parser.add_argument("-v", "--verbose", dest="verbose", action="store_true", default=False, help="Print detailed update messages for every asset.")
+    parser.add_argument(
+        "--no-progress",
+        dest="no_progress",
+        action="store_true",
+        default=False,
+        help="Disable interactive rich progress bars.",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        dest="verbose",
+        action="store_true",
+        default=False,
+        help="Print detailed update messages for every asset.",
+    )
     args = parser.parse_args()
 
     base_dir = os.path.abspath(os.path.join(script_dir, "../.."))
@@ -117,5 +131,5 @@ def main():
     )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

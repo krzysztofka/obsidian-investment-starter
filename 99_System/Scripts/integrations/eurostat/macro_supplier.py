@@ -7,7 +7,7 @@ directly from the Eurostat Public Dissemination API.
 
 import os
 import sys
-from typing import Dict, Any, Optional
+from typing import Any
 
 # Ensure integrations root is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -20,10 +20,7 @@ try:
 except ImportError:
     resilient_get = None
 
-try:
-    import requests
-except ImportError:
-    requests = None
+import requests
 
 
 class EurostatMacroSupplier:
@@ -32,7 +29,7 @@ class EurostatMacroSupplier:
     BASE_API_URL = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data"
 
     @classmethod
-    def _get(cls, endpoint: str, timeout: int = 6) -> Optional[Any]:
+    def _get(cls, endpoint: str, timeout: int = 6) -> Any | None:
         """Perform resilient HTTP GET request against Eurostat API."""
         try:
             url = f"{cls.BASE_API_URL}/{endpoint}"
@@ -44,7 +41,7 @@ class EurostatMacroSupplier:
             return None
 
     @classmethod
-    def fetch_10y_yield(cls, geo: str = "PL") -> Dict[str, Any]:
+    def fetch_10y_yield(cls, geo: str = "PL") -> dict[str, Any]:
         """Fetch 10-Year Government Bond Benchmark yield (Maastricht criterion).
 
         Args:
@@ -70,8 +67,12 @@ class EurostatMacroSupplier:
                 keys_sorted = sorted([int(k) for k in val_map.keys()])
                 latest_val = float(val_map[str(keys_sorted[-1])])
                 prior_val = float(val_map[str(keys_sorted[-2])]) if len(keys_sorted) >= 2 else latest_val
-                trend = "📈 Increasing" if latest_val > prior_val else ("📉 Decreasing" if latest_val < prior_val else "➡️ Stable")
-                
+                trend = (
+                    "📈 Increasing"
+                    if latest_val > prior_val
+                    else ("📉 Decreasing" if latest_val < prior_val else "➡️ Stable")
+                )
+
                 # Extract period label if present
                 time_cats = data.get("dimension", {}).get("time", {}).get("category", {}).get("label", {})
                 period_str = list(time_cats.keys())[-1] if time_cats else "latest"
@@ -87,7 +88,7 @@ class EurostatMacroSupplier:
         return default_result
 
     @classmethod
-    def fetch_hicp_inflation(cls, geo: str = "PL") -> Dict[str, Any]:
+    def fetch_hicp_inflation(cls, geo: str = "PL") -> dict[str, Any]:
         """Fetch Harmonised Index of Consumer Prices (HICP) annual inflation rate.
 
         Args:
@@ -129,7 +130,7 @@ class EurostatMacroSupplier:
         return default_result
 
     @classmethod
-    def fetch_unemployment_rate(cls, geo: str = "PL") -> Optional[float]:
+    def fetch_unemployment_rate(cls, geo: str = "PL") -> float | None:
         """Fetch monthly seasonally adjusted unemployment rate.
 
         Args:

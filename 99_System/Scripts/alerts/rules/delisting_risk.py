@@ -1,8 +1,9 @@
-import re
-from typing import Optional, Any, Union
-from .base import BaseAlertRule
-import sys
 import os
+import re
+import sys
+from typing import Any
+
+from .base import BaseAlertRule
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 scripts_dir = os.path.dirname(os.path.dirname(current_dir))
@@ -12,7 +13,7 @@ if scripts_dir not in sys.path:
 from model.asset import Asset
 
 
-def parse_fund_size_to_millions(fund_size: Optional[Union[str, int, float]]) -> Optional[float]:
+def parse_fund_size_to_millions(fund_size: str | int | float | None) -> float | None:
     """Parse raw fund size string into float millions (EUR/USD)."""
     if fund_size is None:
         return None
@@ -25,49 +26,49 @@ def parse_fund_size_to_millions(fund_size: Optional[Union[str, int, float]]) -> 
         return None
 
     # Billion match
-    b_match = re.search(r'([\d\.,]+)\s*(?:b|billion|mld)\b', fs_str, re.IGNORECASE)
+    b_match = re.search(r"([\d\.,]+)\s*(?:b|billion|mld)\b", fs_str, re.IGNORECASE)
     if b_match:
-        val_str = b_match.group(1).replace(',', '.')
-        if val_str.count('.') > 1:
-            val_str = val_str.replace('.', '')
+        val_str = b_match.group(1).replace(",", ".")
+        if val_str.count(".") > 1:
+            val_str = val_str.replace(".", "")
         try:
             return float(val_str) * 1000.0
         except ValueError:
             pass
 
     # Million match
-    m_match = re.search(r'([\d\.,]+)\s*(?:m|mn|million|mln)\b', fs_str, re.IGNORECASE)
+    m_match = re.search(r"([\d\.,]+)\s*(?:m|mn|million|mln)\b", fs_str, re.IGNORECASE)
     if m_match:
         val_str = m_match.group(1).strip()
-        if ',' in val_str and '.' in val_str:
-            if val_str.find(',') < val_str.find('.'):
-                val_str = val_str.replace(',', '')
+        if "," in val_str and "." in val_str:
+            if val_str.find(",") < val_str.find("."):
+                val_str = val_str.replace(",", "")
             else:
-                val_str = val_str.replace('.', '').replace(',', '.')
-        elif ',' in val_str:
-            parts = val_str.split(',')
+                val_str = val_str.replace(".", "").replace(",", ".")
+        elif "," in val_str:
+            parts = val_str.split(",")
             if len(parts) == 2 and len(parts[1]) == 3:
-                val_str = val_str.replace(',', '')
+                val_str = val_str.replace(",", "")
             else:
-                val_str = val_str.replace(',', '.')
+                val_str = val_str.replace(",", ".")
         try:
             return float(val_str)
         except ValueError:
             pass
 
     # Thousand match
-    k_match = re.search(r'([\d\.,]+)\s*(?:k|thousand)\b', fs_str, re.IGNORECASE)
+    k_match = re.search(r"([\d\.,]+)\s*(?:k|thousand)\b", fs_str, re.IGNORECASE)
     if k_match:
-        val_str = k_match.group(1).strip().replace(',', '.')
+        val_str = k_match.group(1).strip().replace(",", ".")
         try:
             return float(val_str) / 1000.0
         except ValueError:
             pass
 
     # Raw number
-    clean_num = re.search(r'([\d\.,]+)', fs_str)
+    clean_num = re.search(r"([\d\.,]+)", fs_str)
     if clean_num:
-        val_str = clean_num.group(1).replace(',', '.')
+        val_str = clean_num.group(1).replace(",", ".")
         try:
             val = float(val_str)
             return val / 1_000_000.0 if val > 1_000_000 else val
@@ -93,7 +94,7 @@ class DelistingRiskRule(BaseAlertRule):
     def description(self) -> str:
         return "ETF AUM / fund size is below minimum viable fund size (default: 50M EUR/USD)."
 
-    def evaluate(self, asset: Asset, context: Any) -> Optional[bool]:
+    def evaluate(self, asset: Asset, context: Any) -> bool | None:
         # Delisting risk applies to ETFs
         if str(asset.asset_type).lower() != "etf" and not asset.fund_size:
             return False
