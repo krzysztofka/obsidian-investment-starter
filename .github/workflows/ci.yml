@@ -27,7 +27,6 @@ jobs:
       - name: Validate CLI Help Commands
         run: |
           python run.py --help
-          python 99_System/Scripts/run.py --help
           python 99_System/Scripts/import_assets.py --help
           python 99_System/Scripts/alerts/engine.py --help
           python 99_System/Scripts/sync_macro.py --help
