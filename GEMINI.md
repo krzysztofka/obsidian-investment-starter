@@ -91,6 +91,7 @@ trader/
 │   │   ├── retrospective_template.md # Template for decision reviews
 │   │   └── watchlist_item_template.md # Template for watchlist items
 │   └── Views/                      # Reusable DataviewJS custom views (e.g., alert_banner, open_decisions, stooq_chart)
+├── .vault_version                  # Vault schema & migration version marker (e.g. 0.7.0)
 ├── Alerts.md                       # Active alerts dashboard (Dataview)
 ├── Portfolio_performance.md        # Historical performance & valuation charts (DataviewJS + Charts)
 ├── Overview.md                     # Portfolio valuation, sector breakdown chart & table
@@ -100,6 +101,9 @@ trader/
 ├── Welcome.md                      # Navigation hub & system overview
 ├── pyproject.toml                  # Python project metadata & dependency manifest
 ├── config.yaml                     # Root reference config
+├── init.py                         # Vault initialization script
+├── patch.py                        # Vault patch & sequential migration CLI
+├── run.py                          # Unified pipeline runner CLI
 └── GEMINI.md                       # AI assistant context & system guidelines
 ```
 
@@ -147,6 +151,8 @@ python run.py --alerts                            # Scan and evaluate portfolio 
 python run.py --history                           # Synchronize historical snapshots to portfolio.csv
 python run.py --archive                           # Archive historical portfolio records (>2yr) and rotate raw exports (>1yr)
 python run.py --archive --dry-run                 # Preview archival and rotation without file changes
+python run.py --sync-vault <path>                 # Synchronize & apply sequential migration patches to target downstream vault
+python run.py --sync-vault <path> --dry-run       # Preview patch changes without modifying files
 python run.py --update-rates --alerts             # Chain multiple actions together
 
 # --- Or run individual modules directly ---
@@ -196,9 +202,69 @@ python -m ruff check .                           # Run linter checks
 python -m ruff format --check .                  # Check formatting style
 python -m ruff format .                          # Auto-format codebase
 python -m mypy 99_System/Scripts                 # Static type checking
+
+# 12. Vault versioning, sequential migration & downstream patching
+python patch.py --version                        # Display installed vault version (reads .vault_version)
+python patch.py --list                           # List registered sequential migration patches
+python patch.py --target ../trader --dry-run     # Preview migration changes without modifying files
+python patch.py --target ../trader               # Apply sequential migration patches to downstream vault
+python run.py --sync-vault ../trader             # Patch downstream vault using unified runner
 ```
 
 ---
+
+## 🔄 Vault Versioning & Sequential Patch Migration
+
+### 📌 Upstream Template vs. Downstream Personal Vault
+The project enforces a clean separation of template architecture and personal investment data:
+- **Upstream Template Starter (`obsidian-investment-starter`):** Public template repository providing the engine (`99_System/`), note templates (`99_System/Templates/`), Dataview views (`99_System/Views/`), unit tests (`99_System/Tests/`), base configurations (`config.yaml`), and runner scripts (`run.py`, `patch.py`). Contains **no** real personal assets, private transactions, or credentials.
+- **Downstream Personal Vault (`trader`):** Your private Obsidian financial vault. Contains live holdings (`10_Finance/Assets/`), trade theses & decisions (`20_Decisions/`), historical timeline (`10_Finance/History/portfolio.csv`), raw broker exports (`00_Raw/`), `.env`, and personalized configuration overrides.
+
+### 🏷️ Vault Version Marker (`.vault_version`)
+- The active code and schema version is tracked in the root file **`.vault_version`** (e.g. `0.7.0`).
+- If `.vault_version` is absent, [`PatchEngine`](file:///C:/workspace/obsidian-investment-starter/99_System/Scripts/patch/patch_engine.py) infers the baseline version automatically (`0.5.0` if `99_System/` exists, otherwise `0.0.0`).
+- Applying patches sequentially upgrades `.vault_version` until target downstream vault matches upstream starter.
+
+### ⚙️ How to Patch Downstream Vaults
+Whenever new features, platforms, or bug fixes are developed in the upstream starter, synchronize downstream vaults using [`patch.py`](file:///C:/workspace/obsidian-investment-starter/patch.py) or `run.py --sync-vault`:
+
+```bash
+# 1. Check version of upstream starter or target vault
+python patch.py --version
+python patch.py --target ../trader --version
+
+# 2. List all available sequential patches
+python patch.py --list
+
+# 3. Simulate patch application (dry-run mode, no disk changes)
+python patch.py --target ../trader --dry-run
+python run.py --sync-vault ../trader --dry-run
+
+# 4. Apply migration patches to downstream vault
+python patch.py --target ../trader
+python run.py --sync-vault ../trader
+
+# 5. Force re-application of the latest patch (even if version numbers match)
+python patch.py --target ../trader --force
+```
+
+### 🛡️ Private Data Protection Guarantee
+Sequential patches (`99_System/Scripts/patch/patches/patch_<from>_to_<to>.py`) are strictly non-destructive:
+1. **Preserved Intact:**
+   - `10_Finance/Assets/` (all manual and broker asset notes)
+   - `20_Decisions/` (all trade thesis and retrospective notes)
+   - `10_Finance/History/portfolio.csv` (historical performance timeline)
+   - `00_Raw/` (all raw broker CSV and Excel exports)
+   - `.env` (all private broker API keys and secrets)
+   - `config.yaml` (custom platform settings and portfolio targets are preserved; missing sections like `retention:` are non-destructively merged)
+2. **Synchronized from Upstream:**
+   - `99_System/Scripts/`, `99_System/Templates/`, `99_System/Views/`, `99_System/Tests/`, `99_System/docs/`
+   - Root execution scripts and system documentation: `run.py`, `patch.py`, `init.py`, `pyproject.toml`, `GEMINI.md`, `Welcome.md`
+   - System directories and `.gitkeep` markers (e.g. `00_Raw/archive/`, `10_Finance/History/archive/`)
+   - `.vault_version` incremented to the latest version
+3. **Removed from Downstream:**
+   - Template roadmap backlog `todo.md` is removed from downstream personal vaults (backlog is maintained only in the upstream template starter).
+
 
 ## 🧠 Decision & Retrospective Process
 

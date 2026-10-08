@@ -2,6 +2,7 @@
 
 Welcome to your **Investment Second Brain & Portfolio Management System** — a unified, Obsidian-powered command center designed to track holdings across multiple brokers, automate market intelligence, and enforce disciplined investment decisions.
 
+> 🏷️ **Vault Version:** `v0.7.0` (tracked in [`.vault_version`](file:///.vault_version))  
 > 📖 **System Documentation & Guidelines:** Read [[GEMINI|GEMINI.md]] for the complete system architecture, automation workflows, directory structure, and API integrations.
 
 ---
@@ -18,6 +19,7 @@ Welcome to your **Investment Second Brain & Portfolio Management System** — a 
 | 🚨**Active Alerts**          | Valuation warnings (`#alert/overvalued`), delisting risks, and SEC insider trading signals (`#alert/insider_sell`). | [[Alerts]]     |
 | 🔍**Watchlist & Candidates** | Opportunity pipeline, valuation scanner candidates, target entry prices, and analyst consensus ratings.                 | [[10_Finance/Watchlist/Watchlist\|Watchlist]]     |
 | 🌐**Macro Dashboard**        | Global & domestic macroeconomic indicators, central bank policy rates, CPI, and yield curve spreads.                    | [[10_Finance/Macro\|Macro Dashboard]]     |
+| 🔄**Upstream Updates & Patches** | Vault migration engine, version tracking, and instructions for pulling starter updates safely.                         | [[GEMINI#🔄-vault-versioning--sequential-patch-migration\|Migration Guide]] |
 | 📝**Roadmap & Improvements** | Planned features, integration ideas, backlog, and system improvement items.                                             | [[todo\|Things to Improve (TODO)]]     |
 
 ---
@@ -120,6 +122,38 @@ python run.py --import --platform exante
 4. **History Timeline Update:** `10_Finance/History/portfolio.csv` is automatically updated and deduplicated for performance charts.
 
 For in-depth technical details, refer to [[99_System/Scripts/import_instructions|Detailed Import Documentation]] and [[GEMINI|GEMINI.md]].
+
+---
+
+## 🔄 Vault Versioning & Upstream Updates
+
+This vault tracks its code and schema version in [`.vault_version`](file:///.vault_version) (current: `v0.7.0`).
+
+When improvements, new broker extensions, or bug fixes are released in the upstream template repository ([`obsidian-investment-starter`](https://github.com/krzysztofka/obsidian-investment-starter)), they can be safely synchronized into downstream personal vaults (e.g. `trader`) using the built-in sequential patch engine:
+
+### Checking Version & Available Patches
+```bash
+# Check current vault version:
+python patch.py --version
+
+# List all available migration patches:
+python patch.py --list
+```
+
+### Upgrading Downstream Vaults
+From the upstream starter directory:
+```bash
+# 1. Preview changes (dry-run):
+python patch.py --target ../trader --dry-run
+
+# 2. Apply all sequential patches:
+python patch.py --target ../trader
+# (Or using unified runner):
+python run.py --sync-vault ../trader
+```
+
+> [!NOTE]
+> **Data Safety Guarantee:** Patches update automation scripts (`99_System/`), templates, and runners (`run.py`, `patch.py`), but **never** overwrite your private assets (`10_Finance/Assets/`), investment decisions (`20_Decisions/`), history snapshots (`portfolio.csv`), or `.env` credentials. Custom settings in `config.yaml` are also preserved.
 
 ---
 

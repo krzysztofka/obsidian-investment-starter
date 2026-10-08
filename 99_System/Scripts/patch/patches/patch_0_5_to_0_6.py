@@ -96,8 +96,8 @@ def apply(source_vault: str, target_vault: str, dry_run: bool = False) -> bool:
         shutil.rmtree(legacy_tests, ignore_errors=True)
         print("   Removed legacy root tests directory")
 
-    # 2. Update root runners and manifests
-    root_files_to_sync = ["run.py", "patch.py", "init.py", "pyproject.toml"]
+    # 2. Update root runners, manifests and documentation
+    root_files_to_sync = ["run.py", "patch.py", "init.py", "pyproject.toml", "GEMINI.md", "Welcome.md"]
     for rf in root_files_to_sync:
         s_file = os.path.join(source_vault, rf)
         d_file = os.path.join(target_vault, rf)
