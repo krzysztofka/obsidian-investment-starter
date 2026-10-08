@@ -1,6 +1,6 @@
 # Project Roadmap & Backlog (TODO)
 
-## ⚡ Current Milestone: v0.8 Integrations Health Check & Connectivity Diagnostics
+## ⚡ Current Milestone: v0.8 System Health Checks, Sanity Diagnostics & Downstream Decoupling
 
 - [ ] **Integrations Health Check & Connectivity Diagnostics (`health_check.py` / CLI):**
   - [ ] Dedicated diagnostic runner script and CLI flag (`python run.py --health` or `python 99_System/Scripts/health_check.py`).
@@ -14,6 +14,17 @@
     - [ ] `stooq`: check quote service accessibility.
     - [ ] `openbb`: verify local environment availability and fallback status.
   - [ ] Visual CLI diagnostic report with latency metrics, status badges (✅ OK / ⚠️ WARN / ❌ FAIL), and troubleshooting hints for missing `.env` keys, rate limits, or network timeouts.
+
+- [ ] **Vault Sanity & Data Integrity Checker:**
+  - [ ] Frontmatter validation for all notes in `10_Finance/Assets/*.md`: detect missing required fields (`value_pln`, `portfolio`, `currency`), invalid numeric values (NaN / null / negative quantities), and ticker collisions.
+  - [ ] Historical timeline integrity check for `10_Finance/History/portfolio.csv`: verify date monotonicity, valid CSV schema, and detect duplicate date timestamps.
+  - [ ] Broker exports validation in `00_Raw/`: flag unparseable, corrupt, or unsupported file extensions.
+  - [ ] Environment verification: ensure `.env` file exists and has correct permissions and syntax.
+
+- [ ] **Downstream Test Decoupling & Vault Cleanliness (Starter vs Downstream):**
+  - [ ] Exclude `99_System/Tests/` from patch synchronization to downstream personal vaults (`trader`).
+  - [ ] In `patch_0_7_to_0_8.py`, automatically prune/remove `99_System/Tests/` and `.pytest_cache/` from downstream vaults (similar to `todo.md`), keeping personal vaults lean and free of development test mock clutter.
+  - [ ] Maintain full `pytest` unit test suite strictly in the upstream starter repository (`obsidian-investment-starter`) for developer validation and CI/CD pipelines.
 
 ---
 
