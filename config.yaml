@@ -216,3 +216,34 @@ dominant_sector:
     "communication_services": "Communication Services"
     "communication services": "Communication Services"
     "telecommunications": "Communication Services"
+
+# Data Retention & History Archival Settings
+retention:
+  # Historical portfolio timeline retention & archival
+  history:
+    enabled: true
+    # Maximum days of daily records to retain in 10_Finance/History/portfolio.csv (default 730 = 2 years)
+    retention_days: 730
+    # Directory to store partitioned annual archives (history-archive-YYYY.csv)
+    archive_dir: "10_Finance/History/archive"
+    # Ensure baseline snapshot is preserved at the cutoff boundary to prevent holding drops
+    preserve_boundary_baseline: true
+
+  # Ephemeral raw broker export files rotation (00_Raw/)
+  raw_data:
+    enabled: true
+    # Retention period in days for raw broker exports (default 365 = 1 year)
+    retention_days: 365
+    # Action for expired files: "archive" (move to archive_dir) or "prune" (permanently delete)
+    action: "archive"
+    # Destination directory when action is "archive"
+    archive_dir: "00_Raw/archive"
+    # Optional ZIP compression toggle
+    compress_zip: false
+    # Patterns and directories excluded from rotation (case-insensitive glob)
+    exclude_patterns:
+      - "sample_*"
+      - ".*"
+      - ".gitkeep"
+      - "Articles/*"
+      - "archive/*"

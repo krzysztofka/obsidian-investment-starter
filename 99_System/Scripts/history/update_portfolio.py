@@ -141,6 +141,15 @@ def update_portfolio_history(base_dir: str | None = None) -> str:
             pass
 
     print(f"Updated portfolio history at {portfolio_file} ({len(sorted_entries)} total entries).")
+
+    # 5. Automatically execute portfolio history archival if enabled
+    try:
+        from history.retention import archive_portfolio_history
+
+        archive_portfolio_history(base_dir=base_dir)
+    except Exception as e:
+        print(f"Notice: Portfolio history archival skipped or encountered an error: {e}")
+
     return portfolio_file
 
 

@@ -59,6 +59,7 @@ The vault enforces a **three-bucket framework** with complete independence betwe
 ```text
 trader/
 ├── 00_Raw/                         # Raw broker data exports (gitignored / ephemeral)
+│   ├── archive/                    # Rotated raw broker exports (> 1 year)
 │   ├── pko_bp_bonds/               # PKO BP retail bonds Excel files (StanRachunkuRejestrowego_*.xls)
 │   ├── mbank_ike/                  # mBank eMakler IKE CSV files (*.csv)
 │   ├── mbank_ikze/                 # mBank eMakler IKZE CSV files (*.csv)
@@ -68,6 +69,7 @@ trader/
 │   ├── Assets/                     # 1 Markdown note per asset/cash holding
 │   ├── ETF_Holdings/               # Underlying company notes tracked inside portfolio ETFs
 │   ├── History/                    # Historical snapshots (e.g., portfolio.csv)
+│   │   └── archive/                # Partitioned yearly archives (history-archive-YYYY.csv)
 │   ├── Watchlist/                  # Watchlists and candidate assets
 │   └── Macro.md                    # Macroeconomic indicators, central bank rates & regime tracking
 ├── 20_Decisions/                   # Investment decisions, trade logs, and retrospectives
@@ -143,6 +145,8 @@ python run.py --macro                             # Synchronize macroeconomic da
 python run.py --sync-etfs                         # Synchronize ETF top holdings, overlap & exposures
 python run.py --alerts                            # Scan and evaluate portfolio alerts (Alert Rules Engine)
 python run.py --history                           # Synchronize historical snapshots to portfolio.csv
+python run.py --archive                           # Archive historical portfolio records (>2yr) and rotate raw exports (>1yr)
+python run.py --archive --dry-run                 # Preview archival and rotation without file changes
 python run.py --update-rates --alerts             # Chain multiple actions together
 
 # --- Or run individual modules directly ---
@@ -172,18 +176,22 @@ python 99_System/Scripts/alerts/engine.py
 # 6. Synchronize portfolio historical timeline
 python 99_System/Scripts/history/update_portfolio.py
 
-# 7. Discover watchlist candidates & generate notes with OpenBB / Morningstar
+# 7. Execute data retention, history archival and raw export rotation
+python 99_System/Scripts/history/retention.py
+# (Or dry-run: python 99_System/Scripts/history/retention.py --dry-run)
+
+# 8. Discover watchlist candidates & generate notes with OpenBB / Morningstar
 python 99_System/Scripts/discover_watchlist.py --strategy quality_growth
 python 99_System/Scripts/discover_watchlist.py --add NVDA
 
-# 8. Synchronize ETF top holdings, overlap and cross-exposure notes
+# 9. Synchronize ETF top holdings, overlap and cross-exposure notes
 python 99_System/Scripts/sync_etf_holdings.py
 # (Or: python 99_System/Scripts/sync_etf_holdings.py --limit 15)
 
-# 9. Run automated unit test suite (pytest)
+# 10. Run automated unit test suite (pytest)
 python -m pytest
 
-# 10. Linting, code formatting, and static type checking
+# 11. Linting, code formatting, and static type checking
 python -m ruff check .                           # Run linter checks
 python -m ruff format --check .                  # Check formatting style
 python -m ruff format .                          # Auto-format codebase

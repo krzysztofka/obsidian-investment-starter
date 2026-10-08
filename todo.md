@@ -1,41 +1,6 @@
 # Project Roadmap & Backlog (TODO)
 
-## ⚡ Current Milestone: v0.7 Code Quality, Testing & Reliability
-
-- [X] **Automated Test Suite (`pytest` - 77 Passing Tests):**
-  - [X] Dedicated test package for platform extensions (`99_System/Tests/platforms/`).
-  - [X] Unit tests for all broker platform parsers (`PKO BP`, `mBank IKE/IKZE`, `Degiro`, `Exante`).
-  - [X] Unit tests for Platform Registry, aliases, path detection, and dynamic enable/disable.
-  - [X] Unit tests for Vault Patch Engine and Sequential Migration System (`99_System/Tests/test_patch.py`).
-  - [X] Unit tests for Rich progress and multi-threaded processing (`99_System/Tests/test_rich_progress.py`).
-  - [X] Unit tests for currency conversion and PLN portfolio valuation logic (`99_System/Tests/test_update_currencies.py`).
-  - [X] Unit tests for Alert Rules Engine evaluation & tagging (`99_System/Tests/alerts/test_rules.py`, `test_engine.py`).
-  - [X] Unit tests for portfolio historical snapshot timeline and CSV handling (`99_System/Tests/history/test_update_portfolio.py`).
-  - [X] Unit tests for macroeconomic dashboard engine and Jinja2 rendering (`99_System/Tests/macro/test_sync_macro.py`).
-  - [X] Unit tests for modular platform storage persistence and template rendering (`99_System/Tests/platforms/test_storage.py`, `test_template.py`).
-  - [X] Mock tests for external API enrichers (`yfinance`, `finnhub`, `justetf`, `stooq`, `nbp`, `multi_source`).
-- [X] **Codebase Architecture & System Deduplication (Review #1):**
-  - [X] Single source of truth configuration: unified root `config.yaml` and eliminated duplicate `99_System/config.yaml`.
-  - [X] Standardized all modules to use canonical `load_vault_config()` Pydantic loader.
-  - [X] Removed obsolete secondary CLI runner (`99_System/Scripts/run.py`).
-  - [X] Standardized DataviewJS view subdirectory structure (`99_System/Views/<view>/view.js`) and created `runner_widget/view.js`.
-  - [X] Standardized legacy sample asset notes to canonical `asset_template.md` frontmatter schema.
-  - [X] Modularized monolithic `platforms/common.py` into `platforms/storage.py` and `platforms/template.py`.
-  - [X] Declared missing `jinja2>=3.1.0` dependency in `pyproject.toml` and `requirements.txt`.
-  - [X] Structured logging utility (`99_System/Scripts/logging_util.py`) with `rich.logging.RichHandler`.
-- [X] **Type Hints, Linting & Formatting:**
-  - [X] Full static typing and type annotations across all scripts in `99_System/Scripts/`.
-  - [X] Standardized linter & code formatter configuration (`ruff` / `black`).
-- [ ] **Data Retention & History Archival:**
-  - [ ] Portfolio history archival: retain daily entries for up to 2 years, archiving older records to `history-archive-YYYY.csv`.
-  - [ ] Ephemeral raw data rotation: automatically archive or prune raw CSV/Excel exports older than 1 year.
-- [X] **Resilient Error Handling & Logging:**
-  - [X] Structured logging utility (`logging_util.py`) and informative error handling.
-  - [X] Input validation for manual and imported note frontmatters (Pydantic `Asset` & `VaultConfig` models).
-
----
-
-## 🩺 Milestone: v0.8 Integrations Health Check & Connectivity Diagnostics
+## ⚡ Current Milestone: v0.8 Integrations Health Check & Connectivity Diagnostics
 
 - [ ] **Integrations Health Check & Connectivity Diagnostics (`health_check.py` / CLI):**
   - [ ] Dedicated diagnostic runner script and CLI flag (`python run.py --health` or `python 99_System/Scripts/health_check.py`).
@@ -114,6 +79,44 @@
 ---
 
 ## ✅ Completed Milestones
+
+- [X] **v0.7 Code Quality, Testing & Reliability:**
+  - [X] **Automated Test Suite (`pytest` - 86 Passing Tests):**
+    - [X] Dedicated test package for platform extensions (`99_System/Tests/platforms/`).
+    - [X] Unit tests for all broker platform parsers (`PKO BP`, `mBank IKE/IKZE`, `Degiro`, `Exante`).
+    - [X] Unit tests for Platform Registry, aliases, path detection, and dynamic enable/disable.
+    - [X] Unit tests for Vault Patch Engine and Sequential Migration System (`99_System/Tests/test_patch.py`).
+    - [X] Unit tests for Rich progress and multi-threaded processing (`99_System/Tests/test_rich_progress.py`).
+    - [X] Unit tests for currency conversion and PLN portfolio valuation logic (`99_System/Tests/test_update_currencies.py`).
+    - [X] Unit tests for Alert Rules Engine evaluation & tagging (`99_System/Tests/alerts/test_rules.py`, `test_engine.py`).
+    - [X] Unit tests for portfolio historical snapshot timeline and CSV handling (`99_System/Tests/history/test_update_portfolio.py`).
+    - [X] Unit tests for macroeconomic dashboard engine and Jinja2 rendering (`99_System/Tests/macro/test_sync_macro.py`).
+    - [X] Unit tests for modular platform storage persistence and template rendering (`99_System/Tests/platforms/test_storage.py`, `test_template.py`).
+    - [X] Mock tests for external API enrichers (`yfinance`, `finnhub`, `justetf`, `stooq`, `nbp`, `multi_source`).
+    - [X] Unit tests for Data Retention & History Archival policies (`99_System/Tests/history/test_retention.py`).
+  - [X] **Codebase Architecture & System Deduplication (Review #1):**
+    - [X] Single source of truth configuration: unified root `config.yaml` and eliminated duplicate `99_System/config.yaml`.
+    - [X] Standardized all modules to use canonical `load_vault_config()` Pydantic loader.
+    - [X] Removed obsolete secondary CLI runner (`99_System/Scripts/run.py`).
+    - [X] Standardized DataviewJS view subdirectory structure (`99_System/Views/<view>/view.js`) and created `runner_widget/view.js`.
+    - [X] Standardized legacy sample asset notes to canonical `asset_template.md` frontmatter schema.
+    - [X] Modularized monolithic `platforms/common.py` into `platforms/storage.py` and `platforms/template.py`.
+    - [X] Declared missing `jinja2>=3.1.0` dependency in `pyproject.toml` and `requirements.txt`.
+    - [X] Structured logging utility (`99_System/Scripts/logging_util.py`) with `rich.logging.RichHandler`.
+  - [X] **Type Hints, Linting & Formatting:**
+    - [X] Full static typing and type annotations across all scripts in `99_System/Scripts/` (78 source files clean in `mypy`).
+    - [X] Standardized linter & code formatter configuration (`ruff`).
+  - [X] **Data Retention & History Archival (`retention.py`):**
+    - [X] Portfolio history archival: retains daily entries for up to 2 years, archiving older records to partitioned yearly files (`10_Finance/History/archive/history-archive-YYYY.csv`).
+    - [X] Boundary baseline preservation: carries over active positions at cutoff date to maintain continuous valuation charts in DataviewJS.
+    - [X] Ephemeral raw broker export rotation: archives or prunes raw exports older than 1 year (`00_Raw/archive/`) with SHA-256 deduplication and collision disambiguation.
+    - [X] Exclusion pattern support preserving sample files (`sample_*.*`), `.gitkeep`, and research directories.
+    - [X] Unified CLI integrations (`python run.py --archive` with `--dry-run` and automatic triggers on `import` / `history`).
+  - [X] **Resilient Error Handling & Logging:**
+    - [X] Structured logging utility (`logging_util.py`) and informative error handling.
+    - [X] Input validation for manual and imported note frontmatters (Pydantic `Asset` & `VaultConfig` models).
+  - [X] **Sequential Version Migration (`patch_0_6_to_0_7.py`):**
+    - [X] Automated upgrade path from v0.6.0 to v0.7.0 preserving all private user data and custom configurations.
 
 - [X] **v0.6 Template Starter Architecture & Inverted Synchronization:**
 

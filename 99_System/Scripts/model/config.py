@@ -197,6 +197,54 @@ class DominantSectorConfig(BaseModel):
     mappings: dict[str, str] = Field(default_factory=dict)
 
 
+class HistoryRetentionConfig(BaseModel):
+    """Configuration for historical portfolio timeline retention and annual archival."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    enabled: bool = True
+    retention_days: int = Field(default=730, ge=1, description="Days of daily history to retain in portfolio.csv.")
+    archive_dir: str = Field(
+        default="10_Finance/History/archive", description="Directory to store partitioned yearly archives."
+    )
+    preserve_boundary_baseline: bool = Field(
+        default=True, description="Preserve baseline snapshot at cutoff boundary to prevent holding drops."
+    )
+
+
+class RawDataRetentionConfig(BaseModel):
+    """Configuration for ephemeral raw broker export files retention and rotation."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    enabled: bool = True
+    retention_days: int = Field(default=365, ge=1, description="Days to retain raw broker exports in 00_Raw/.")
+    action: Literal["archive", "prune"] = Field(
+        default="archive", description="Action for expired files: 'archive' or 'prune'."
+    )
+    archive_dir: str = Field(default="00_Raw/archive", description="Destination directory when action is 'archive'.")
+    compress_zip: bool = Field(default=False, description="Whether to compress archived files into zip.")
+    exclude_patterns: list[str] = Field(
+        default_factory=lambda: [
+            "sample_*",
+            ".*",
+            ".gitkeep",
+            "Articles/*",
+            "archive/*",
+        ],
+        description="Glob patterns of files/directories to exclude from rotation.",
+    )
+
+
+class RetentionConfig(BaseModel):
+    """Configuration for data retention and archival policies."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    history: HistoryRetentionConfig = Field(default_factory=HistoryRetentionConfig)
+    raw_data: RawDataRetentionConfig = Field(default_factory=RawDataRetentionConfig)
+
+
 class VaultConfig(BaseModel):
     """Root configuration model representing config.yaml."""
 
@@ -209,6 +257,7 @@ class VaultConfig(BaseModel):
     alerts: AlertsConfig = Field(default_factory=AlertsConfig)
     etf: EtfConfig = Field(default_factory=EtfConfig)
     dominant_sector: DominantSectorConfig = Field(default_factory=DominantSectorConfig)
+    retention: RetentionConfig = Field(default_factory=RetentionConfig)
 
     @model_validator(mode="before")
     @classmethod

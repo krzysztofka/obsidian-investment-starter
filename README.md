@@ -144,6 +144,9 @@ python run.py --alerts
 
 # 📈 Update portfolio timeline snapshots for historical charts
 python run.py --history
+
+# 📦 Archive portfolio history (>2yr) and rotate raw broker exports (>1yr)
+python run.py --archive
 ```
 
 ---

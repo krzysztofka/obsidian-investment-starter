@@ -8,6 +8,7 @@ Provides a unified command interface to execute portfolio pipeline actions:
   --sync-etfs     : Synchronize ETF top holdings, overlap & exposures
   --alerts        : Scan and evaluate portfolio alerts (Alert Rules Engine)
   --history       : Synchronize portfolio historical timeline into portfolio.csv
+  --archive       : Archive history older than 2 years and rotate raw exports older than 1 year
   --all           : Execute all portfolio pipeline actions in logical sequence
 """
 
@@ -163,6 +164,17 @@ def run_import_step(args: argparse.Namespace, vault_root: str) -> dict[str, Any]
     )
     total_imported = sum(results.values()) if isinstance(results, dict) else 0
     print(f"   Import completed. Total positions processed: {total_imported}")
+
+    # Automatically rotate ephemeral raw export files (> 1 year) if enabled
+    try:
+        from history.retention import rotate_raw_data
+
+        rotate_res = rotate_raw_data(base_dir=vault_root, dry_run=getattr(args, "dry_run", False))
+        if rotate_res.get("rotated_count", 0) > 0:
+            print(f"   Raw data rotation: {rotate_res['rotated_count']} files rotated ({rotate_res['action']}).")
+    except Exception as e:
+        print(f"   Notice: Raw data rotation skipped or encountered an error: {e}")
+
     return {"status": "ok", "details": results, "count": total_imported}
 
 
@@ -263,6 +275,18 @@ def run_history_step(args: argparse.Namespace, vault_root: str) -> dict[str, Any
     return {"status": "ok", "file": csv_file}
 
 
+def run_archive_step(args: argparse.Namespace, vault_root: str) -> dict[str, Any]:
+    """Execute data retention and archival policies."""
+    from history.retention import run_retention_pipeline
+
+    dry_run = getattr(args, "dry_run", False)
+    print("📦 Executing data retention and archival policies...")
+    if dry_run:
+        print("   [DRY-RUN MODE] Simulating archival and rotation without modifying files.")
+    result = run_retention_pipeline(base_dir=vault_root, dry_run=dry_run)
+    return {"status": "ok", "details": result}
+
+
 def run_export_template_step(args: argparse.Namespace, vault_root: str) -> dict[str, Any]:
     """Execute clean template repository export."""
     from export_template import export_template
@@ -297,6 +321,7 @@ PIPELINE_STEPS = [
     ("sync_etfs", "Synchronize ETF top holdings & cross-exposure", run_sync_etfs_step),
     ("alerts", "Scan & evaluate portfolio alerts", run_alerts_step),
     ("history", "Synchronize portfolio historical timeline", run_history_step),
+    ("archive", "Archive historical snapshots & rotate raw data", run_archive_step),
     ("export_template", "Export clean template repository", run_export_template_step),
     ("patch", "Patch and synchronize vault version", run_patch_step),
 ]
@@ -409,6 +434,8 @@ examples:
   python run.py --alerts                   Scan and evaluate portfolio alert rules
   python run.py --alerts --rule overvalued Scan only overvalued alerts
   python run.py --history                  Update historical portfolio.csv snapshots
+  python run.py --archive                  Archive history (>2yr) and rotate raw exports (>1yr)
+  python run.py --archive --dry-run        Simulate data retention archival & rotation
   python run.py --update-rates --alerts    Chain multiple actions in one run
 """,
     )
@@ -463,6 +490,12 @@ examples:
         dest="action_history",
         action="store_true",
         help="Synchronize portfolio historical timeline into portfolio.csv.",
+    )
+    actions_group.add_argument(
+        "--archive",
+        dest="action_archive",
+        action="store_true",
+        help="Archive history older than 2 years and rotate raw broker exports older than 1 year.",
     )
     actions_group.add_argument(
         "--export-template",
@@ -664,6 +697,8 @@ def main() -> int:
         requested_steps.append("alerts")
     if run_all or args.action_history:
         requested_steps.append("history")
+    if args.action_archive:
+        requested_steps.append("archive")
     if args.action_export_template:
         requested_steps.append("export_template")
     if args.action_patch or args.sync_vault_path:

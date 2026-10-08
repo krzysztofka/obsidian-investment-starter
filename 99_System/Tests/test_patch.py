@@ -35,10 +35,14 @@ def test_get_vault_version():
 
 def test_discover_patches():
     patches = discover_patches()
-    assert len(patches) >= 1
+    assert len(patches) >= 2
     p06 = next((p for p in patches if p["from_version"] == "0.5.0" and p["to_version"] == "0.6.0"), None)
     assert p06 is not None
     assert callable(p06["apply"])
+
+    p07 = next((p for p in patches if p["from_version"] == "0.6.0" and p["to_version"] == "0.7.0"), None)
+    assert p07 is not None
+    assert callable(p07["apply"])
 
 
 def test_build_patch_pipeline():
@@ -124,5 +128,5 @@ def test_patch_application_and_private_data_preservation():
         assert os.path.exists(os.path.join(mock_target, "99_System", "Scripts", "patch", "patch_engine.py"))
         assert os.path.exists(os.path.join(mock_target, "00_Raw", "pkobp"))
 
-        # E. Version upgraded to 0.6.0
-        assert get_vault_version(mock_target) == "0.6.0"
+        # E. Version upgraded to upstream starter version (0.7.0)
+        assert get_vault_version(mock_target) == "0.7.0"
