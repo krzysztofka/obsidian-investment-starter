@@ -2,6 +2,8 @@
 """Unified CLI Runner for Investment Second Brain & Portfolio Management System.
 
 Provides a unified command interface to execute portfolio pipeline actions:
+  --health        : Run integrations health check & connectivity diagnostics (updates Health.md)
+  --sanity        : Run vault sanity & data integrity diagnostics (frontmatter, portfolio.csv, raw data, .env)
   --import        : Import broker positions from Degiro / Exante CSV exports
   --update-rates  : Refresh currency FX rates to PLN and update asset valuations
   --macro         : Synchronize macroeconomic dashboard indicators, yields & rates
@@ -310,11 +312,50 @@ def run_patch_step(args: argparse.Namespace, vault_root: str) -> dict[str, Any]:
     return {"status": "ok" if ok else "failed", "target": target}
 
 
+def run_health_step(args: argparse.Namespace, vault_root: str) -> dict[str, Any]:
+    """Execute integrations health check & connectivity diagnostics."""
+    from health_check import run_health_check
+
+    selected = [args.integration] if getattr(args, "integration", None) else None
+    no_md = getattr(args, "no_md", False)
+    timeout = getattr(args, "timeout", 8.0) or 8.0
+    as_json = getattr(args, "json", False)
+
+    report, exit_code = run_health_check(
+        selected_integrations=selected,
+        write_markdown=not no_md,
+        target_vault=vault_root,
+        timeout=timeout,
+        as_json=as_json,
+    )
+    if exit_code != 0:
+        raise RuntimeError(f"Health check detected {report.failed_count} failing integration(s).")
+    return {"status": "ok", "report": report.to_dict()}
+
+
+def run_sanity_step(args: argparse.Namespace, vault_root: str) -> dict[str, Any]:
+    """Execute vault sanity & data integrity checks."""
+    from sanity_check import run_sanity_check
+
+    fix = getattr(args, "fix", False)
+    verbose = getattr(args, "verbose", False)
+    report, exit_code = run_sanity_check(
+        vault_path=vault_root,
+        fix=fix,
+        verbose=verbose,
+    )
+    if exit_code != 0:
+        raise RuntimeError(f"Vault sanity check detected {report.error_count} integrity error(s).")
+    return {"status": "ok", "report": report.to_dict()}
+
+
 # ==============================================================================
 # Pipeline Registry & Runner
 # ==============================================================================
 
 PIPELINE_STEPS = [
+    ("health", "Check integrations health & connectivity", run_health_step),
+    ("sanity", "Validate vault sanity & data integrity", run_sanity_step),
     ("import", "Import broker exports", run_import_step),
     ("update_rates", "Update currency FX rates & PLN values", run_update_rates_step),
     ("macro", "Synchronize macroeconomic indicators & yields", run_macro_step),
@@ -426,6 +467,10 @@ def build_parser() -> argparse.ArgumentParser:
         epilog="""\
 examples:
   python run.py --all                      Run full pipeline (import -> rates -> etfs -> alerts -> history)
+  python run.py --health                   Run external integrations health & connectivity diagnostics
+  python run.py --health --integration nbp Run health probe specifically for NBP
+  python run.py --sanity                   Run vault sanity & data integrity checks
+  python run.py --sanity --fix             Run sanity checks and auto-repair portfolio.csv history
   python run.py --import                   Import portfolio form all platforms
   python run.py --import --platform degiro Import only Degiro positions
   python run.py --update-rates             Update FX rates and recalculate PLN values
@@ -446,6 +491,18 @@ examples:
         "--all",
         action="store_true",
         help="Run all pipeline actions in canonical sequence.",
+    )
+    actions_group.add_argument(
+        "--health",
+        dest="action_health",
+        action="store_true",
+        help="Run integrations health check & connectivity diagnostics (updates Health.md).",
+    )
+    actions_group.add_argument(
+        "--sanity",
+        dest="action_sanity",
+        action="store_true",
+        help="Run vault sanity & data integrity diagnostics (frontmatter, portfolio.csv, raw exports, .env).",
     )
     actions_group.add_argument(
         "-i",
@@ -604,6 +661,41 @@ examples:
         default=None,
         help="[--export-template] Target directory for exported template repository.",
     )
+    step_opts.add_argument(
+        "--integration",
+        dest="integration",
+        type=str,
+        default=None,
+        help="[--health] Check only a specific integration (e.g., 'yfinance', 'nbp', 'exante').",
+    )
+    step_opts.add_argument(
+        "--no-md",
+        dest="no_md",
+        action="store_true",
+        default=False,
+        help="[--health] Do not write or update Health.md in vault root.",
+    )
+    step_opts.add_argument(
+        "--timeout",
+        dest="timeout",
+        type=float,
+        default=8.0,
+        help="[--health] Network probe timeout in seconds (default: 8.0).",
+    )
+    step_opts.add_argument(
+        "--json",
+        dest="json",
+        action="store_true",
+        default=False,
+        help="[--health, --sanity] Output raw diagnostic JSON data to stdout.",
+    )
+    step_opts.add_argument(
+        "--fix",
+        dest="fix",
+        action="store_true",
+        default=False,
+        help="[--sanity] Attempt automated safe repair of repairable issues (e.g., sorting and deduplicating portfolio.csv).",
+    )
 
     # Global runtime options
     global_opts = parser.add_argument_group("global options")
@@ -685,6 +777,10 @@ def main() -> int:
     requested_steps = []
     run_all = args.all
 
+    if args.action_health:
+        requested_steps.append("health")
+    if run_all or args.action_sanity:
+        requested_steps.append("sanity")
     if run_all or args.action_import:
         requested_steps.append("import")
     if run_all or args.action_update_rates:

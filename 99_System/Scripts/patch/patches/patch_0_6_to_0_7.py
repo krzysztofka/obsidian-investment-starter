@@ -74,7 +74,7 @@ def apply(source_vault: str, target_vault: str, dry_run: bool = False) -> bool:
     if dry_run:
         print("   Mode           : [DRY-RUN] No files will be modified.")
 
-    # 1. Update 99_System (Scripts, Templates, Views, docs, Tests)
+    # 1. Update 99_System (Scripts, Templates, Views, docs)
     src_system = os.path.join(source_vault, "99_System")
     dst_system = os.path.join(target_vault, "99_System")
 
@@ -82,7 +82,7 @@ def apply(source_vault: str, target_vault: str, dry_run: bool = False) -> bool:
     if os.path.exists(os.path.join(dst_system, "config.yaml")):
         ignore_system_files.add("config.yaml")
 
-    system_folders = ["Scripts", "Templates", "Views", "docs", "Tests"]
+    system_folders = ["Scripts", "Templates", "Views", "docs"]
     for folder in system_folders:
         src_f = os.path.join(src_system, folder)
         dst_f = os.path.join(dst_system, folder)

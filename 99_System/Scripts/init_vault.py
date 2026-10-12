@@ -195,6 +195,32 @@ def init_vault(
     else:
         print("   ✓ All required core packages are installed.")
 
+    # 7. Integrations Connectivity Diagnostics
+    print("\nStep 7: Testing external connectivity & integrations...")
+    run_diagnostics = False
+    if interactive:
+        try:
+            choice = (
+                input("   Would you like to test external connectivity & integrations now? [Y/n]: ").strip().lower()
+            )
+            run_diagnostics = choice in ("", "y", "yes")
+        except (EOFError, KeyboardInterrupt):
+            run_diagnostics = False
+
+    if run_diagnostics:
+        from health_check import run_health_check
+
+        try:
+            report, _ = run_health_check(
+                target_vault=target_dir,
+                write_markdown=True,
+            )
+            print(f"   ✓ Health check completed ({report.passed_count}/{len(report.results)} services OK).")
+        except Exception as e:
+            print(f"   ⚠️ Health check encountered an error: {e}")
+    else:
+        print("   Skipped diagnostic check. You can run it anytime with 'python run.py --health'.")
+
     print("\n" + "=" * 72)
     print("✨ Vault initialization completed successfully!")
     print("=" * 72)
@@ -202,7 +228,8 @@ def init_vault(
     active_folders = [all_platforms[pid].raw_folder for pid in selected_platform_ids if pid in all_platforms]
     print(f"  1. Add broker exports to 00_Raw/ ({', '.join(active_folders)}).")
     print("  2. Configure your API keys in .env (Finnhub, Exante).")
-    print("  3. Run 'python run.py --all' to execute your first import & analytics.")
+    print("  3. Run 'python run.py --health' to inspect your integration diagnostics (Health.md).")
+    print("  4. Run 'python run.py --all' to execute your first import & analytics.")
     print("=" * 72)
     return True
 

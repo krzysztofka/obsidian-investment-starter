@@ -4,7 +4,7 @@ import csv
 import os
 import tempfile
 
-from history.update_portfolio import format_val, update_portfolio_history
+from history.update_portfolio import atomic_write_csv, format_val, update_portfolio_history
 from model.asset import Asset
 
 
@@ -14,6 +14,22 @@ def test_format_val():
     assert format_val(100.0) == "100"
     assert format_val(123.45) == "123.45"
     assert format_val("Aggressive") == "Aggressive"
+
+
+def test_atomic_write_csv():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        csv_path = os.path.join(tmp_dir, "test.csv")
+        fieldnames = ["col1", "col2"]
+        rows = [{"col1": "val1", "col2": "val2"}, {"col1": "val3", "col2": "val4"}]
+
+        atomic_write_csv(csv_path, fieldnames, rows)
+        assert os.path.exists(csv_path)
+
+        with open(csv_path, encoding="utf-8") as f:
+            reader = list(csv.DictReader(f))
+        assert len(reader) == 2
+        assert reader[0] == {"col1": "val1", "col2": "val2"}
+        assert reader[1] == {"col1": "val3", "col2": "val4"}
 
 
 def test_update_portfolio_history():
@@ -36,7 +52,7 @@ def test_update_portfolio_history():
             writer.writerow(["2026-08-01", "MSFT", "Microsoft", "10000", "400", "35", "10", "Aggressive"])
             writer.writerow(["2026-08-01", "AAPL", "Apple", "5000", "150", "30", "15", "Aggressive"])
 
-        # 3. Create current asset in 10_Finance/Assets
+        # 3. Create current asset in 10_Finance/Assets (only MSFT, AAPL has been sold / closed)
         current_asset = Asset(
             ticker="MSFT",
             name="Microsoft Corporation",
@@ -58,19 +74,27 @@ def test_update_portfolio_history():
         with open(result_path, encoding="utf-8") as f:
             reader = list(csv.DictReader(f))
 
-        # Should contain 3 rows: 2 from 2026-08-01, 1 from 2026-10-06
-        assert len(reader) == 3
+        # Should contain 4 rows: 2 from 2026-08-01, and 2 from 2026-10-06
+        # (MSFT active with 16000, and AAPL closed with 0)
+        assert len(reader) == 4
 
         # Chronological sort verification
         dates = [r["date"] for r in reader]
-        assert dates == ["2026-08-01", "2026-08-01", "2026-10-06"]
+        assert dates == ["2026-08-01", "2026-08-01", "2026-10-06", "2026-10-06"]
 
         # Alphabetical ticker sorting within same date
         tickers_aug = [r["ticker"] for r in reader if r["date"] == "2026-08-01"]
         assert tickers_aug == ["AAPL", "MSFT"]
+        tickers_oct = [r["ticker"] for r in reader if r["date"] == "2026-10-06"]
+        assert tickers_oct == ["AAPL", "MSFT"]
 
-        # Latest snapshot
-        latest = [r for r in reader if r["date"] == "2026-10-06"][0]
-        assert latest["ticker"] == "MSFT"
-        assert latest["value_pln"] == "16000"
-        assert latest["portfolio"] == "Aggressive"
+        # Latest snapshot checks
+        latest_msft = [r for r in reader if r["date"] == "2026-10-06" and r["ticker"] == "MSFT"][0]
+        assert latest_msft["value_pln"] == "16000"
+        assert latest_msft["portfolio"] == "Aggressive"
+
+        # Sold/closed asset should have zero values recorded
+        latest_aapl = [r for r in reader if r["date"] == "2026-10-06" and r["ticker"] == "AAPL"][0]
+        assert latest_aapl["value_pln"] == "0"
+        assert latest_aapl["quantity"] == "0"
+        assert latest_aapl["current_price"] == "0"

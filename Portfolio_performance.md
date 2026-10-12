@@ -109,16 +109,20 @@ for (const d of sortedDates) {
         else if (portLower === "aggressive") port = "Aggressive";
         else port = "Unallocated";
         
-        activeHoldings.set(r.ticker, {
-            ticker: r.ticker,
-            name: name,
-            valPln: valPln,
-            price: price,
-            pe: pe,
-            qty: qty,
-            port: port,
-            lastUpdatedDate: d
-        });
+        if (valPln <= 0) {
+            activeHoldings.delete(r.ticker);
+        } else {
+            activeHoldings.set(r.ticker, {
+                ticker: r.ticker,
+                name: name,
+                valPln: valPln,
+                price: price,
+                pe: pe,
+                qty: qty,
+                port: port,
+                lastUpdatedDate: d
+            });
+        }
     }
 
     let totalVal = 0;
@@ -293,12 +297,16 @@ for (const d of sortedDates) {
         else if (portLower === "aggressive") port = "Aggressive";
         else port = "Unallocated";
 
-        activeHoldings.set(r.ticker, {
-            ticker: r.ticker,
-            name: r.name || r.ticker,
-            valPln: valPln,
-            port: port
-        });
+        if (valPln <= 0) {
+            activeHoldings.delete(r.ticker);
+        } else {
+            activeHoldings.set(r.ticker, {
+                ticker: r.ticker,
+                name: r.name || r.ticker,
+                valPln: valPln,
+                port: port
+            });
+        }
     }
 
     let totalVal = 0;
@@ -803,15 +811,19 @@ for (const d of sortedDates) {
         const qty = parseFloat(r.quantity) || 0;
         const name = r.name || r.ticker;
 
-        activeHoldings.set(r.ticker, {
-            ticker: r.ticker,
-            name: name,
-            valPln: valPln,
-            price: price,
-            pe: pe,
-            qty: qty,
-            lastUpdatedDate: d
-        });
+        if (valPln <= 0) {
+            activeHoldings.delete(r.ticker);
+        } else {
+            activeHoldings.set(r.ticker, {
+                ticker: r.ticker,
+                name: name,
+                valPln: valPln,
+                price: price,
+                pe: pe,
+                qty: qty,
+                lastUpdatedDate: d
+            });
+        }
 
         if (!tickerMap.has(r.ticker)) {
             tickerMap.set(r.ticker, {
@@ -822,14 +834,29 @@ for (const d of sortedDates) {
                 firstDate: d
             });
         }
+        const tObj = tickerMap.get(r.ticker);
+        tObj.history.set(d, {
+            ticker: r.ticker,
+            name: name,
+            valPln: valPln,
+            price: price,
+            pe: pe,
+            qty: qty,
+            lastUpdatedDate: d
+        });
+        tObj.latestVal = valPln;
     }
 
-    // Forward-fill each ticker's state for date d
+    // Forward-fill active tickers for date d
     for (const [ticker, h] of activeHoldings.entries()) {
         const tObj = tickerMap.get(ticker);
-        if (tObj.name === ticker && h.name !== ticker) tObj.name = h.name;
-        tObj.history.set(d, { ...h });
-        tObj.latestVal = h.valPln;
+        if (tObj) {
+            if (tObj.name === ticker && h.name !== ticker) tObj.name = h.name;
+            if (!tObj.history.has(d)) {
+                tObj.history.set(d, { ...h });
+            }
+            tObj.latestVal = h.valPln;
+        }
     }
 }
 
@@ -1207,7 +1234,11 @@ for (const d of sortedDates) {
     for (const r of dayRows) {
         const val = parseFloat(r.value_pln) || 0;
         const name = r.name || r.ticker;
-        activeHoldings.set(r.ticker, { name, valPln: val });
+        if (val <= 0) {
+            activeHoldings.delete(r.ticker);
+        } else {
+            activeHoldings.set(r.ticker, { name, valPln: val });
+        }
         tickerCumulative.set(r.ticker, (tickerCumulative.get(r.ticker) || 0) + val);
         if (!tickerNameMap.has(r.ticker) || tickerNameMap.get(r.ticker) === r.ticker) {
             tickerNameMap.set(r.ticker, name.length > 25 ? name.substring(0, 25) + '...' : name);
@@ -1373,7 +1404,11 @@ for (const d of sortedDates) {
         else if (portLower === "aggressive") port = "Aggressive";
         else port = "Unallocated";
 
-        activeHoldings.set(r.ticker, { name, valPln, port });
+        if (valPln <= 0) {
+            activeHoldings.delete(r.ticker);
+        } else {
+            activeHoldings.set(r.ticker, { name, valPln, port });
+        }
     }
 
     let totalVal = 0;

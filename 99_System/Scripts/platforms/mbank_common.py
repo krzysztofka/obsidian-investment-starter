@@ -13,6 +13,7 @@ if parent_scripts_dir not in sys.path:
     sys.path.append(parent_scripts_dir)
 
 from history.update_portfolio import update_portfolio_history
+from model.asset import Asset
 
 from platforms.common import (
     determine_asset_type,
@@ -427,10 +428,15 @@ def import_mbank_account_positions(
             continue
         if fname.lower().endswith(suffix):
             try:
+                asset_obj = Asset.from_file(fpath)
+                if (asset_obj.source or "").strip().lower() == "manual":
+                    continue
+                if asset_obj.platform and asset_obj.platform.strip().lower() != "mbank":
+                    continue
                 os.remove(fpath)
                 print(f"Removed missing {account_upper} asset: {fname}")
             except Exception as e:
-                print(f"Warning: could not remove {fname}: {e}")
+                print(f"Warning: could not evaluate {fname} for removal: {e}")
 
     print("\nUpdating portfolio history...")
     update_portfolio_history(base_dir)

@@ -19,6 +19,7 @@ Welcome to your **Investment Second Brain & Portfolio Management System** — a 
 | 🚨**Active Alerts**          | Valuation warnings (`#alert/overvalued`), delisting risks, and SEC insider trading signals (`#alert/insider_sell`). | [[Alerts]]     |
 | 🔍**Watchlist & Candidates** | Opportunity pipeline, valuation scanner candidates, target entry prices, and analyst consensus ratings.                 | [[10_Finance/Watchlist/Watchlist\|Watchlist]]     |
 | 🌐**Macro Dashboard**        | Global & domestic macroeconomic indicators, central bank policy rates, CPI, and yield curve spreads.                    | [[10_Finance/Macro\|Macro Dashboard]]     |
+| 🩺**System Diagnostics**     | External financial API connectivity, endpoints reachability, latency probes, and health dashboard.                     | [[Health\|System Diagnostics]]     |
 | 🔄**Upstream Updates & Patches** | Vault migration engine, version tracking, and instructions for pulling starter updates safely.                         | [[GEMINI#🔄-vault-versioning--sequential-patch-migration\|Migration Guide]] |
 | 📝**Roadmap & Improvements** | Planned features, integration ideas, backlog, and system improvement items.                                             | [[todo\|Things to Improve (TODO)]]     |
 

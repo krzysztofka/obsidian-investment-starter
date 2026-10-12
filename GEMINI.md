@@ -80,12 +80,14 @@ trader/
 │   │   ├── integrations/           # API integrations (yfinance, JustETF, Finnhub, NBP, Eurostat, Stooq)
 │   │   ├── model/                  # Data models corresponding to vault templates (e.g., Asset)
 │   │   ├── platforms/              # Broker platform import modules (Degiro, Exante, mBM, pkobp, common)
+│   │   ├── health_check.py         # Integrations health check & connectivity diagnostics
 │   │   ├── sync_etf_holdings.py    # ETF top holdings synchronization engine
 │   │   ├── sync_macro.py           # Macroeconomic dashboard synchronization engine
 │   │   └── import_instructions.md  # Detailed manual import documentation
 │   ├── Templates/                  # Vault templates (asset, decision, retrospective, watchlist, macro)
 │   │   ├── asset_template.md       # Base template for assets
 │   │   ├── etf_holding_template.md # Template for ETF underlying holdings
+│   │   ├── health_template.md      # Template for integrations health dashboard (Health.md)
 │   │   ├── macro_template.md       # Template for macroeconomic dashboard (Macro.md)
 │   │   ├── decision_template.md    # Template for investment decisions
 │   │   ├── retrospective_template.md # Template for decision reviews
@@ -93,6 +95,7 @@ trader/
 │   └── Views/                      # Reusable DataviewJS custom views (e.g., alert_banner, open_decisions, stooq_chart)
 ├── .vault_version                  # Vault schema & migration version marker (e.g. 0.7.0)
 ├── Alerts.md                       # Active alerts dashboard (Dataview)
+├── Health.md                       # Integrations health & connectivity diagnostics dashboard
 ├── Portfolio_performance.md        # Historical performance & valuation charts (DataviewJS + Charts)
 ├── Overview.md                     # Portfolio valuation, sector breakdown chart & table
 ├── Safety_portfolio.md             # Safety net portfolio breakdown (cash cushions & capital preservation)
@@ -134,6 +137,10 @@ pip install .
 
 # 🚀 UNIFIED RUNNER (run.py): Execute all or specific pipeline actions
 python run.py --all                               # Run full pipeline: import -> rates -> macro -> etfs -> alerts -> history
+python run.py --health                            # Run external integrations health check & connectivity diagnostics
+python run.py --health --integration nbp          # Probe specific integration connectivity (e.g. nbp, yfinance, exante)
+python run.py --sanity                            # Run vault sanity & data integrity checks (assets, portfolio.csv, raw data, .env)
+python run.py --sanity --fix                      # Auto-repair portfolio.csv chronological monotonicity & duplicates
 python run.py --import                            # Import broker exports (enabled platforms or use --platform / --file)
 python run.py --list-platforms                    # List available platform extensions and their enabled status
 python run.py --enable-platform <id>              # Enable a platform extension in config.yaml
@@ -156,7 +163,16 @@ python run.py --sync-vault <path> --dry-run       # Preview patch changes withou
 python run.py --update-rates --alerts             # Chain multiple actions together
 
 # --- Or run individual modules directly ---
-# 2. Import broker exports (enabled platforms or specific platform/file/API)
+# 2. Check external integrations connectivity & diagnostics
+python 99_System/Scripts/health_check.py
+# (Or: python 99_System/Scripts/health_check.py -i nbp)
+# (Or: python 99_System/Scripts/health_check.py --no-md --json)
+
+# 2b. Check vault sanity & data integrity diagnostics
+python 99_System/Scripts/sanity_check.py
+# (Or auto-repair: python 99_System/Scripts/sanity_check.py --fix)
+
+# 3. Import broker exports (enabled platforms or specific platform/file/API)
 python 99_System/Scripts/import_assets.py
 # (Or: python 99_System/Scripts/platforms/pko_bp_bonds.py)
 # (Or: python 99_System/Scripts/platforms/mbank_ike.py)
@@ -194,7 +210,7 @@ python 99_System/Scripts/discover_watchlist.py --add NVDA
 python 99_System/Scripts/sync_etf_holdings.py
 # (Or: python 99_System/Scripts/sync_etf_holdings.py --limit 15)
 
-# 10. Run automated unit test suite (pytest)
+# 10. Run automated unit test suite (pytest - upstream template development & CI only)
 python -m pytest
 
 # 11. Linting, code formatting, and static type checking
@@ -217,11 +233,11 @@ python run.py --sync-vault ../trader             # Patch downstream vault using 
 
 ### 📌 Upstream Template vs. Downstream Personal Vault
 The project enforces a clean separation of template architecture and personal investment data:
-- **Upstream Template Starter (`obsidian-investment-starter`):** Public template repository providing the engine (`99_System/`), note templates (`99_System/Templates/`), Dataview views (`99_System/Views/`), unit tests (`99_System/Tests/`), base configurations (`config.yaml`), and runner scripts (`run.py`, `patch.py`). Contains **no** real personal assets, private transactions, or credentials.
+- **Upstream Template Starter (`obsidian-investment-starter`):** Public template repository providing the engine (`99_System/`), note templates (`99_System/Templates/`), Dataview views (`99_System/Views/`), unit tests (`99_System/Tests/` strictly maintained upstream for developer testing and CI), base configurations (`config.yaml`), and runner scripts (`run.py`, `patch.py`). Contains **no** real personal assets, private transactions, or credentials.
 - **Downstream Personal Vault (`trader`):** Your private Obsidian financial vault. Contains live holdings (`10_Finance/Assets/`), trade theses & decisions (`20_Decisions/`), historical timeline (`10_Finance/History/portfolio.csv`), raw broker exports (`00_Raw/`), `.env`, and personalized configuration overrides.
 
 ### 🏷️ Vault Version Marker (`.vault_version`)
-- The active code and schema version is tracked in the root file **`.vault_version`** (e.g. `0.7.0`).
+- The active code and schema version is tracked in the root file **`.vault_version`** (e.g. `0.8.0`).
 - If `.vault_version` is absent, [`PatchEngine`](file:///C:/workspace/obsidian-investment-starter/99_System/Scripts/patch/patch_engine.py) infers the baseline version automatically (`0.5.0` if `99_System/` exists, otherwise `0.0.0`).
 - Applying patches sequentially upgrades `.vault_version` until target downstream vault matches upstream starter.
 
@@ -258,12 +274,13 @@ Sequential patches (`99_System/Scripts/patch/patches/patch_<from>_to_<to>.py`) a
    - `.env` (all private broker API keys and secrets)
    - `config.yaml` (custom platform settings and portfolio targets are preserved; missing sections like `retention:` are non-destructively merged)
 2. **Synchronized from Upstream:**
-   - `99_System/Scripts/`, `99_System/Templates/`, `99_System/Views/`, `99_System/Tests/`, `99_System/docs/`
-   - Root execution scripts and system documentation: `run.py`, `patch.py`, `init.py`, `pyproject.toml`, `GEMINI.md`, `Welcome.md`
+   - `99_System/Scripts/`, `99_System/Templates/`, `99_System/Views/`, `99_System/docs/` (`99_System/Tests/` is strictly excluded to keep downstream vaults clean)
+   - Root execution scripts and system documentation: `run.py`, `patch.py`, `init.py`, `pyproject.toml`, `GEMINI.md`, `Welcome.md`, `Health.md`
    - System directories and `.gitkeep` markers (e.g. `00_Raw/archive/`, `10_Finance/History/archive/`)
    - `.vault_version` incremented to the latest version
 3. **Removed from Downstream:**
    - Template roadmap backlog `todo.md` is removed from downstream personal vaults (backlog is maintained only in the upstream template starter).
+   - Development test suites and test caches (`99_System/Tests/`, `tests/`, `.pytest_cache/`, `.coverage`, `htmlcov/`) are automatically pruned from downstream personal vaults.
 
 
 ## 🧠 Decision & Retrospective Process

@@ -338,6 +338,7 @@ statusBar.innerHTML = `
 // Action buttons configuration
 const actions = [
     { label: "🚀 Run Full Pipeline (--all)", args: ["--all"], cmd: "python run.py --all", primary: true },
+    { label: "🩺 Diagnostics (--health)", args: ["--health"], cmd: "python run.py --health", primary: false },
     { label: "📥 Import Broker CSVs (--import)", args: ["--import"], cmd: "python run.py --import", primary: false },
     { label: "💱 Update FX Rates (--update-rates)", args: ["--update-rates"], cmd: "python run.py --update-rates", primary: false },
     { label: "🌐 Sync Macro Dashboard (--macro)", args: ["--macro"], cmd: "python run.py --macro", primary: false },

@@ -2,29 +2,30 @@
 
 ## ⚡ Current Milestone: v0.8 System Health Checks, Sanity Diagnostics & Downstream Decoupling
 
-- [ ] **Integrations Health Check & Connectivity Diagnostics (`health_check.py` / CLI):**
-  - [ ] Dedicated diagnostic runner script and CLI flag (`python run.py --health` or `python 99_System/Scripts/health_check.py`).
-  - [ ] Automated connectivity and response probes for all external integrations:
-    - [ ] `yfinance`: test price quote and fundamentals retrieval for a sample ticker (e.g. `SPY` / `AAPL`).
-    - [ ] `exante`: verify REST API credentials, token generation, and account summary connectivity (simple GET request).
-    - [ ] `finnhub`: test API key validity and recommendation consensus probe.
-    - [ ] `justetf`: check HTTP reachability and basic profile scraping for a sample ISIN.
-    - [ ] `nbp`: test official Table A exchange rate fixing API endpoint.
-    - [ ] `eurostat`: test Polish 10Y sovereign yield endpoint.
-    - [ ] `stooq`: check quote service accessibility.
-    - [ ] `openbb`: verify local environment availability and fallback status.
-  - [ ] Visual CLI diagnostic report with latency metrics, status badges (✅ OK / ⚠️ WARN / ❌ FAIL), and troubleshooting hints for missing `.env` keys, rate limits, or network timeouts.
+- [X] **Integrations Health Check & Connectivity Diagnostics (`health_check.py` / CLI):**
+  - [X] Dedicated diagnostic runner script and CLI flag (`python run.py --health` or `python 99_System/Scripts/health_check.py`).
+  - [X] Automated connectivity and response probes for all external integrations:
+    - [X] `yfinance`: test price quote and fundamentals retrieval for a sample ticker (e.g. `SPY` / `AAPL`).
+    - [X] `exante`: verify REST API credentials, token generation, and account summary connectivity (simple GET request).
+    - [X] `finnhub`: test API key validity and recommendation consensus probe.
+    - [X] `justetf`: check HTTP reachability and basic profile scraping for a sample ISIN.
+    - [X] `nbp`: test official Table A exchange rate fixing API endpoint.
+    - [X] `eurostat`: test Polish 10Y sovereign yield endpoint.
+    - [X] `stooq`: check quote service accessibility.
+    - [X] `openbb`: verify local environment availability and fallback status.
+  - [X] Visual CLI diagnostic report with latency metrics, status badges (✅ OK / ⚠️ WARN / ❌ FAIL), and troubleshooting hints for missing `.env` keys, rate limits, or network timeouts.
 
-- [ ] **Vault Sanity & Data Integrity Checker:**
-  - [ ] Frontmatter validation for all notes in `10_Finance/Assets/*.md`: detect missing required fields (`value_pln`, `portfolio`, `currency`), invalid numeric values (NaN / null / negative quantities), and ticker collisions.
-  - [ ] Historical timeline integrity check for `10_Finance/History/portfolio.csv`: verify date monotonicity, valid CSV schema, and detect duplicate date timestamps.
-  - [ ] Broker exports validation in `00_Raw/`: flag unparseable, corrupt, or unsupported file extensions.
-  - [ ] Environment verification: ensure `.env` file exists and has correct permissions and syntax.
+- [X] **Vault Sanity & Data Integrity Checker:**
+  - [X] Dedicated diagnostic module (`sanity_check.py`) and unified CLI integration (`python run.py --sanity` / `python run.py --all` / `--fix`).
+  - [X] Frontmatter validation for all notes in `10_Finance/Assets/*.md`: detect missing required fields (`value_pln`, `portfolio`, `currency`), invalid numeric values (NaN / null / negative quantities), portfolio bucket compliance (allowing unallocated cash dry powder), and ticker collisions.
+  - [X] Historical timeline integrity check for `10_Finance/History/portfolio.csv`: verify date monotonicity, valid CSV schema, detect duplicate date timestamps, and support automated `--fix` sorting & deduplication with backup creation.
+  - [X] Broker exports validation in `00_Raw/`: flag unparseable, corrupt, or unsupported file extensions.
+  - [X] Environment verification: ensure `.env` file exists, validate syntax, and detect default placeholder API keys.
 
-- [ ] **Downstream Test Decoupling & Vault Cleanliness (Starter vs Downstream):**
-  - [ ] Exclude `99_System/Tests/` from patch synchronization to downstream personal vaults (`trader`).
-  - [ ] In `patch_0_7_to_0_8.py`, automatically prune/remove `99_System/Tests/` and `.pytest_cache/` from downstream vaults (similar to `todo.md`), keeping personal vaults lean and free of development test mock clutter.
-  - [ ] Maintain full `pytest` unit test suite strictly in the upstream starter repository (`obsidian-investment-starter`) for developer validation and CI/CD pipelines.
+- [X] **Downstream Test Decoupling & Vault Cleanliness (Starter vs Downstream):**
+  - [X] Exclude `99_System/Tests/` from patch synchronization to downstream personal vaults (`trader`).
+  - [X] In `patch_0_7_to_0_8.py`, automatically prune/remove `99_System/Tests/` and `.pytest_cache/` from downstream vaults (similar to `todo.md`), keeping personal vaults lean and free of development test mock clutter.
+  - [X] Maintain full `pytest` unit test suite strictly in the upstream starter repository (`obsidian-investment-starter`) for developer validation and CI/CD pipelines.
 
 ---
 

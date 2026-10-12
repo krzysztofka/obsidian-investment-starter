@@ -31,6 +31,8 @@ if parent_scripts_dir not in sys.path:
 from logging_util import get_logger
 from model.config import HistoryRetentionConfig, RawDataRetentionConfig, load_vault_config
 
+from history.update_portfolio import atomic_write_csv
+
 logger = get_logger("retention")
 
 PORTFOLIO_FIELDS = [
@@ -209,10 +211,7 @@ def archive_portfolio_history(
         yearly_counts[year] = len(merged_archive)
 
         if not dry_run:
-            with open(archive_file, "w", encoding="utf-8", newline="") as f:
-                writer = csv.DictWriter(f, fieldnames=PORTFOLIO_FIELDS, lineterminator="\n")
-                writer.writeheader()
-                writer.writerows(merged_archive)
+            atomic_write_csv(archive_file, PORTFOLIO_FIELDS, merged_archive)
 
     # Deduplicate and sort retained rows
     retained_map: dict[tuple[str, str], dict[str, str]] = {}
@@ -222,10 +221,7 @@ def archive_portfolio_history(
     final_retained = sorted(list(retained_map.values()), key=lambda x: (x["date"], x["ticker"]))
 
     if not dry_run:
-        with open(portfolio_file, "w", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=PORTFOLIO_FIELDS, lineterminator="\n")
-            writer.writeheader()
-            writer.writerows(final_retained)
+        atomic_write_csv(portfolio_file, PORTFOLIO_FIELDS, final_retained)
 
     logger.info(
         f"{'[DRY-RUN] ' if dry_run else ''}Archived {len(archived_rows)} entries older than {cutoff_date} "

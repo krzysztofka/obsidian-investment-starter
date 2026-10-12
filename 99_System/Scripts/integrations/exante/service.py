@@ -540,3 +540,7 @@ def fetch_exante_portfolio(
     except Exception as e:
         sys.stderr.write(f"Exante API fetch failed: {e}\n")
         return None
+
+
+# Backward-compatibility alias
+ExanteApiClient = ExanteClient

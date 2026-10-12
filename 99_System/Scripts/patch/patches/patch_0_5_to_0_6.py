@@ -77,7 +77,7 @@ def apply(source_vault: str, target_vault: str, dry_run: bool = False) -> bool:
     if os.path.exists(os.path.join(dst_system, "config.yaml")):
         ignore_system_files.add("config.yaml")
 
-    system_folders = ["Scripts", "Templates", "Views", "docs", "Tests"]
+    system_folders = ["Scripts", "Templates", "Views", "docs"]
     for folder in system_folders:
         src_f = os.path.join(src_system, folder)
         dst_f = os.path.join(dst_system, folder)

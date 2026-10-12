@@ -35,7 +35,7 @@ def test_get_vault_version():
 
 def test_discover_patches():
     patches = discover_patches()
-    assert len(patches) >= 2
+    assert len(patches) >= 3
     p06 = next((p for p in patches if p["from_version"] == "0.5.0" and p["to_version"] == "0.6.0"), None)
     assert p06 is not None
     assert callable(p06["apply"])
@@ -44,20 +44,26 @@ def test_discover_patches():
     assert p07 is not None
     assert callable(p07["apply"])
 
+    p08 = next((p for p in patches if p["from_version"] == "0.7.0" and p["to_version"] == "0.8.0"), None)
+    assert p08 is not None
+    assert callable(p08["apply"])
+
 
 def test_build_patch_pipeline():
     mock_patches = [
         {"from_version": "0.5.0", "to_version": "0.6.0", "description": "0.5 -> 0.6"},
         {"from_version": "0.6.0", "to_version": "0.7.0", "description": "0.6 -> 0.7"},
+        {"from_version": "0.7.0", "to_version": "0.8.0", "description": "0.7 -> 0.8"},
     ]
 
-    pipeline = build_patch_pipeline("0.5.0", "0.7.0", mock_patches)
-    assert len(pipeline) == 2
+    pipeline = build_patch_pipeline("0.5.0", "0.8.0", mock_patches)
+    assert len(pipeline) == 3
     assert pipeline[0]["from_version"] == "0.5.0"
     assert pipeline[1]["from_version"] == "0.6.0"
+    assert pipeline[2]["from_version"] == "0.7.0"
 
     # Already up-to-date
-    assert build_patch_pipeline("0.7.0", "0.7.0", mock_patches) == []
+    assert build_patch_pipeline("0.8.0", "0.8.0", mock_patches) == []
 
 
 def test_patch_application_and_private_data_preservation():
@@ -97,6 +103,17 @@ def test_patch_application_and_private_data_preservation():
         with open(os.path.join(mock_target, ".vault_version"), "w", encoding="utf-8") as f:
             f.write("0.5.0\n")
 
+        # 5. Legacy test clutter in downstream vault
+        mock_tests_dir = os.path.join(mock_target, "99_System", "Tests")
+        os.makedirs(mock_tests_dir, exist_ok=True)
+        with open(os.path.join(mock_tests_dir, "test_mock.py"), "w", encoding="utf-8") as f:
+            f.write("# mock test")
+
+        mock_pytest_cache = os.path.join(mock_target, ".pytest_cache")
+        os.makedirs(mock_pytest_cache, exist_ok=True)
+        with open(os.path.join(mock_pytest_cache, "cache.json"), "w", encoding="utf-8") as f:
+            f.write("{}")
+
         # Run patch
         engine = PatchEngine(source_vault=vault_root)
         success = engine.run_patch(target_vault=mock_target, dry_run=False)
@@ -128,5 +145,88 @@ def test_patch_application_and_private_data_preservation():
         assert os.path.exists(os.path.join(mock_target, "99_System", "Scripts", "patch", "patch_engine.py"))
         assert os.path.exists(os.path.join(mock_target, "00_Raw", "pkobp"))
 
-        # E. Version upgraded to upstream starter version (0.7.0)
-        assert get_vault_version(mock_target) == "0.7.0"
+        # E. Downstream test decoupling & cache cleanup verified
+        assert not os.path.exists(mock_tests_dir)
+        assert not os.path.exists(mock_pytest_cache)
+
+        # F. Version upgraded to upstream starter version (0.8.0)
+        assert get_vault_version(mock_target) == "0.8.0"
+
+
+def test_downstream_test_decoupling_and_cache_pruning():
+    vault_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+    from patch.patches.patch_0_7_to_0_8 import apply as apply_07_to_08
+
+    with tempfile.TemporaryDirectory() as mock_downstream:
+        # 1. Setup downstream vault at 0.7.0 with legacy test directories & caches
+        os.makedirs(os.path.join(mock_downstream, "99_System", "Scripts"), exist_ok=True)
+        os.makedirs(os.path.join(mock_downstream, "99_System", "Tests"), exist_ok=True)
+        os.makedirs(os.path.join(mock_downstream, "99_System", ".pytest_cache"), exist_ok=True)
+        os.makedirs(os.path.join(mock_downstream, "tests"), exist_ok=True)
+        os.makedirs(os.path.join(mock_downstream, ".pytest_cache"), exist_ok=True)
+        os.makedirs(os.path.join(mock_downstream, "htmlcov"), exist_ok=True)
+
+        with open(os.path.join(mock_downstream, ".vault_version"), "w", encoding="utf-8") as f:
+            f.write("0.7.0\n")
+
+        with open(os.path.join(mock_downstream, "99_System", "Tests", "test_sample.py"), "w", encoding="utf-8") as f:
+            f.write("# sample test")
+
+        with open(os.path.join(mock_downstream, "todo.md"), "w", encoding="utf-8") as f:
+            f.write("# Backlog")
+
+        with open(os.path.join(mock_downstream, ".coverage"), "w", encoding="utf-8") as f:
+            f.write("coverage data")
+
+        # Test Dry Run first
+        res_dry = apply_07_to_08(vault_root, mock_downstream, dry_run=True)
+        assert res_dry is True
+        # In dry run, files should still exist
+        assert os.path.exists(os.path.join(mock_downstream, "99_System", "Tests"))
+        assert os.path.exists(os.path.join(mock_downstream, ".pytest_cache"))
+        assert get_vault_version(mock_downstream) == "0.7.0"
+
+        # Apply Live Patch
+        res_live = apply_07_to_08(vault_root, mock_downstream, dry_run=False)
+        assert res_live is True
+
+        # Assert tests, caches, and backlog are thoroughly pruned
+        assert not os.path.exists(os.path.join(mock_downstream, "99_System", "Tests"))
+        assert not os.path.exists(os.path.join(mock_downstream, "tests"))
+        assert not os.path.exists(os.path.join(mock_downstream, ".pytest_cache"))
+        assert not os.path.exists(os.path.join(mock_downstream, "99_System", ".pytest_cache"))
+        assert not os.path.exists(os.path.join(mock_downstream, ".coverage"))
+        assert not os.path.exists(os.path.join(mock_downstream, "htmlcov"))
+        assert not os.path.exists(os.path.join(mock_downstream, "todo.md"))
+
+        # Assert scripts were synced but Tests was NOT re-created
+        assert os.path.exists(os.path.join(mock_downstream, "99_System", "Scripts", "health_check.py"))
+        assert not os.path.exists(os.path.join(mock_downstream, "99_System", "Tests"))
+
+        # Assert version updated to 0.8.0
+        assert get_vault_version(mock_downstream) == "0.8.0"
+
+
+def test_upstream_starter_tests_protected_when_target_is_same():
+    """Ensure running patch when source == target does NOT delete upstream tests."""
+    from patch.patches.patch_0_7_to_0_8 import apply as apply_07_to_08
+
+    # We simulate this in a temporary folder representing upstream starter
+    with tempfile.TemporaryDirectory() as mock_upstream:
+        os.makedirs(os.path.join(mock_upstream, "99_System", "Tests"), exist_ok=True)
+        os.makedirs(os.path.join(mock_upstream, "99_System", "Scripts"), exist_ok=True)
+        test_file = os.path.join(mock_upstream, "99_System", "Tests", "test_upstream.py")
+        with open(test_file, "w", encoding="utf-8") as f:
+            f.write("# Upstream test suite")
+
+        with open(os.path.join(mock_upstream, ".vault_version"), "w", encoding="utf-8") as f:
+            f.write("0.7.0\n")
+
+        # Run patch where source == target
+        res = apply_07_to_08(mock_upstream, mock_upstream, dry_run=False)
+        assert res is True
+
+        # Upstream tests MUST remain intact!
+        assert os.path.exists(test_file)
+        assert os.path.exists(os.path.join(mock_upstream, "99_System", "Tests"))

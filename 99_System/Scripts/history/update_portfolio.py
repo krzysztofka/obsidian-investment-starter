@@ -1,6 +1,8 @@
 import csv
 import os
 import sys
+import tempfile
+import time
 from datetime import datetime
 from typing import Any
 
@@ -32,11 +34,54 @@ def format_val(val: Any) -> str:
         return val_str
 
 
+def atomic_write_csv(
+    file_path: str,
+    fieldnames: list[str],
+    rows: list[dict[str, Any]],
+    lineterminator: str = "\n",
+    max_retries: int = 5,
+    retry_delay: float = 0.2,
+) -> None:
+    """Atomically write a CSV file using a temporary file and replace with retry backoff.
+
+    Prevents Win32 file lock collisions (Errno 22 / Invalid argument) when Obsidian
+    or other background processes hold concurrent read/watch handles on the target file.
+    """
+    dir_name = os.path.dirname(os.path.abspath(file_path))
+    os.makedirs(dir_name, exist_ok=True)
+
+    fd, temp_path = tempfile.mkstemp(prefix=".tmp_portfolio_", dir=dir_name, text=True)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames, lineterminator=lineterminator)
+            writer.writeheader()
+            writer.writerows(rows)
+            f.flush()
+            os.fsync(f.fileno())
+
+        for attempt in range(max_retries):
+            try:
+                os.replace(temp_path, file_path)
+                break
+            except (PermissionError, OSError):
+                if attempt == max_retries - 1:
+                    raise
+                time.sleep(retry_delay * (attempt + 1))
+    except Exception:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+        raise
+
+
 def update_portfolio_history(base_dir: str | None = None) -> str:
     """Synchronize, deduplicate, and sort all historical portfolio snapshots into 10_Finance/History/portfolio.csv.
 
     Reads existing entries from portfolio.csv, updates with current state from 10_Finance/Assets/*.md,
-    sorts entries chronologically by date and ticker, and writes back cleanly formatted CSV.
+    reconciles closed/sold positions by recording zero closing entries, sorts chronologically,
+    and atomically writes the CSV.
     """
     if base_dir is None:
         base_dir = get_base_dir()
@@ -53,6 +98,8 @@ def update_portfolio_history(base_dir: str | None = None) -> str:
     # Map of (date, ticker) -> row dict
     entries = {}
     asset_portfolio_map = {}
+    active_tickers = set()
+    latest_asset_date = ""
 
     # Pre-map decisions for sold/historical assets
     decisions_dir = os.path.join(base_dir, "20_Decisions")
@@ -102,6 +149,20 @@ def update_portfolio_history(base_dir: str | None = None) -> str:
                     ticker_val = str(asset.ticker or fname[:-3]).strip()
                     name_val = str(asset.name or ticker_val).strip()
 
+                    if date_val > latest_asset_date:
+                        latest_asset_date = date_val
+
+                    # Track active holdings with positive value / quantity
+                    val_float = 0.0
+                    if asset.value_pln is not None:
+                        try:
+                            val_float = float(asset.value_pln)
+                        except (ValueError, TypeError):
+                            val_float = 0.0
+
+                    if val_float > 0:
+                        active_tickers.add(ticker_val)
+
                     if ticker_val and asset.portfolio:
                         asset_portfolio_map[ticker_val] = asset.portfolio
 
@@ -119,6 +180,52 @@ def update_portfolio_history(base_dir: str | None = None) -> str:
                 except Exception as e:
                     print(f"Warning: could not process asset file {fname}: {e}")
 
+    # 2.5 Reconcile sold / missing positions: ensure any ticker previously active
+    # that is no longer held (missing from active assets or zeroed) receives a closing 0 row.
+    all_dates = sorted(list({d for (d, _) in entries.keys()}))
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    current_snapshot_date = max(today_str, latest_asset_date) if latest_asset_date else today_str
+
+    ticker_dates_map: dict[str, list[str]] = {}
+    for d, t in entries.keys():
+        ticker_dates_map.setdefault(t, []).append(d)
+
+    for t, t_dates in sorted(ticker_dates_map.items()):
+        if t in active_tickers:
+            continue
+        sorted_t_dates = sorted(t_dates)
+        last_t_date = sorted_t_dates[-1]
+        last_entry = entries[(last_t_date, t)]
+
+        try:
+            last_val = float(last_entry.get("value_pln") or 0)
+        except (ValueError, TypeError):
+            last_val = 0.0
+
+        if last_val > 0:
+            # Position ceased to exist after last_t_date. Find next chronological snapshot date.
+            subsequent_dates = [d for d in all_dates if d > last_t_date]
+            if subsequent_dates:
+                close_date = subsequent_dates[0]
+            else:
+                close_date = current_snapshot_date
+
+            if close_date == last_t_date:
+                last_entry["value_pln"] = "0"
+                last_entry["quantity"] = "0"
+                last_entry["current_price"] = "0"
+            else:
+                entries[(close_date, t)] = {
+                    "date": close_date,
+                    "ticker": t,
+                    "name": last_entry.get("name") or t,
+                    "value_pln": "0",
+                    "current_price": "0",
+                    "pe_ratio": "",
+                    "quantity": "0",
+                    "portfolio": last_entry.get("portfolio") or asset_portfolio_map.get(t, ""),
+                }
+
     # Backfill missing portfolio values for historical entries
     for (d, t), item in entries.items():
         if not item.get("portfolio") and t in asset_portfolio_map:
@@ -127,11 +234,8 @@ def update_portfolio_history(base_dir: str | None = None) -> str:
     # 3. Sort entries by date ascending, then ticker ascending
     sorted_entries = sorted(list(entries.values()), key=lambda x: (x["date"], x["ticker"]))
 
-    # 4. Write back to portfolio.csv
-    with open(portfolio_file, mode="w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames, lineterminator="\n")
-        writer.writeheader()
-        writer.writerows(sorted_entries)
+    # 4. Atomically write back to portfolio.csv
+    atomic_write_csv(portfolio_file, fieldnames, sorted_entries)
 
     # Clean up legacy portfolio.md if it exists
     if os.path.exists(old_md_file):
