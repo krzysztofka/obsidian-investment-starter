@@ -149,8 +149,8 @@ def test_patch_application_and_private_data_preservation():
         assert not os.path.exists(mock_tests_dir)
         assert not os.path.exists(mock_pytest_cache)
 
-        # F. Version upgraded to upstream starter version (0.8.0)
-        assert get_vault_version(mock_target) == "0.8.0"
+        # F. Version upgraded to upstream starter version
+        assert get_vault_version(mock_target) == get_vault_version(vault_root)
 
 
 def test_downstream_test_decoupling_and_cache_pruning():

@@ -1,52 +1,24 @@
 # Project Roadmap & Backlog (TODO)
 
-## ⚡ Current Milestone: v0.8 System Health Checks, Sanity Diagnostics & Downstream Decoupling
+## ⚡ Current Milestone: v0.9 Investment Strategy, Model Portfolios & AI Rebalance Advisor
 
-- [X] **Integrations Health Check & Connectivity Diagnostics (`health_check.py` / CLI):**
-  - [X] Dedicated diagnostic runner script and CLI flag (`python run.py --health` or `python 99_System/Scripts/health_check.py`).
-  - [X] Automated connectivity and response probes for all external integrations:
-    - [X] `yfinance`: test price quote and fundamentals retrieval for a sample ticker (e.g. `SPY` / `AAPL`).
-    - [X] `exante`: verify REST API credentials, token generation, and account summary connectivity (simple GET request).
-    - [X] `finnhub`: test API key validity and recommendation consensus probe.
-    - [X] `justetf`: check HTTP reachability and basic profile scraping for a sample ISIN.
-    - [X] `nbp`: test official Table A exchange rate fixing API endpoint.
-    - [X] `eurostat`: test Polish 10Y sovereign yield endpoint.
-    - [X] `stooq`: check quote service accessibility.
-    - [X] `openbb`: verify local environment availability and fallback status.
-  - [X] Visual CLI diagnostic report with latency metrics, status badges (✅ OK / ⚠️ WARN / ❌ FAIL), and troubleshooting hints for missing `.env` keys, rate limits, or network timeouts.
-
-- [X] **Vault Sanity & Data Integrity Checker:**
-  - [X] Dedicated diagnostic module (`sanity_check.py`) and unified CLI integration (`python run.py --sanity` / `python run.py --all` / `--fix`).
-  - [X] Frontmatter validation for all notes in `10_Finance/Assets/*.md`: detect missing required fields (`value_pln`, `portfolio`, `currency`), invalid numeric values (NaN / null / negative quantities), portfolio bucket compliance (allowing unallocated cash dry powder), and ticker collisions.
-  - [X] Historical timeline integrity check for `10_Finance/History/portfolio.csv`: verify date monotonicity, valid CSV schema, detect duplicate date timestamps, and support automated `--fix` sorting & deduplication with backup creation.
-  - [X] Broker exports validation in `00_Raw/`: flag unparseable, corrupt, or unsupported file extensions.
-  - [X] Environment verification: ensure `.env` file exists, validate syntax, and detect default placeholder API keys.
-
-- [X] **Downstream Test Decoupling & Vault Cleanliness (Starter vs Downstream):**
-  - [X] Exclude `99_System/Tests/` from patch synchronization to downstream personal vaults (`trader`).
-  - [X] In `patch_0_7_to_0_8.py`, automatically prune/remove `99_System/Tests/` and `.pytest_cache/` from downstream vaults (similar to `todo.md`), keeping personal vaults lean and free of development test mock clutter.
-  - [X] Maintain full `pytest` unit test suite strictly in the upstream starter repository (`obsidian-investment-starter`) for developer validation and CI/CD pipelines.
-
----
-
-## ⚖️ Milestone: v0.9 Investment Strategy, Model Portfolios & AI Rebalance Advisor
-
-- [ ] **Model Portfolio Configuration (`config.yaml`):**
-  - [ ] Target allocation schema per portfolio (*Safety Net*, *Long Term*, *Aggressive*): by asset class, dominant sector, or specific key assets.
-  - [ ] Rebalance tolerance bands (corridors, e.g. $\pm 5\%$) and minimum trade thresholds (`min_trade_amount_pln`) to eliminate costly micro-transactions.
-  - [ ] Strategy preference definition (e.g. `inflow_first` cash-flow rebalancing vs `full_rebalance`).
-- [ ] **Cost-Aware Rebalancing & Drift Engine (`rebalance.py` / CLI):**
-  - [ ] Calculation engine computing real-time allocation drift (Actual % vs Model Target %) and delta in PLN.
-  - [ ] Cash-Flow Rebalancer: calculating optimal capital distribution for new deposits/DCA to close allocation gaps without triggering taxable sales.
-  - [ ] CLI command: `python run.py --rebalance` (with `--portfolio <name>` and optional `--deposit <amount_pln>`).
-- [ ] **Model vs Actual Dataview Dashboard:**
-  - [ ] Visual progress / allocation delta bars in `Overview.md` and dedicated portfolio views.
-  - [ ] Drift summary widget highlighting positions exceeding tolerance bands.
-- [ ] **AI Portfolio & Rebalance Advisor Skill:**
-  - [ ] Portfolio-specific advisor skill / system prompt enforcing the *Strict Capital Silo Rule*.
-  - [ ] Asset-specific cost & friction awareness (EDO bond early redemption penalty, physical gold bid-ask spreads, IKE/IKZE annual limit maximization, tax drag on taxable brokers).
-  - [ ] Quarterly review integration: automated rebalance recommendations linked with `20_Decisions/YYYY-QN_Retrospective.md` and automated decision drafting via `decision_template.md`.
-
+- [X] **Model Portfolio Configuration (`config.yaml`):**
+  - [X] Target allocation schema per portfolio (*Safety Net*, *Long Term*, *Aggressive*): by asset class, dominant sector, or specific key assets.
+  - [X] Rebalance tolerance bands (corridors, e.g. $\pm 5\%$) and minimum trade thresholds (`min_trade_amount_pln`) to eliminate costly micro-transactions.
+  - [X] Strategy preference definition (e.g. `inflow_first` cash-flow rebalancing vs `full_rebalance`).
+- [X] **Investor Profile & Rebalancing Setup (`config.yaml` & `init.py`):**
+  - [X] Add `user_profile:` schema to `config.yaml` and Pydantic model (`UserProfileConfig` in `model/config.py`): risk tolerance, single stock cap, tax sensitivity, and profit harvesting rules.
+  - [X] Interactive Investor Profile step in `init_vault.py` (`init.py`) to configure risk profile, tax preference, and allocation boundaries during vault setup.
+- [X] **In-Note Rebalance & Drift Alerting Dashboard (`rebalance_status`):**
+  - [X] Dedicated DataviewJS view `99_System/Views/rebalance_status` embedded in `Aggressive_portfolio.md`, `Long_term_portfolio.md`, and `Safety_portfolio.md`.
+  - [X] Live calculation of actual weights vs target corridors ($Target \pm Tolerance\%$) and PLN deltas.
+  - [X] Status badges (`🟢 Balanced`, `⚠️ Overweight`, `⚠️ Underweight`) flagging assets/classes that breached thresholds.
+  - [X] Graceful fallback note (`> [!NOTE] ℹ️ Model portfolio targets are not configured for this bucket`) when a portfolio has no configured targets.
+- [X] **AI Portfolio & Rebalance Advisor Skill (`.agents/skills/rebalance-advisor`):**
+  - [X] Dedicated project workspace skill loaded on demand when the user requests rebalancing assistance.
+  - [X] Cost and friction-aware rebalance proposals (factoring in 19% Belka tax drag on taxable brokers vs 0% on IKE/IKZE, EDO early redemption, single stock limits).
+  - [X] Interactive proposal & approval loop: AI queries for operational context (e.g., fresh cash for DCA vs trimming existing positions), presents concrete trade proposals, and asks for approval.
+  - [X] Automated Decision Drafting: Upon user approval, automatically writes decision notes into `20_Decisions/YYYY/` via `decision_template.md`, instantly populating the `Open Decisions & Pending Orders` view.
 ---
 
 ## 🏠 Milestone: v1.0 Real Estate Valuation & Property Management
@@ -91,6 +63,20 @@
 ---
 
 ## ✅ Completed Milestones
+
+- [X] **v0.8 System Health Checks, Sanity Diagnostics & Downstream Decoupling:**
+  - [X] **Integrations Health Check & Connectivity Diagnostics (`health_check.py` / CLI):**
+    - [X] Dedicated diagnostic runner script and CLI flag (`python run.py --health` or `python 99_System/Scripts/health_check.py`).
+    - [X] Automated connectivity and response probes for all external integrations (`yfinance`, `exante`, `finnhub`, `justetf`, `nbp`, `eurostat`, `stooq`, `openbb`).
+    - [X] Visual CLI diagnostic report with latency metrics, status badges (✅ OK / ⚠️ WARN / ❌ FAIL), and troubleshooting hints.
+  - [X] **Vault Sanity & Data Integrity Checker (`sanity_check.py` / CLI):**
+    - [X] Frontmatter validation for all notes in `10_Finance/Assets/*.md` (`value_pln`, `portfolio`, `currency`, numeric ranges, ticker collisions).
+    - [X] Historical timeline integrity check for `10_Finance/History/portfolio.csv` with automated `--fix` sorting & deduplication.
+    - [X] Broker exports validation in `00_Raw/` and `.env` environment key verification.
+  - [X] **Downstream Test Decoupling & Vault Cleanliness (Starter vs Downstream):**
+    - [X] Exclude `99_System/Tests/` from patch synchronization to downstream personal vaults (`trader`).
+    - [X] In `patch_0_7_to_0_8.py`, automatically prune `99_System/Tests/` and `.pytest_cache/` from downstream vaults.
+    - [X] Automated test suite expanded to 106 passing unit and mock tests.
 
 - [X] **v0.7 Code Quality, Testing & Reliability:**
   - [X] **Automated Test Suite (`pytest` - 86 Passing Tests):**

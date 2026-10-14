@@ -52,6 +52,16 @@ The vault enforces a **three-bucket framework** with complete independence betwe
   - Cross-portfolio transfers must **never be done on emotional impulse**.
   - Every exception must be explicitly documented in a formal decision note in `20_Decisions/`, specifying the source portfolio, destination portfolio, amount, and strategic rationale.
 
+### 🎯 Model Portfolio Configuration & Target Corridors (`config.yaml`)
+
+Each portfolio bucket defines its independent model target configuration under `model_portfolios:` in `config.yaml`:
+- **Target Layers:** Supports independent target allocation layers (`asset_classes`, `sectors`, `assets`), where each active layer's weights strictly sum to 100%.
+- **Rebalance Strategy:** Defaulting to `inflow_first` (cash-flow DCA rebalancing directed to underweight assets to eliminate unnecessary taxable sales) or `full_rebalance`.
+- **Tolerance Corridors & Thresholds:** Defined via `tolerance_band_pct` (e.g. $\pm 5.0\%$) and `min_trade_amount_pln` (e.g. 500 PLN) with portfolio defaults and per-target overrides to eliminate micro-transactions.
+- **Investor Profile & Rebalancing Rules (`user_profile:` in `config.yaml`):** Defines overall risk tolerance (`conservative`, `moderate`, `aggressive`), tax optimization preference (inflow-first DCA vs capital gains sales), maximum single-stock ceiling (`max_single_stock_pct`), and strategic profit-harvesting permissions. Configured interactively during vault setup (`python init.py`).
+- **AI Rebalancing Advisor Skill (`.agents/skills/rebalance-advisor/`):** Evaluates live portfolio drift against target corridors, factors in Belka tax drag vs IKE/IKZE tax-free growth, and drafts actionable BUY/SELL/TRIM investment decisions directly into `20_Decisions/` upon user approval.
+- **Reference Taxonomies:** Standard reference taxonomies (ETF issuer discovery mappings and 40+ sector mappings) are built into `99_System/Scripts/model/config.py` as system defaults to keep `config.yaml` lean, with user overrides supported seamlessly.
+
 ---
 
 ## 📂 Vault Directory Structure
@@ -93,7 +103,7 @@ trader/
 │   │   ├── retrospective_template.md # Template for decision reviews
 │   │   └── watchlist_item_template.md # Template for watchlist items
 │   └── Views/                      # Reusable DataviewJS custom views (e.g., alert_banner, open_decisions, stooq_chart)
-├── .vault_version                  # Vault schema & migration version marker (e.g. 0.7.0)
+├── .vault_version                  # Vault schema & migration version marker (e.g. 0.8.0)
 ├── Alerts.md                       # Active alerts dashboard (Dataview)
 ├── Health.md                       # Integrations health & connectivity diagnostics dashboard
 ├── Portfolio_performance.md        # Historical performance & valuation charts (DataviewJS + Charts)

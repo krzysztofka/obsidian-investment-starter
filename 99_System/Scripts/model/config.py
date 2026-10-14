@@ -144,37 +144,119 @@ class AlertsConfig(BaseModel):
     macro_yield_curve: AlertMacroYieldCurveConfig = Field(default_factory=AlertMacroYieldCurveConfig)
 
 
+DEFAULT_ETF_ISSUER_MAPPINGS: dict[str, str] = {
+    "ishares": "iShares",
+    "vanguard": "Vanguard",
+    "vngrd": "Vanguard",
+    "vaneck": "VanEck",
+    "spdr": "SPDR",
+    "state street": "SPDR",
+    "invesco": "Invesco",
+    "xtrackers": "Xtrackers",
+    "x-trackers": "Xtrackers",
+    "dws": "Xtrackers",
+    "amundi": "Amundi",
+    "lyxor": "Amundi",
+    "hsbc": "HSBC",
+    "wisdomtree": "WisdomTree",
+    "global x": "Global X",
+    "globalx": "Global X",
+    "schwab": "Schwab",
+    "first trust": "First Trust",
+    "beta etf": "Beta ETF",
+    "franklin": "Franklin Templeton",
+    "jpmorgan": "JPMorgan",
+    "jpm ": "JPMorgan",
+}
+
+DEFAULT_SECTOR_THRESHOLDS: dict[str, float] = {
+    "Healthcare": 80.0,
+    "Health Care": 80.0,
+    "Military": 50.0,
+    "Finance": 50.0,
+    "Financials": 50.0,
+    "Technology": 50.0,
+    "Real Estate": 50.0,
+}
+
+DEFAULT_SECTOR_MAPPINGS: dict[str, str] = {
+    # Finance mappings
+    "financial_services": "Finance",
+    "financials": "Finance",
+    "financial services": "Finance",
+    "finance": "Finance",
+    "insurance - property & casualty": "Finance",
+    "insurance - life": "Finance",
+    "insurance - specialty": "Finance",
+    "insurance": "Finance",
+    "banking": "Finance",
+    "banks": "Finance",
+    # Healthcare mappings
+    "healthcare": "Healthcare",
+    "health care": "Healthcare",
+    "health_care": "Healthcare",
+    "pharmaceuticals": "Healthcare",
+    "biotechnology": "Healthcare",
+    # Military / Defense mappings
+    "military": "Military",
+    "defense": "Military",
+    "aerospace & defense": "Military",
+    "aerospace and defense": "Military",
+    # Technology mappings
+    "technology": "Technology",
+    "information technology": "Technology",
+    "tech": "Technology",
+    "software - infrastructure": "Technology",
+    "software - application": "Technology",
+    "semiconductors": "Technology",
+    # Real Estate mappings
+    "realestate": "Real Estate",
+    "real estate": "Real Estate",
+    "reit": "Real Estate",
+    "reits": "Real Estate",
+    # Consumer mappings
+    "consumer_cyclical": "Consumer Cyclical",
+    "consumer discretionary": "Consumer Cyclical",
+    "consumer_defensive": "Consumer Defensive",
+    "consumer staples": "Consumer Defensive",
+    "consumer non-cyclicals": "Consumer Defensive",
+    "consumer non-cyclical": "Consumer Defensive",
+    # Industrial mappings
+    "industrials": "Industrials",
+    "industrial": "Industrials",
+    "business services": "Industrials",
+    # Energy & Utilities mappings
+    "energy": "Energy",
+    "oil & gas": "Energy",
+    "utilities": "Utilities",
+    # Materials mappings
+    "basic_materials": "Basic Materials",
+    "basic materials": "Basic Materials",
+    "materials": "Basic Materials",
+    # Communication mappings
+    "communication_services": "Communication Services",
+    "communication services": "Communication Services",
+    "telecommunications": "Communication Services",
+}
+
+
 class EtfIssuerConfig(BaseModel):
     """ETF issuer discovery keyword mappings."""
 
     model_config = ConfigDict(extra="ignore")
 
-    discovery_mapping: dict[str, str] = Field(
-        default_factory=lambda: {
-            "ishares": "iShares",
-            "vanguard": "Vanguard",
-            "vngrd": "Vanguard",
-            "vaneck": "VanEck",
-            "spdr": "SPDR",
-            "state street": "SPDR",
-            "invesco": "Invesco",
-            "xtrackers": "Xtrackers",
-            "x-trackers": "Xtrackers",
-            "dws": "Xtrackers",
-            "amundi": "Amundi",
-            "lyxor": "Amundi",
-            "hsbc": "HSBC",
-            "wisdomtree": "WisdomTree",
-            "global x": "Global X",
-            "globalx": "Global X",
-            "schwab": "Schwab",
-            "first trust": "First Trust",
-            "beta etf": "Beta ETF",
-            "franklin": "Franklin Templeton",
-            "jpmorgan": "JPMorgan",
-            "jpm ": "JPMorgan",
-        }
-    )
+    discovery_mapping: dict[str, str] = Field(default_factory=lambda: dict(DEFAULT_ETF_ISSUER_MAPPINGS))
+
+    @model_validator(mode="before")
+    @classmethod
+    def merge_discovery_defaults(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            user_mapping = data.get("discovery_mapping")
+            merged = dict(DEFAULT_ETF_ISSUER_MAPPINGS)
+            if isinstance(user_mapping, dict):
+                merged.update(user_mapping)
+            data["discovery_mapping"] = merged
+        return data
 
 
 class EtfConfig(BaseModel):
@@ -193,8 +275,25 @@ class DominantSectorConfig(BaseModel):
 
     default_threshold: float = 50.0
     diversified_label: str = "Diversified"
-    thresholds: dict[str, float] = Field(default_factory=dict)
-    mappings: dict[str, str] = Field(default_factory=dict)
+    thresholds: dict[str, float] = Field(default_factory=lambda: dict(DEFAULT_SECTOR_THRESHOLDS))
+    mappings: dict[str, str] = Field(default_factory=lambda: dict(DEFAULT_SECTOR_MAPPINGS))
+
+    @model_validator(mode="before")
+    @classmethod
+    def merge_defaults(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            user_thresholds = data.get("thresholds")
+            merged_thresholds = dict(DEFAULT_SECTOR_THRESHOLDS)
+            if isinstance(user_thresholds, dict):
+                merged_thresholds.update(user_thresholds)
+            data["thresholds"] = merged_thresholds
+
+            user_mappings = data.get("mappings")
+            merged_mappings = dict(DEFAULT_SECTOR_MAPPINGS)
+            if isinstance(user_mappings, dict):
+                merged_mappings.update(user_mappings)
+            data["mappings"] = merged_mappings
+        return data
 
 
 class HistoryRetentionConfig(BaseModel):
@@ -245,11 +344,109 @@ class RetentionConfig(BaseModel):
     raw_data: RawDataRetentionConfig = Field(default_factory=RawDataRetentionConfig)
 
 
+class ModelPortfolioTargetItem(BaseModel):
+    """Target allocation item within a model portfolio layer."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    target: str = Field(description="Name of target (e.g., 'Equities', 'Bonds', 'Cash', or sector/ticker).")
+    weight_pct: float = Field(ge=0.0, le=100.0, description="Target weight in percent (0 to 100).")
+    tolerance_band_pct: float | None = Field(
+        default=None, ge=0.0, description="Optional override for tolerance corridor (e.g. ±5.0%)."
+    )
+    min_trade_amount_pln: float | None = Field(
+        default=None, ge=0.0, description="Optional override for minimum trade amount in PLN."
+    )
+
+
+class ModelPortfolioLayers(BaseModel):
+    """Independent target allocation layers within a model portfolio."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    asset_classes: list[ModelPortfolioTargetItem] = Field(
+        default_factory=list, description="Broad asset class targets (e.g. Equities, Bonds, Cash)."
+    )
+    sectors: list[ModelPortfolioTargetItem] = Field(
+        default_factory=list, description="Dominant sector targets (e.g. Technology, Military)."
+    )
+    assets: list[ModelPortfolioTargetItem] = Field(
+        default_factory=list, description="Specific ticker / asset targets (e.g. VWCE, V80A)."
+    )
+
+    @model_validator(mode="after")
+    def validate_layer_sums(self) -> "ModelPortfolioLayers":
+        """Verify each configured layer with targets sums to ~100%."""
+        for layer_name in ("asset_classes", "sectors", "assets"):
+            items: list[ModelPortfolioTargetItem] = getattr(self, layer_name)
+            if items:
+                total_weight = sum(item.weight_pct for item in items)
+                if abs(total_weight - 100.0) > 0.1:
+                    raise ValueError(
+                        f"Model portfolio layer '{layer_name}' target weights must sum to 100.0% (got {total_weight:.2f}%)."
+                    )
+        return self
+
+
+class ModelPortfolioConfig(BaseModel):
+    """Configuration for an individual model portfolio bucket."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    name: str = Field(description="Display or canonical portfolio name (e.g. 'Safety net').")
+    rebalance_strategy: Literal["inflow_first", "full_rebalance"] = Field(
+        default="inflow_first", description="Rebalancing strategy preference ('inflow_first' or 'full_rebalance')."
+    )
+    tolerance_band_pct: float = Field(
+        default=5.0, ge=0.0, description="Default tolerance band corridor in percentage points (e.g. ±5%)."
+    )
+    min_trade_amount_pln: float = Field(
+        default=500.0, ge=0.0, description="Minimum trade threshold in PLN to avoid micro-transactions."
+    )
+    primary_layer: Literal["asset_classes", "sectors", "assets"] = Field(
+        default="asset_classes", description="Primary target layer used to generate actionable rebalance deltas."
+    )
+    layers: ModelPortfolioLayers = Field(default_factory=ModelPortfolioLayers)
+
+    def get_tolerance_band(self, item: ModelPortfolioTargetItem) -> float:
+        """Get effective tolerance band for an item, falling back to portfolio default."""
+        return item.tolerance_band_pct if item.tolerance_band_pct is not None else self.tolerance_band_pct
+
+    def get_min_trade_amount(self, item: ModelPortfolioTargetItem) -> float:
+        """Get effective minimum trade amount for an item, falling back to portfolio default."""
+        return item.min_trade_amount_pln if item.min_trade_amount_pln is not None else self.min_trade_amount_pln
+
+
+class UserProfileConfig(BaseModel):
+    """Investor profile, risk preferences, and rebalancing rules of engagement."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    risk_tolerance: Literal["conservative", "moderate", "aggressive"] = Field(
+        default="moderate", description="Overall investor risk tolerance ('conservative', 'moderate', or 'aggressive')."
+    )
+    max_single_stock_pct: float = Field(
+        default=15.0, ge=1.0, le=100.0, description="Maximum allocation percentage for any single equity holding."
+    )
+    tax_sensitive: bool = Field(
+        default=True, description="Prioritize cash-flow DCA over taxable sales to minimize capital gains tax drag."
+    )
+    allow_profit_harvesting: bool = Field(
+        default=True,
+        description="Allow AI to suggest moving trimmed profits from Aggressive to Long Term core foundation.",
+    )
+    tax_advantaged_priority: list[str] = Field(
+        default_factory=lambda: ["mbank_ike", "mbank_ikze"],
+        description="Platform IDs prioritized for tax-free growth.",
+    )
+
+
 class VaultConfig(BaseModel):
     """Root configuration model representing config.yaml."""
 
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
+    user_profile: UserProfileConfig = Field(default_factory=UserProfileConfig)
     concurrency: ConcurrencyConfig = Field(default_factory=ConcurrencyConfig)
     resilience: ResilienceConfig = Field(default_factory=ResilienceConfig)
     platforms: dict[str, PlatformConfig] = Field(default_factory=dict)
@@ -258,6 +455,29 @@ class VaultConfig(BaseModel):
     etf: EtfConfig = Field(default_factory=EtfConfig)
     dominant_sector: DominantSectorConfig = Field(default_factory=DominantSectorConfig)
     retention: RetentionConfig = Field(default_factory=RetentionConfig)
+    model_portfolios: dict[str, ModelPortfolioConfig] = Field(default_factory=dict)
+
+    def get_model_portfolio(self, portfolio_name: str | None) -> ModelPortfolioConfig | None:
+        """Retrieve model portfolio config matching given portfolio name (case-insensitive / normalized)."""
+        if not portfolio_name or not self.model_portfolios:
+            return None
+
+        def _norm(s: str) -> str:
+            return s.lower().replace(" ", "").replace("_", "").replace("-", "")
+
+        target_norm = _norm(portfolio_name)
+
+        # 1. Direct match by dictionary key
+        for key, cfg in self.model_portfolios.items():
+            if _norm(key) == target_norm:
+                return cfg
+
+        # 2. Match by cfg.name
+        for cfg in self.model_portfolios.values():
+            if _norm(cfg.name) == target_norm:
+                return cfg
+
+        return None
 
     @model_validator(mode="before")
     @classmethod

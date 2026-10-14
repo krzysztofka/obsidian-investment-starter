@@ -103,119 +103,24 @@ alerts:
 etf:
   # Default number of top underlying holdings to extract and maintain per ETF
   max_top_holdings: 10
-
-  issuer:
-    # Keyword-to-issuer mapping for automatic issuer discovery from asset names
-    discovery_mapping:
-      ishares: "iShares"
-      vanguard: "Vanguard"
-      vngrd: "Vanguard"
-      vaneck: "VanEck"
-      spdr: "SPDR"
-      "state street": "SPDR"
-      invesco: "Invesco"
-      xtrackers: "Xtrackers"
-      "x-trackers": "Xtrackers"
-      dws: "Xtrackers"
-      amundi: "Amundi"
-      lyxor: "Amundi"
-      hsbc: "HSBC"
-      wisdomtree: "WisdomTree"
-      "global x": "Global X"
-      globalx: "Global X"
-      schwab: "Schwab"
-      "first trust": "First Trust"
-      "beta etf": "Beta ETF"
-      franklin: "Franklin Templeton"
-      jpmorgan: "JPMorgan"
-      "jpm ": "JPMorgan"
-
+  # Note: Standard ETF issuers (iShares, Vanguard, VanEck, SPDR, Invesco, etc.) are built-in defaults.
+  # Add custom issuer keyword overrides here if needed:
+  # issuer:
+  #   discovery_mapping:
+  #     custom_keyword: "Custom Issuer"
 
 dominant_sector:
   # Default percentage threshold (50%) for a sector to be considered dominant
   default_threshold: 50.0
-
   # Label used when no sector exceeds its designated threshold
   diversified_label: "Diversified"
+  # Note: Standard sector thresholds and raw-to-normalized mappings are built-in system defaults.
+  # Add custom threshold or mapping overrides here if needed:
+  # thresholds:
+  #   Healthcare: 80.0
+  # mappings:
+  #   "custom_sector": "Normalized Sector"
 
-  # Specific percentage threshold overrides per sector/industry
-  thresholds:
-    Healthcare: 80.0
-    Health Care: 80.0
-    Military: 50.0
-    Finance: 50.0
-    Financials: 50.0
-    Technology: 50.0
-    Real Estate: 50.0
-
-  # Mapping rules from raw API sector names to normalized sector names
-  mappings:
-    # Finance mappings
-    "financial_services": "Finance"
-    "financials": "Finance"
-    "financial services": "Finance"
-    "finance": "Finance"
-    "insurance - property & casualty": "Finance"
-    "insurance - life": "Finance"
-    "insurance - specialty": "Finance"
-    "insurance": "Finance"
-    "banking": "Finance"
-    "banks": "Finance"
-    
-    # Healthcare mappings
-    "healthcare": "Healthcare"
-    "health care": "Healthcare"
-    "health_care": "Healthcare"
-    "pharmaceuticals": "Healthcare"
-    "biotechnology": "Healthcare"
-    
-    # Military / Defense mappings
-    "military": "Military"
-    "defense": "Military"
-    "aerospace & defense": "Military"
-    "aerospace and defense": "Military"
-    
-    # Technology mappings
-    "technology": "Technology"
-    "information technology": "Technology"
-    "tech": "Technology"
-    "software - infrastructure": "Technology"
-    "software - application": "Technology"
-    "semiconductors": "Technology"
-    
-    # Real Estate mappings
-    "realestate": "Real Estate"
-    "real estate": "Real Estate"
-    "reit": "Real Estate"
-    "reits": "Real Estate"
-    
-    # Consumer mappings
-    "consumer_cyclical": "Consumer Cyclical"
-    "consumer discretionary": "Consumer Cyclical"
-    "consumer_defensive": "Consumer Defensive"
-    "consumer staples": "Consumer Defensive"
-    "consumer non-cyclicals": "Consumer Defensive"
-    "consumer non-cyclical": "Consumer Defensive"
-
-    # Industrial mappings
-    "industrials": "Industrials"
-    "industrial": "Industrials"
-    "business services": "Industrials"
-
-    # Energy & Utilities mappings
-    "energy": "Energy"
-    "oil & gas": "Energy"
-    "utilities": "Utilities"
-
-    # Materials mappings
-    "basic_materials": "Basic Materials"
-    "basic materials": "Basic Materials"
-    "materials": "Basic Materials"
-
-    # Communication mappings
-    "communication_services": "Communication Services"
-    "communication services": "Communication Services"
-    "telecommunications": "Communication Services"
 
 # Data Retention & History Archival Settings
 retention:
@@ -247,3 +152,88 @@ retention:
       - ".gitkeep"
       - "Articles/*"
       - "archive/*"
+
+# Model Portfolios & Rebalancing Configuration
+model_portfolios:
+  safety_net:
+    name: "Safety net"
+    rebalance_strategy: "inflow_first" # "inflow_first" (cash-flow DCA) or "full_rebalance"
+    tolerance_band_pct: 5.0 # Drift corridor in percentage points (±5.0%)
+    min_trade_amount_pln: 500.0 # Ignore rebalance actions smaller than this amount
+    primary_layer: "asset_classes"
+    layers:
+      asset_classes:
+        - target: "Bonds"
+          weight_pct: 80.0
+        - target: "Cash"
+          weight_pct: 20.0
+      # Optional holding layer can be configured, e.g.:
+      # assets:
+      #   - target: "EDO0936"
+      #     weight_pct: 60.0
+      #   - target: "OTS0127"
+      #     weight_pct: 20.0
+      #   - target: "Cash"
+      #     weight_pct: 20.0
+
+  long_term:
+    name: "Long term"
+    rebalance_strategy: "inflow_first"
+    tolerance_band_pct: 5.0
+    min_trade_amount_pln: 1000.0
+    primary_layer: "asset_classes"
+    layers:
+      asset_classes:
+        - target: "Equities"
+          weight_pct: 80.0
+        - target: "Bonds"
+          weight_pct: 20.0
+      # Optional holding layer can be configured, e.g.:
+      # assets:
+      #   - target: "VWCE"
+      #     weight_pct: 60.0
+      #   - target: "V80A"
+      #     weight_pct: 20.0
+      #   - target: "Physical Gold"
+      #     weight_pct: 20.0
+
+  aggressive:
+    name: "Aggressive"
+    rebalance_strategy: "inflow_first"
+    tolerance_band_pct: 5.0
+    min_trade_amount_pln: 500.0
+    primary_layer: "asset_classes"
+    layers:
+      asset_classes:
+        - target: "Equities"
+          weight_pct: 90.0
+        - target: "Cash"
+          weight_pct: 10.0
+      # Optional sector layer can be configured, e.g.:
+      # sectors:
+      #   - target: "Technology"
+      #     weight_pct: 50.0
+      #   - target: "Military"
+      #     weight_pct: 30.0
+      #   - target: "Cash"
+      #     weight_pct: 20.0
+
+# Investor Profile & AI Rebalancing Rules of Engagement
+user_profile:
+  # Overall risk tolerance: "conservative", "moderate", or "aggressive"
+  risk_tolerance: "moderate"
+
+  # Maximum allocation percentage allowed for any single equity position
+  max_single_stock_pct: 15.0
+
+  # Prioritize cash-flow DCA over taxable sales to minimize capital gains tax drag (e.g. 19% Belka tax)
+  tax_sensitive: true
+
+  # Allow AI advisor to propose moving trimmed profits from Aggressive to Long Term foundation (Strategic De-risking)
+  allow_profit_harvesting: true
+
+  # Tax-advantaged brokers prioritized for tax-free growth (filling annual contribution limits first)
+  tax_advantaged_priority:
+    - "mbank_ike"
+    - "mbank_ikze"
+

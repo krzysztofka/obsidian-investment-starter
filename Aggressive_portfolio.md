@@ -252,6 +252,12 @@ let sectorTableRows = sortedSectors.map(e => [
 col2.appendChild(createTable(["Sector", "Allocation (%)", "Value (PLN)"], sectorTableRows));
 ```
 
+## ⚖️ Model Portfolio & Rebalance Status
+
+```dataviewjs
+await dv.view("99_System/Views/rebalance_status", { portfolio: "Aggressive" });
+```
+
 ## 💼 Aggressive Holdings
 
 ```dataviewjs
