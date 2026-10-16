@@ -11,11 +11,13 @@ for p in (scripts_dir, integrations_dir):
         sys.path.append(p)
 
 from model.asset import Asset
+from model.config import load_vault_config
 
 from integrations.base import BaseAssetInfoEnricher
 from integrations.sector_classifier import determine_dominant_sector, fetch_etf_holdings_data
 from integrations.yfinance.service import (
     apply_overvalued_tag,
+    calculate_value_base,
     calculate_value_pln,
     fetch_yfinance_analyst_rating,
     fetch_yfinance_data,
@@ -43,16 +45,18 @@ class YFinanceAssetInfoEnricher(BaseAssetInfoEnricher):
         data = fetch_yfinance_data(isin=asset.isin or asset.ticker, name=asset.name, ticker=asset.ticker)
 
         cloned = copy.deepcopy(asset)
+        cfg = load_vault_config()
+        base_curr = cfg.localization.base_currency if cfg and cfg.localization else "PLN"
+
+        val_base = calculate_value_base(cloned.quantity, cloned.current_price, cloned.currency, base_curr)
+        if val_base is not None:
+            cloned.value_base = val_base
+        val_pln = calculate_value_pln(cloned.quantity, cloned.current_price, cloned.currency)
+        if val_pln is not None:
+            cloned.value_pln = val_pln
 
         if not data:
-            value_pln = calculate_value_pln(cloned.quantity, cloned.current_price, cloned.currency)
-            if value_pln is not None:
-                cloned.value_pln = value_pln
             return cloned
-
-        value_pln = calculate_value_pln(cloned.quantity, cloned.current_price, cloned.currency)
-        if value_pln is not None:
-            cloned.value_pln = value_pln
 
         yahoo_ticker = data.get("yahoo_ticker")
         if yahoo_ticker:

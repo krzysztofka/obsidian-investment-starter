@@ -36,23 +36,25 @@ def test_update_currencies():
         p2 = os.path.join(tmp_dir, "pl_bond.md")
         asset_pln.save(p2)
 
-        # Mock get_fx_rate_to_pln so USD -> 4.0 PLN
-        def mock_fx(curr):
-            if curr.upper() == "USD":
+        # Mock get_fx_rate so USD -> 4.0 PLN
+        def mock_fx(curr, to_curr="PLN"):
+            if curr.upper() == "USD" and to_curr.upper() == "PLN":
                 return 4.0
             return 1.0
 
-        with patch("update_currencies.get_fx_rate_to_pln", side_effect=mock_fx):
+        with patch("update_currencies.get_fx_rate", side_effect=mock_fx):
             with patch(
-                "update_currencies.calculate_value_pln",
-                side_effect=lambda q, p, c: q * p * (4.0 if c == "USD" else 1.0),
+                "update_currencies.calculate_value_base",
+                side_effect=lambda q, p, c, base="PLN": q * p * (4.0 if c == "USD" and base == "PLN" else 1.0),
             ):
                 update_currencies(assets_dir=tmp_dir, show_progress=False)
 
-        # Verify USD asset value_pln: 10 * 150 * 4.0 = 6000.0
+        # Verify USD asset value_base and value_pln: 10 * 150 * 4.0 = 6000.0
         updated_usd = Asset.from_file(p1)
+        assert updated_usd.value_base == 6000.0
         assert updated_usd.value_pln == 6000.0
 
-        # Verify PLN asset value_pln: 100 * 100 * 1.0 = 10000.0
+        # Verify PLN asset value_base and value_pln: 100 * 100 * 1.0 = 10000.0
         updated_pln = Asset.from_file(p2)
+        assert updated_pln.value_base == 10000.0
         assert updated_pln.value_pln == 10000.0

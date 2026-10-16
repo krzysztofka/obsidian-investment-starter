@@ -6,6 +6,7 @@ portfolio: "Aggressive"
 quantity: 10
 avg_price: 380.0
 current_price: 420.5
+value_base: 16429.57
 value_pln: 16429.57
 currency: USD
 asset_type: equity

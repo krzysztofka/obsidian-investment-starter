@@ -47,7 +47,7 @@ def test_update_portfolio_history():
         with open(csv_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(
-                ["date", "ticker", "name", "value_pln", "current_price", "pe_ratio", "quantity", "portfolio"]
+                ["date", "ticker", "name", "value_base", "current_price", "pe_ratio", "quantity", "portfolio"]
             )
             writer.writerow(["2026-08-01", "MSFT", "Microsoft", "10000", "400", "35", "10", "Aggressive"])
             writer.writerow(["2026-08-01", "AAPL", "Apple", "5000", "150", "30", "15", "Aggressive"])
@@ -60,6 +60,7 @@ def test_update_portfolio_history():
             portfolio="Aggressive",
             quantity=10,
             current_price=420.0,
+            value_base=16000.0,
             value_pln=16000.0,
             pe_ratio=34.0,
             last_updated="2026-10-06",
@@ -90,11 +91,11 @@ def test_update_portfolio_history():
 
         # Latest snapshot checks
         latest_msft = [r for r in reader if r["date"] == "2026-10-06" and r["ticker"] == "MSFT"][0]
-        assert latest_msft["value_pln"] == "16000"
+        assert latest_msft["value_base"] == "16000"
         assert latest_msft["portfolio"] == "Aggressive"
 
         # Sold/closed asset should have zero values recorded
         latest_aapl = [r for r in reader if r["date"] == "2026-10-06" and r["ticker"] == "AAPL"][0]
-        assert latest_aapl["value_pln"] == "0"
+        assert latest_aapl["value_base"] == "0"
         assert latest_aapl["quantity"] == "0"
         assert latest_aapl["current_price"] == "0"

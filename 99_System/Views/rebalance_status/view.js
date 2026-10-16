@@ -78,7 +78,7 @@ function isMatchingPortfolio(p) {
 }
 
 for (let p of allPages) {
-    let val = p.value_pln || 0;
+    let val = (p.value_base !== undefined && p.value_base !== null) ? p.value_base : (p.value_pln || 0);
     if (!isMatchingPortfolio(p)) continue;
     if (val <= 0 && !p.name && !p.ticker) continue;
 
@@ -100,7 +100,7 @@ if (primaryLayer === "asset_classes") {
     };
 
     for (let p of portfolioPages) {
-        let val = p.value_pln || 0;
+        let val = (p.value_base !== undefined && p.value_base !== null) ? p.value_base : (p.value_pln || 0);
         let alloc = (p.file && p.file.frontmatter && p.file.frontmatter.asset_allocation) || p.asset_allocation;
         if (typeof alloc === "string") {
             try { alloc = JSON.parse(alloc); } catch(e) {}
@@ -144,13 +144,13 @@ if (primaryLayer === "asset_classes") {
     }
 } else if (primaryLayer === "sectors") {
     for (let p of portfolioPages) {
-        let val = p.value_pln || 0;
+        let val = (p.value_base !== undefined && p.value_base !== null) ? p.value_base : (p.value_pln || 0);
         let secName = p.dominant_sector || p.industry || "Diversified";
         actualBuckets[secName] = (actualBuckets[secName] || 0) + val;
     }
 } else if (primaryLayer === "assets") {
     for (let p of portfolioPages) {
-        let val = p.value_pln || 0;
+        let val = (p.value_base !== undefined && p.value_base !== null) ? p.value_base : (p.value_pln || 0);
         let aKey = p.ticker || p.name || p.file.name;
         actualBuckets[aKey] = (actualBuckets[aKey] || 0) + val;
     }
@@ -173,15 +173,18 @@ function getActualValue(targetName) {
 // 5. Evaluate Targets & Drift
 let tableRows = [];
 let driftCount = 0;
+let baseCurrency = parsedConfig?.localization?.base_currency || "PLN";
+let currencySymbol = parsedConfig?.localization?.currency_symbol || "zł";
+let symbolPosition = parsedConfig?.localization?.symbol_position || "suffix";
 let defaultBand = modelConfig.tolerance_band_pct !== undefined ? modelConfig.tolerance_band_pct : 5.0;
-let defaultMinTrade = modelConfig.min_trade_amount_pln !== undefined ? modelConfig.min_trade_amount_pln : 500.0;
+let defaultMinTrade = modelConfig.min_trade_amount !== undefined ? modelConfig.min_trade_amount : 500.0;
 let strategy = modelConfig.rebalance_strategy || "inflow_first";
 
 for (let item of layerTargets) {
     let targetName = item.target;
     let targetWeight = item.weight_pct || 0;
     let band = item.tolerance_band_pct !== undefined && item.tolerance_band_pct !== null ? item.tolerance_band_pct : defaultBand;
-    let minTrade = item.min_trade_amount_pln !== undefined && item.min_trade_amount_pln !== null ? item.min_trade_amount_pln : defaultMinTrade;
+    let minTrade = item.min_trade_amount !== undefined && item.min_trade_amount !== null ? item.min_trade_amount : defaultMinTrade;
 
     let actualVal = getActualValue(targetName);
     let actualWeight = totalPortfolioValue > 0 ? (actualVal / totalPortfolioValue) * 100 : 0;
@@ -193,8 +196,8 @@ for (let item of layerTargets) {
     let isOver = actualWeight > upperBound;
     let isUnder = actualWeight < lowerBound;
 
-    // Delta in PLN: positive means need to BUY/ADD, negative means need to TRIM/SELL
-    let deltaPln = ((targetWeight - actualWeight) / 100) * totalPortfolioValue;
+    // Delta in base currency: positive means need to BUY/ADD, negative means need to TRIM/SELL
+    let deltaBase = ((targetWeight - actualWeight) / 100) * totalPortfolioValue;
 
     let statusBadge = "🟢 **Balanced**";
     if (isOver) {
@@ -205,9 +208,11 @@ for (let item of layerTargets) {
         driftCount++;
     }
 
-    let deltaSign = deltaPln >= 0 ? "+" : "";
-    let deltaFormatted = Math.abs(deltaPln) >= minTrade
-        ? `${deltaSign}${deltaPln.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} PLN`
+    let deltaSign = deltaBase >= 0 ? "+" : "";
+    let formattedNum = Math.abs(deltaBase).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    let valStr = symbolPosition === "prefix" ? `${deltaSign}${currencySymbol}${formattedNum}` : `${deltaSign}${formattedNum} ${currencySymbol}`;
+    let deltaFormatted = Math.abs(deltaBase) >= minTrade
+        ? valStr
         : "— (Below min)";
 
     let driftSign = drift >= 0 ? "+" : "";
@@ -232,6 +237,6 @@ if (driftCount > 0) {
 }
 
 dv.table(
-    ["Target Allocation", "Actual %", "Target %", "Corridor", "Drift %", "Status", "Rebalance Delta (PLN)"],
+    ["Target Allocation", "Actual %", "Target %", "Corridor", "Drift %", "Status", `Rebalance Delta (${baseCurrency})`],
     tableRows
 );

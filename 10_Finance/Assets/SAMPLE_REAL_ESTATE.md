@@ -6,6 +6,7 @@ portfolio: "Long term"
 quantity: 1.0
 avg_price: 280000.0
 current_price: 350000.0
+value_base: 350000.0
 value_pln: 350000.0
 currency: PLN
 asset_type: real_estate

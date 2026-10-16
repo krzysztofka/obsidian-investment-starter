@@ -6,6 +6,7 @@ portfolio: "Aggressive"
 quantity: 50
 avg_price: 210.0
 current_price: 350
+value_base: 17500
 value_pln: 17500
 currency: PLN
 asset_type: equity

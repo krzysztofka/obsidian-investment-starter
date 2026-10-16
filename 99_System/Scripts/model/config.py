@@ -354,8 +354,8 @@ class ModelPortfolioTargetItem(BaseModel):
     tolerance_band_pct: float | None = Field(
         default=None, ge=0.0, description="Optional override for tolerance corridor (e.g. ±5.0%)."
     )
-    min_trade_amount_pln: float | None = Field(
-        default=None, ge=0.0, description="Optional override for minimum trade amount in PLN."
+    min_trade_amount: float | None = Field(
+        default=None, ge=0.0, description="Optional override for minimum trade amount in base currency."
     )
 
 
@@ -400,8 +400,8 @@ class ModelPortfolioConfig(BaseModel):
     tolerance_band_pct: float = Field(
         default=5.0, ge=0.0, description="Default tolerance band corridor in percentage points (e.g. ±5%)."
     )
-    min_trade_amount_pln: float = Field(
-        default=500.0, ge=0.0, description="Minimum trade threshold in PLN to avoid micro-transactions."
+    min_trade_amount: float = Field(
+        default=500.0, ge=0.0, description="Minimum trade threshold in base currency to avoid micro-transactions."
     )
     primary_layer: Literal["asset_classes", "sectors", "assets"] = Field(
         default="asset_classes", description="Primary target layer used to generate actionable rebalance deltas."
@@ -414,7 +414,7 @@ class ModelPortfolioConfig(BaseModel):
 
     def get_min_trade_amount(self, item: ModelPortfolioTargetItem) -> float:
         """Get effective minimum trade amount for an item, falling back to portfolio default."""
-        return item.min_trade_amount_pln if item.min_trade_amount_pln is not None else self.min_trade_amount_pln
+        return item.min_trade_amount if item.min_trade_amount is not None else self.min_trade_amount
 
 
 class UserProfileConfig(BaseModel):
@@ -433,11 +433,41 @@ class UserProfileConfig(BaseModel):
     )
     allow_profit_harvesting: bool = Field(
         default=True,
-        description="Allow AI to suggest moving trimmed profits from Aggressive to Long Term core foundation.",
+        description="Allow AI to suggest moving trimmed profits from Aggressive to Long Term foundation.",
     )
     tax_advantaged_priority: list[str] = Field(
         default_factory=lambda: ["mbank_ike", "mbank_ikze"],
         description="Platform IDs prioritized for tax-free growth.",
+    )
+
+
+DEFAULT_CURRENCY_SYMBOLS: dict[str, tuple[str, Literal["prefix", "suffix"]]] = {
+    "PLN": ("zł", "suffix"),
+    "EUR": ("€", "suffix"),
+    "USD": ("$", "prefix"),
+    "GBP": ("£", "prefix"),
+    "CHF": ("CHF", "suffix"),
+    "CAD": ("$", "prefix"),
+    "AUD": ("$", "prefix"),
+    "JPY": ("¥", "prefix"),
+    "NOK": ("kr", "suffix"),
+    "SEK": ("kr", "suffix"),
+}
+
+
+class LocalizationConfig(BaseModel):
+    """Configuration for base currency, symbol formatting, and localization."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    base_currency: str = Field(default="PLN", description="Base portfolio reference currency (ISO-4217).")
+    currency_symbol: str = Field(default="zł", description="Display symbol for base currency (e.g. 'zł', '€', '$').")
+    symbol_position: Literal["prefix", "suffix"] = Field(
+        default="suffix", description="Position of the currency symbol relative to amount ('prefix' or 'suffix')."
+    )
+    supported_currencies: list[str] = Field(
+        default_factory=lambda: ["PLN", "EUR", "USD", "GBP", "CHF"],
+        description="List of suggested currencies for CLI prompts and quick selection.",
     )
 
 
@@ -446,6 +476,7 @@ class VaultConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
+    localization: LocalizationConfig = Field(default_factory=LocalizationConfig)
     user_profile: UserProfileConfig = Field(default_factory=UserProfileConfig)
     concurrency: ConcurrencyConfig = Field(default_factory=ConcurrencyConfig)
     resilience: ResilienceConfig = Field(default_factory=ResilienceConfig)

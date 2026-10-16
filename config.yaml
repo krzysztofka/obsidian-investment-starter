@@ -30,6 +30,22 @@ resilience:
     vaneck.com: 6.0
     api.nbp.pl: 10.0
 
+# Localization & Base Currency Configuration
+localization:
+  # Base portfolio reference currency (ISO-4217 code)
+  base_currency: "PLN"
+  # Display symbol for base currency (e.g. "zł", "€", "$", "£")
+  currency_symbol: "zł"
+  # Position of symbol relative to value: "prefix" ($100) or "suffix" (100 zł)
+  symbol_position: "suffix"
+  # Suggested currencies for quick selection in CLI prompts
+  supported_currencies:
+    - "PLN"
+    - "EUR"
+    - "USD"
+    - "GBP"
+    - "CHF"
+
 # Platform Extensions Configuration
 platforms:
   pko_bp_bonds:
@@ -159,7 +175,7 @@ model_portfolios:
     name: "Safety net"
     rebalance_strategy: "inflow_first" # "inflow_first" (cash-flow DCA) or "full_rebalance"
     tolerance_band_pct: 5.0 # Drift corridor in percentage points (±5.0%)
-    min_trade_amount_pln: 500.0 # Ignore rebalance actions smaller than this amount
+    min_trade_amount: 500.0 # Ignore rebalance actions smaller than this amount
     primary_layer: "asset_classes"
     layers:
       asset_classes:
@@ -180,7 +196,7 @@ model_portfolios:
     name: "Long term"
     rebalance_strategy: "inflow_first"
     tolerance_band_pct: 5.0
-    min_trade_amount_pln: 1000.0
+    min_trade_amount: 1000.0
     primary_layer: "asset_classes"
     layers:
       asset_classes:
@@ -201,7 +217,7 @@ model_portfolios:
     name: "Aggressive"
     rebalance_strategy: "inflow_first"
     tolerance_band_pct: 5.0
-    min_trade_amount_pln: 500.0
+    min_trade_amount: 500.0
     primary_layer: "asset_classes"
     layers:
       asset_classes:

@@ -1,7 +1,38 @@
 > 🧭 **Portfolio Dashboards:** [[Overview|📊 Main Overview]] · [[Safety_portfolio|🛡️ Safety Net]] · [[Long_term_portfolio|🏛️ Long Term]] · [[Aggressive_portfolio|🚀 Aggressive]]
 
 ```dataviewjs
-// 1. Fetch all pages from Assets directory
+// 1. Load config.yaml for localization
+let configContent = null;
+try {
+    if (app && app.vault && app.vault.adapter) {
+        configContent = await app.vault.adapter.read("config.yaml");
+    }
+} catch (e) {}
+
+let parsedConfig = null;
+if (configContent) {
+    try {
+        let parseYamlFn = window.parseYaml;
+        if (!parseYamlFn) {
+            try { parseYamlFn = require("obsidian").parseYaml; } catch(err) {}
+        }
+        if (parseYamlFn) parsedConfig = parseYamlFn(configContent);
+    } catch (e) {}
+}
+
+let baseCurrency = parsedConfig?.localization?.base_currency || "PLN";
+let currencySymbol = parsedConfig?.localization?.currency_symbol || "zł";
+let symbolPosition = parsedConfig?.localization?.symbol_position || "suffix";
+
+function formatCurrency(amount) {
+    let formatted = (amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (symbolPosition === "prefix") {
+        return `${currencySymbol}${formatted}`;
+    }
+    return `${formatted} ${currencySymbol}`;
+}
+
+// 2. Fetch all pages from Assets directory
 let pages = dv.pages('"10_Finance/Assets"');
 
 let totalPortfolioValue = 0;
@@ -20,7 +51,7 @@ let portfolioData = {
 };
 
 for (let p of pages) {
-    let val = p.value_pln || 0;
+    let val = (p.value_base !== undefined && p.value_base !== null) ? p.value_base : (p.value_pln || 0);
     totalPortfolioValue += val;
 
     // --- Portfolio Strategy Breakdown ---
@@ -85,12 +116,12 @@ for (let p of pages) {
     }
 }
 
-dv.paragraph("## 💰 Total Portfolio Value: " + totalPortfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " PLN");
+dv.paragraph("## 💰 Total Portfolio Value: " + formatCurrency(totalPortfolioValue));
 
 // --- Render Sub-Portfolio Allocation Banner ---
-let safetyValStr = portfolioData["Safety net"].val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-let longValStr = portfolioData["Long term"].val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-let aggValStr = portfolioData["Aggressive"].val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+let safetyValStr = formatCurrency(portfolioData["Safety net"].val);
+let longValStr = formatCurrency(portfolioData["Long term"].val);
+let aggValStr = formatCurrency(portfolioData["Aggressive"].val);
 
 let safetyPct = totalPortfolioValue > 0 ? ((portfolioData["Safety net"].val / totalPortfolioValue) * 100).toFixed(1) : "0.0";
 let longPct = totalPortfolioValue > 0 ? ((portfolioData["Long term"].val / totalPortfolioValue) * 100).toFixed(1) : "0.0";
@@ -99,11 +130,11 @@ let aggPct = totalPortfolioValue > 0 ? ((portfolioData["Aggressive"].val / total
 let allocatedVal = portfolioData["Safety net"].val + portfolioData["Long term"].val + portfolioData["Aggressive"].val;
 let unallocVal = totalPortfolioValue - allocatedVal;
 let unallocPct = totalPortfolioValue > 0 ? ((unallocVal / totalPortfolioValue) * 100).toFixed(1) : "0.0";
-let unallocValStr = unallocVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-let unallocStr = unallocVal > 0.01 ? ` · 💵 **Unallocated Dry Powder:** \`${unallocValStr} PLN\` (**${unallocPct}%**)` : "";
+let unallocValStr = formatCurrency(unallocVal);
+let unallocStr = unallocVal > 0.01 ? ` · 💵 **Unallocated Dry Powder:** \`${unallocValStr}\` (**${unallocPct}%**)` : "";
 
 dv.paragraph(`> [!INFO] 🎯 **Sub-Portfolio Allocation:**  
-> 🛡️ **[[Safety_portfolio|Safety Net]]:** \`${safetyValStr} PLN\` (**${safetyPct}%** · ${portfolioData["Safety net"].count} pos) · 🏛️ **[[Long_term_portfolio|Long Term]]:** \`${longValStr} PLN\` (**${longPct}%** · ${portfolioData["Long term"].count} pos) · 🚀 **[[Aggressive_portfolio|Aggressive]]:** \`${aggValStr} PLN\` (**${aggPct}%** · ${portfolioData["Aggressive"].count} pos)${unallocStr}`);
+> 🛡️ **[[Safety_portfolio|Safety Net]]:** \`${safetyValStr}\` (**${safetyPct}%** · ${portfolioData["Safety net"].count} pos) · 🏛️ **[[Long_term_portfolio|Long Term]]:** \`${longValStr}\` (**${longPct}%** · ${portfolioData["Long term"].count} pos) · 🚀 **[[Aggressive_portfolio|Aggressive]]:** \`${aggValStr}\` (**${aggPct}%** · ${portfolioData["Aggressive"].count} pos)${unallocStr}`);
 
 // --- Render Alert Summary Banner ---
 await dv.view("99_System/Views/alert_banner", { pages: pages });
@@ -223,9 +254,9 @@ if (typeof window.renderChart === 'function') {
 let portTableRows = activePorts.map(e => [
     e.name,
     ((e.val / totalPortfolioValue) * 100).toFixed(1) + " %",
-    e.val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " PLN"
+    formatCurrency(e.val)
 ]);
-col1.appendChild(createTable(["Portfolio", "Allocation (%)", "Value (PLN)"], portTableRows));
+col1.appendChild(createTable(["Portfolio", "Allocation (%)", `Value (${baseCurrency})`], portTableRows));
 
 // --- Column 2: Asset Class Allocation ---
 const h1 = document.createElement("h3");
@@ -268,9 +299,9 @@ if (typeof window.renderChart === 'function') {
 let classTableRows = classEntries.map(e => [
     e[0],
     ((e[1] / totalPortfolioValue) * 100).toFixed(1) + " %",
-    e[1].toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " PLN"
+    formatCurrency(e[1])
 ]);
-col2.appendChild(createTable(["Asset Class", "Allocation (%)", "Value (PLN)"], classTableRows));
+col2.appendChild(createTable(["Asset Class", "Allocation (%)", `Value (${baseCurrency})`], classTableRows));
 
 // --- Column 3: Sector Allocation ---
 const h2 = document.createElement("h3");
@@ -316,9 +347,9 @@ if (typeof window.renderChart === 'function') {
 let sectorTableRows = sortedSectors.map(e => [
     e[0],
     ((e[1] / totalPortfolioValue) * 100).toFixed(1) + " %",
-    e[1].toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " PLN"
+    formatCurrency(e[1])
 ]);
-col3.appendChild(createTable(["Sector", "Allocation (%)", "Value (PLN)"], sectorTableRows));
+col3.appendChild(createTable(["Sector", "Allocation (%)", `Value (${baseCurrency})`], sectorTableRows));
 ```
 
 ## 💼 Consolidated Portfolio Holdings
@@ -326,17 +357,52 @@ col3.appendChild(createTable(["Sector", "Allocation (%)", "Value (PLN)"], sector
 > 🧭 **Dedicated Sub-Portfolios:** [[Safety_portfolio|🛡️ Safety Net Portfolio]] · [[Long_term_portfolio|🏛️ Long Term Portfolio]] · [[Aggressive_portfolio|🚀 Aggressive Portfolio]]
 
 ```dataviewjs
+// 1. Load config.yaml for localization
+let configContent = null;
+try {
+    if (app && app.vault && app.vault.adapter) {
+        configContent = await app.vault.adapter.read("config.yaml");
+    }
+} catch (e) {}
+
+let parsedConfig = null;
+if (configContent) {
+    try {
+        let parseYamlFn = window.parseYaml;
+        if (!parseYamlFn) {
+            try { parseYamlFn = require("obsidian").parseYaml; } catch(err) {}
+        }
+        if (parseYamlFn) parsedConfig = parseYamlFn(configContent);
+    } catch (e) {}
+}
+
+let baseCurrency = parsedConfig?.localization?.base_currency || "PLN";
+let currencySymbol = parsedConfig?.localization?.currency_symbol || "zł";
+let symbolPosition = parsedConfig?.localization?.symbol_position || "suffix";
+
+function formatCurrency(amount) {
+    let formatted = (amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (symbolPosition === "prefix") {
+        return `${currencySymbol}${formatted}`;
+    }
+    return `${formatted} ${currencySymbol}`;
+}
+
 // Calculate total portfolio value for share percentages
 const allPages = dv.pages('"10_Finance/Assets"');
 let totalVal = 0;
 for (let p of allPages) {
-    totalVal += (p.value_pln || 0);
+    let val = (p.value_base !== undefined && p.value_base !== null) ? p.value_base : (p.value_pln || 0);
+    totalVal += val;
 }
 
 // Filter and sort all valid holdings
 let holdings = dv.pages('"10_Finance/Assets"')
-    .filter(p => (p.value_pln > 0 || p.name || p.ticker))
-    .sort(p => p.value_pln, 'desc');
+    .filter(p => {
+        let val = (p.value_base !== undefined && p.value_base !== null) ? p.value_base : (p.value_pln || 0);
+        return val > 0 || p.name || p.ticker;
+    })
+    .sort(p => ((p.value_base !== undefined && p.value_base !== null) ? p.value_base : (p.value_pln || 0)), 'desc');
 
 let rows = holdings.map(p => {
     let returnStr = "-";
@@ -349,11 +415,10 @@ let rows = holdings.map(p => {
     let qtyStr = p.quantity !== undefined && p.quantity !== null ? p.quantity.toLocaleString('en-US') : "-";
     let avgPriceStr = p.avg_price ? `${p.avg_price.toLocaleString('en-US')} ${p.currency || ""}` : "-";
     let curPriceStr = p.current_price ? `${p.current_price.toLocaleString('en-US')} ${p.currency || ""}` : "-";
-    let valStr = p.value_pln !== undefined && p.value_pln !== null
-        ? p.value_pln.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " PLN"
-        : "-";
+    let valNum = (p.value_base !== undefined && p.value_base !== null) ? p.value_base : p.value_pln;
+    let valStr = valNum !== undefined && valNum !== null ? formatCurrency(valNum) : "-";
 
-    let sharePct = totalVal > 0 && p.value_pln ? ((p.value_pln / totalVal) * 100).toFixed(1) + " %" : "-";
+    let sharePct = totalVal > 0 && valNum ? ((valNum / totalVal) * 100).toFixed(1) + " %" : "-";
     let platformStr = p.platform && p.platform !== "None" ? dv.fileLink(p.platform, false, p.platform) : (p.platform || "-");
 
     // Portfolio link & badge
@@ -401,7 +466,7 @@ let rows = holdings.map(p => {
 });
 
 dv.table(
-    ["Name", "Portfolio", "Platform", "Asset Class", "Industry / Sector", "Qty", "Avg Price", "Current Price", "Value (PLN)", "Share (%)", "Return %"],
+    ["Name", "Portfolio", "Platform", "Asset Class", "Industry / Sector", "Qty", "Avg Price", "Current Price", `Value (${baseCurrency})`, "Share (%)", "Return %"],
     rows
 );
 ```

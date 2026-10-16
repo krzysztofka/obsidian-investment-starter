@@ -39,7 +39,7 @@ PORTFOLIO_FIELDS = [
     "date",
     "ticker",
     "name",
-    "value_pln",
+    "value_base",
     "current_price",
     "pe_ratio",
     "quantity",
@@ -125,7 +125,13 @@ def archive_portfolio_history(
         reader = csv.DictReader(f)
         for r in reader:
             if r.get("date") and r.get("ticker"):
-                rows.append({k: (r.get(k) or "").strip() for k in PORTFOLIO_FIELDS})
+                row_dict = {}
+                for k in PORTFOLIO_FIELDS:
+                    if k == "value_base":
+                        row_dict[k] = (r.get("value_base") or r.get("value_pln") or "").strip()
+                    else:
+                        row_dict[k] = (r.get(k) or "").strip()
+                rows.append(row_dict)
 
     if not rows:
         return {"status": "empty", "archived_count": 0, "retained_count": 0}
@@ -170,7 +176,7 @@ def archive_portfolio_history(
             except ValueError:
                 qty = 0.0
             try:
-                val = float(last_state.get("value_pln") or 0)
+                val = float(last_state.get("value_base") or last_state.get("value_pln") or 0)
             except ValueError:
                 val = 0.0
 
@@ -201,7 +207,13 @@ def archive_portfolio_history(
                 for r in reader:
                     d, t = (r.get("date") or "").strip(), (r.get("ticker") or "").strip()
                     if d and t:
-                        existing_archive_entries[(d, t)] = {k: (r.get(k) or "").strip() for k in PORTFOLIO_FIELDS}
+                        entry = {}
+                        for k in PORTFOLIO_FIELDS:
+                            if k == "value_base":
+                                entry[k] = (r.get("value_base") or r.get("value_pln") or "").strip()
+                            else:
+                                entry[k] = (r.get(k) or "").strip()
+                        existing_archive_entries[(d, t)] = entry
 
         # Merge with incoming archived rows
         for r in y_rows:

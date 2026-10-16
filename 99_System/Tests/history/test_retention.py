@@ -76,7 +76,7 @@ def test_archive_portfolio_history_basic_and_baseline():
                 "date": d_800,
                 "ticker": "MSFT",
                 "name": "Microsoft",
-                "value_pln": "10000",
+                "value_base": "10000",
                 "current_price": "400",
                 "pe_ratio": "35",
                 "quantity": "10",
@@ -86,7 +86,7 @@ def test_archive_portfolio_history_basic_and_baseline():
                 "date": d_800,
                 "ticker": "SOLD_ASSET",
                 "name": "Sold Inc",
-                "value_pln": "5000",
+                "value_base": "5000",
                 "current_price": "100",
                 "pe_ratio": "",
                 "quantity": "50",
@@ -96,7 +96,7 @@ def test_archive_portfolio_history_basic_and_baseline():
                 "date": d_750,
                 "ticker": "SOLD_ASSET",
                 "name": "Sold Inc",
-                "value_pln": "0",
+                "value_base": "0",
                 "current_price": "120",
                 "pe_ratio": "",
                 "quantity": "0",
@@ -106,7 +106,7 @@ def test_archive_portfolio_history_basic_and_baseline():
                 "date": d_30,
                 "ticker": "AAPL",
                 "name": "Apple",
-                "value_pln": "15000",
+                "value_base": "15000",
                 "current_price": "200",
                 "pe_ratio": "30",
                 "quantity": "20",
@@ -151,7 +151,7 @@ def test_archive_portfolio_history_basic_and_baseline():
         msft_row = next(r for r in retained_reader if r["ticker"] == "MSFT")
         assert msft_row["date"] == cutoff_date
         assert msft_row["quantity"] == "10"
-        assert msft_row["value_pln"] == "10000"
+        assert msft_row["value_base"] == "10000"
 
 
 def test_archive_portfolio_history_dry_run():
@@ -166,7 +166,7 @@ def test_archive_portfolio_history_dry_run():
                 "date": d_800,
                 "ticker": "MSFT",
                 "name": "Microsoft",
-                "value_pln": "10000",
+                "value_base": "10000",
                 "current_price": "400",
                 "pe_ratio": "35",
                 "quantity": "10",
@@ -207,7 +207,7 @@ def test_archive_portfolio_history_idempotent():
                 "date": d_800,
                 "ticker": "MSFT",
                 "name": "Microsoft",
-                "value_pln": "10000",
+                "value_base": "10000",
                 "current_price": "400",
                 "pe_ratio": "35",
                 "quantity": "10",
@@ -217,7 +217,7 @@ def test_archive_portfolio_history_idempotent():
                 "date": d_30,
                 "ticker": "MSFT",
                 "name": "Microsoft",
-                "value_pln": "11000",
+                "value_base": "11000",
                 "current_price": "420",
                 "pe_ratio": "36",
                 "quantity": "10",
@@ -335,7 +335,7 @@ def test_run_retention_pipeline():
                     "date": "2024-01-01",
                     "ticker": "MSFT",
                     "name": "MSFT",
-                    "value_pln": "1000",
+                    "value_base": "1000",
                     "current_price": "100",
                     "pe_ratio": "",
                     "quantity": "10",

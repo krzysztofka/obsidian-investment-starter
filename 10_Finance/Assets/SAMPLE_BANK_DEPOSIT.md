@@ -6,6 +6,7 @@ portfolio: "Safety net"
 quantity: 50000.0
 avg_price: 1.0
 current_price: 1.0
+value_base: 50000.0
 value_pln: 50000.0
 currency: PLN
 asset_type: cash

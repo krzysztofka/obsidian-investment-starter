@@ -5,6 +5,7 @@ platform: Exante
 quantity: 800
 avg_price: null
 current_price: 1.0
+value_base: 3125.72
 value_pln: 3125.72
 currency: USD
 asset_type: cash

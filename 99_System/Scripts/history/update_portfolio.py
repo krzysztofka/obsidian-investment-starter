@@ -93,7 +93,7 @@ def update_portfolio_history(base_dir: str | None = None) -> str:
     portfolio_file = os.path.join(history_dir, "portfolio.csv")
     old_md_file = os.path.join(history_dir, "portfolio.md")
 
-    fieldnames = ["date", "ticker", "name", "value_pln", "current_price", "pe_ratio", "quantity", "portfolio"]
+    fieldnames = ["date", "ticker", "name", "value_base", "current_price", "pe_ratio", "quantity", "portfolio"]
 
     # Map of (date, ticker) -> row dict
     entries = {}
@@ -126,12 +126,13 @@ def update_portfolio_history(base_dir: str | None = None) -> str:
             for row in reader:
                 date_val = (row.get("date") or "").strip()
                 ticker_val = (row.get("ticker") or "").strip()
+                val_base_str = row.get("value_base") or row.get("value_pln")
                 if date_val and ticker_val:
                     entries[(date_val, ticker_val)] = {
                         "date": date_val,
                         "ticker": ticker_val,
                         "name": (row.get("name") or ticker_val).strip(),
-                        "value_pln": format_val(row.get("value_pln")),
+                        "value_base": format_val(val_base_str),
                         "current_price": format_val(row.get("current_price")),
                         "pe_ratio": format_val(row.get("pe_ratio")),
                         "quantity": format_val(row.get("quantity")),
@@ -154,9 +155,10 @@ def update_portfolio_history(base_dir: str | None = None) -> str:
 
                     # Track active holdings with positive value / quantity
                     val_float = 0.0
-                    if asset.value_pln is not None:
+                    val_candidate = asset.value_base if asset.value_base is not None else asset.value_pln
+                    if val_candidate is not None:
                         try:
-                            val_float = float(asset.value_pln)
+                            val_float = float(val_candidate)
                         except (ValueError, TypeError):
                             val_float = 0.0
 
@@ -171,7 +173,7 @@ def update_portfolio_history(base_dir: str | None = None) -> str:
                             "date": date_val,
                             "ticker": ticker_val,
                             "name": name_val,
-                            "value_pln": format_val(asset.value_pln),
+                            "value_base": format_val(val_candidate),
                             "current_price": format_val(asset.current_price),
                             "pe_ratio": format_val(asset.pe_ratio),
                             "quantity": format_val(asset.quantity),
@@ -198,7 +200,7 @@ def update_portfolio_history(base_dir: str | None = None) -> str:
         last_entry = entries[(last_t_date, t)]
 
         try:
-            last_val = float(last_entry.get("value_pln") or 0)
+            last_val = float(last_entry.get("value_base") or last_entry.get("value_pln") or 0)
         except (ValueError, TypeError):
             last_val = 0.0
 
@@ -211,7 +213,7 @@ def update_portfolio_history(base_dir: str | None = None) -> str:
                 close_date = current_snapshot_date
 
             if close_date == last_t_date:
-                last_entry["value_pln"] = "0"
+                last_entry["value_base"] = "0"
                 last_entry["quantity"] = "0"
                 last_entry["current_price"] = "0"
             else:
@@ -219,7 +221,7 @@ def update_portfolio_history(base_dir: str | None = None) -> str:
                     "date": close_date,
                     "ticker": t,
                     "name": last_entry.get("name") or t,
-                    "value_pln": "0",
+                    "value_base": "0",
                     "current_price": "0",
                     "pe_ratio": "",
                     "quantity": "0",

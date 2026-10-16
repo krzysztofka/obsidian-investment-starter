@@ -1,20 +1,52 @@
 # 🚨 Portfolio Alerts
 
 ```dataviewjs
+// 1. Load config.yaml for localization
+let configContent = null;
+try {
+    if (app && app.vault && app.vault.adapter) {
+        configContent = await app.vault.adapter.read("config.yaml");
+    }
+} catch (e) {}
+
+let parsedConfig = null;
+if (configContent) {
+    try {
+        let parseYamlFn = window.parseYaml;
+        if (!parseYamlFn) {
+            try { parseYamlFn = require("obsidian").parseYaml; } catch(err) {}
+        }
+        if (parseYamlFn) parsedConfig = parseYamlFn(configContent);
+    } catch (e) {}
+}
+
+let baseCurrency = parsedConfig?.localization?.base_currency || "PLN";
+let currencySymbol = parsedConfig?.localization?.currency_symbol || "zł";
+let symbolPosition = parsedConfig?.localization?.symbol_position || "suffix";
+
+function formatCurrency(amount) {
+    let formatted = (amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (symbolPosition === "prefix") {
+        return `${currencySymbol}${formatted}`;
+    }
+    return `${formatted} ${currencySymbol}`;
+}
+
 let alertPages = dv.pages('"10_Finance/Assets" and #alert');
 
 let totalAlertValue = 0;
 let count = 0;
 
 for (let p of alertPages) {
-    totalAlertValue += (p.value_pln || 0);
+    let val = (p.value_base !== undefined && p.value_base !== null) ? p.value_base : (p.value_pln || 0);
+    totalAlertValue += val;
     count += 1;
 }
 
 if (count === 0) {
     dv.paragraph("> [!SUCCESS] **All clear!** No active alerts across portfolio assets.");
 } else {
-    dv.paragraph(`> [!WARNING] **${count} asset(s)** currently flagged with alerts totaling **${totalAlertValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PLN** in portfolio exposure.`);
+    dv.paragraph(`> [!WARNING] **${count} asset(s)** currently flagged with alerts totaling **${formatCurrency(totalAlertValue)}** in portfolio exposure.`);
 }
 ```
 
@@ -26,7 +58,7 @@ TABLE
     tags AS "Alerts",
     last_updated AS "Last Updated"
 FROM "10_Finance/Assets" AND #alert
-SORT value_pln DESC
+SORT default(value_base, value_pln) DESC
 ```
 
 ## 📈 Overvalued Assets (`P/E > 40`)
@@ -37,7 +69,7 @@ TABLE
     pe_ratio AS "P/E",
     current_price AS "Current Price",
     currency AS "Currency",
-    value_pln AS "Value (PLN)"
+    default(value_base, value_pln) AS "Value (Base)"
 FROM "10_Finance/Assets" AND #alert/overvalued
 SORT pe_ratio DESC
 ```
@@ -51,9 +83,9 @@ TABLE
     analyst_rating AS "Analyst Rating",
     current_price AS "Current Price",
     currency AS "Currency",
-    value_pln AS "Value (PLN)"
+    default(value_base, value_pln) AS "Value (Base)"
 FROM "10_Finance/Assets" AND #alert/insider_sell
-SORT value_pln DESC
+SORT default(value_base, value_pln) DESC
 ```
 
 ## ⚠️ Delisting Risk (`AUM < 50M`)
@@ -64,9 +96,9 @@ TABLE
     fund_size AS "Fund Size / AUM",
     current_price AS "Current Price",
     currency AS "Currency",
-    value_pln AS "Value (PLN)"
+    default(value_base, value_pln) AS "Value (Base)"
 FROM "10_Finance/Assets" AND #alert/delisting_risk
-SORT value_pln DESC
+SORT default(value_base, value_pln) DESC
 ```
 
 ## ⚖️ Allocation Drift (`Weight > Limit`)
@@ -77,9 +109,9 @@ TABLE
     portfolio AS "Portfolio",
     asset_type AS "Type",
     current_price AS "Current Price",
-    value_pln AS "Value (PLN)"
+    default(value_base, value_pln) AS "Value (Base)"
 FROM "10_Finance/Assets" AND #alert/allocation_drift
-SORT value_pln DESC
+SORT default(value_base, value_pln) DESC
 ```
 
 ## 🛑 Stop Loss Breached (`Price <= Stop Loss`)
@@ -90,9 +122,9 @@ TABLE
     current_price AS "Current Price",
     stop_loss AS "Stop Loss Level",
     currency AS "Currency",
-    value_pln AS "Value (PLN)"
+    default(value_base, value_pln) AS "Value (Base)"
 FROM "10_Finance/Assets" AND #alert/stop_loss
-SORT value_pln DESC
+SORT default(value_base, value_pln) DESC
 ```
 
 ## 📉 Inverted Yield Curve / Macro Recession Risk (`US 10Y-2Y Spread < 0`)
@@ -103,7 +135,7 @@ TABLE
     portfolio AS "Portfolio",
     dominant_sector AS "Sector",
     current_price AS "Current Price",
-    value_pln AS "Value (PLN)"
+    default(value_base, value_pln) AS "Value (Base)"
 FROM "10_Finance/Assets" AND #alert/macro_inverted_yield_curve
-SORT value_pln DESC
+SORT default(value_base, value_pln) DESC
 ```

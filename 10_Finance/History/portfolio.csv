@@ -1,4 +1,4 @@
-date,ticker,name,value_pln,current_price,pe_ratio,quantity,portfolio
+date,ticker,name,value_base,current_price,pe_ratio,quantity,portfolio
 2026-09-16,V80A_IKZE,Vanguard LifeStrategy 80% Equity UCITS ETF,16249.75,43.63,,85,Long term
 2026-09-16,VWCE_IKE,Vanguard FTSE All-World UCITS ETF,16497.1,125.5,21.02,30,Long term
 2026-09-19,DEGIRO_CASH_EUR,Degiro Cash Balance (EUR),10750,1,,2500,safety

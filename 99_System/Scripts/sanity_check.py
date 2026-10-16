@@ -217,27 +217,39 @@ def probe_assets(vault_path: str) -> tuple[list[SanityIssue], int]:
                 )
             )
 
-        # 4. Required & Numeric Sanity: value_pln
-        val_pln = fm.get("value_pln")
-        if val_pln is None:
-            issues.append(
-                SanityIssue(
-                    category="Assets",
-                    severity="ERROR",
-                    file_path=rel_path,
-                    message="Missing required field: 'value_pln'.",
+        # 4. Required & Numeric Sanity: value_base (with value_pln compatibility)
+        val_base = fm.get("value_base")
+        if val_base is None:
+            val_base = fm.get("value_pln")
+            if val_base is None:
+                issues.append(
+                    SanityIssue(
+                        category="Assets",
+                        severity="ERROR",
+                        file_path=rel_path,
+                        message="Missing required field: 'value_base'.",
+                    )
                 )
-            )
-        else:
+            else:
+                issues.append(
+                    SanityIssue(
+                        category="Assets",
+                        severity="WARN",
+                        file_path=rel_path,
+                        message="Missing 'value_base' field (falling back to legacy 'value_pln').",
+                    )
+                )
+
+        if val_base is not None:
             try:
-                num_val = float(val_pln)
+                num_val = float(val_base)
                 if math.isnan(num_val) or math.isinf(num_val):
                     issues.append(
                         SanityIssue(
                             category="Assets",
                             severity="ERROR",
                             file_path=rel_path,
-                            message=f"Invalid numeric value for 'value_pln': {val_pln} (NaN/Infinity).",
+                            message=f"Invalid numeric value for 'value_base': {val_base} (NaN/Infinity).",
                         )
                     )
                 elif num_val < 0:
@@ -246,7 +258,7 @@ def probe_assets(vault_path: str) -> tuple[list[SanityIssue], int]:
                             category="Assets",
                             severity="ERROR",
                             file_path=rel_path,
-                            message=f"Negative 'value_pln' detected: {num_val} PLN.",
+                            message=f"Negative 'value_base' detected: {num_val}.",
                         )
                     )
             except (ValueError, TypeError):
@@ -255,7 +267,7 @@ def probe_assets(vault_path: str) -> tuple[list[SanityIssue], int]:
                         category="Assets",
                         severity="ERROR",
                         file_path=rel_path,
-                        message=f"Non-numeric 'value_pln' value: {val_pln}.",
+                        message=f"Non-numeric 'value_base' value: {val_base}.",
                     )
                 )
 
@@ -336,7 +348,7 @@ def probe_assets(vault_path: str) -> tuple[list[SanityIssue], int]:
 # 2. Historical Timeline Validation (10_Finance/History/portfolio.csv)
 # ==============================================================================
 
-REQUIRED_HISTORY_COLUMNS = ["date", "ticker", "value_pln"]
+REQUIRED_HISTORY_COLUMNS = ["date", "ticker"]
 
 
 def probe_history(vault_path: str, fix: bool = False) -> tuple[list[SanityIssue], int]:
@@ -413,6 +425,16 @@ def probe_history(vault_path: str, fix: bool = False) -> tuple[list[SanityIssue]
                 )
             )
 
+    if "value_base" not in headers and "value_pln" not in headers:
+        issues.append(
+            SanityIssue(
+                category="History",
+                severity="ERROR",
+                file_path=rel_path,
+                message="Missing required CSV column header: 'value_base'.",
+            )
+        )
+
     # 2. Monotonicity & Duplicate checks
     prev_date: str | None = None
     seen_snapshots: set[tuple[str, str]] = set()
@@ -463,8 +485,8 @@ def probe_history(vault_path: str, fix: bool = False) -> tuple[list[SanityIssue]
         else:
             seen_snapshots.add(snapshot_key)
 
-        # Numeric validation for value_pln
-        val_str = row.get("value_pln", "").strip()
+        # Numeric validation for value_base (with value_pln compatibility)
+        val_str = (row.get("value_base") or row.get("value_pln") or "").strip()
         if val_str:
             try:
                 float(val_str)
@@ -474,7 +496,7 @@ def probe_history(vault_path: str, fix: bool = False) -> tuple[list[SanityIssue]
                         category="History",
                         severity="ERROR",
                         file_path=rel_path,
-                        message=f"Line {idx}: Non-numeric 'value_pln' value: '{val_str}'.",
+                        message=f"Line {idx}: Non-numeric 'value_base' value: '{val_str}'.",
                     )
                 )
 
@@ -770,6 +792,44 @@ def probe_environment(vault_path: str) -> list[SanityIssue]:
                     severity="WARN",
                     file_path=".env",
                     message=f"Line {line_no}: '{key}' appears to contain a default placeholder value ('{val}').",
+                )
+            )
+
+    # Validate config.yaml localization
+    cfg_file = os.path.join(vault_path, "config.yaml")
+    if os.path.exists(cfg_file):
+        try:
+            import yaml
+
+            with open(cfg_file, encoding="utf-8") as f:
+                raw_cfg = yaml.safe_load(f) or {}
+            loc = raw_cfg.get("localization")
+            if not loc:
+                issues.append(
+                    SanityIssue(
+                        category="Environment",
+                        severity="WARN",
+                        file_path="config.yaml",
+                        message="Missing 'localization' section in 'config.yaml'.",
+                        details="Defaults to base_currency: 'PLN'.",
+                    )
+                )
+            elif not loc.get("base_currency"):
+                issues.append(
+                    SanityIssue(
+                        category="Environment",
+                        severity="ERROR",
+                        file_path="config.yaml",
+                        message="Missing required 'base_currency' in localization config.",
+                    )
+                )
+        except Exception as e:
+            issues.append(
+                SanityIssue(
+                    category="Environment",
+                    severity="ERROR",
+                    file_path="config.yaml",
+                    message=f"Failed to parse 'config.yaml': {e}",
                 )
             )
 

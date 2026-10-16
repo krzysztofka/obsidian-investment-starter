@@ -15,7 +15,9 @@ if scripts_dir not in sys.path:
     sys.path.append(scripts_dir)
 
 from integrations.multi_source_asset_enricher import MultiSourceAssetEnricher
+from integrations.yfinance import calculate_value_base, calculate_value_pln
 from model.asset import Asset
+from model.config import load_vault_config
 from ui_progress import create_progress
 
 from platforms.template import _inject_issuer_link, _inject_justetf_link, render_template_body
@@ -227,6 +229,15 @@ def save_or_update_asset(
 
         enriched.body = _inject_justetf_link(body, platform, enriched.justetf_url)
         enriched.body = _inject_issuer_link(enriched.body, platform, enriched.issuer_url)
+        if enriched.asset_type == "cash":
+            cfg = load_vault_config()
+            base_curr = cfg.localization.base_currency if cfg and cfg.localization else "PLN"
+            v_base = calculate_value_base(enriched.quantity, enriched.current_price, enriched.currency, base_curr)
+            if v_base is not None:
+                enriched.value_base = v_base
+            v_pln = calculate_value_pln(enriched.quantity, enriched.current_price, enriched.currency)
+            if v_pln is not None:
+                enriched.value_pln = v_pln
         enriched.save(file_path)
         print(f"Created: {os.path.basename(file_path)}")
     else:
@@ -294,6 +305,15 @@ def save_or_update_asset(
 
         enriched.body = _inject_justetf_link(enriched.body, platform, enriched.justetf_url)
         enriched.body = _inject_issuer_link(enriched.body, platform, enriched.issuer_url)
+        if enriched.asset_type == "cash":
+            cfg = load_vault_config()
+            base_curr = cfg.localization.base_currency if cfg and cfg.localization else "PLN"
+            v_base = calculate_value_base(enriched.quantity, enriched.current_price, enriched.currency, base_curr)
+            if v_base is not None:
+                enriched.value_base = v_base
+            v_pln = calculate_value_pln(enriched.quantity, enriched.current_price, enriched.currency)
+            if v_pln is not None:
+                enriched.value_pln = v_pln
         enriched.save(file_path)
         print(f"Updated: {os.path.basename(file_path)}")
 

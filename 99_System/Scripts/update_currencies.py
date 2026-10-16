@@ -10,8 +10,13 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
     sys.path.append(script_dir)
 
-from integrations.yfinance import calculate_value_pln, get_fx_rate_to_pln
+from integrations.yfinance import (
+    calculate_value_base,
+    calculate_value_pln,
+    get_fx_rate,
+)
 from model.asset import Asset
+from model.config import load_vault_config
 from platforms.common import get_max_workers
 from ui_progress import create_progress
 
@@ -23,7 +28,7 @@ def update_currencies(
     show_progress: bool = True,
     verbose: bool = False,
 ):
-    """Update value_pln frontmatter field in all asset markdown files using live FX rates concurrently."""
+    """Update value_base and value_pln frontmatter fields in all asset files using live FX rates."""
     if not os.path.exists(assets_dir):
         print(f"Error: Assets directory not found at {assets_dir}")
         sys.exit(1)
@@ -36,7 +41,12 @@ def update_currencies(
     workers = get_max_workers(max_workers, base_dir=base_dir)
     current_date = datetime.now().strftime("%Y-%m-%d")
 
-    print(f"Updating currency values (value_pln) for assets in: {assets_dir}")
+    cfg = load_vault_config(base_dir=base_dir)
+    base_curr = (cfg.localization.base_currency if cfg and cfg.localization else "PLN").strip().upper()
+    curr_symbol = (cfg.localization.currency_symbol if cfg and cfg.localization else "zł").strip()
+    symbol_pos = cfg.localization.symbol_position if cfg and cfg.localization else "suffix"
+
+    print(f"Updating currency values (value_base in {base_curr}) for assets in: {assets_dir}")
     print(f"⚡ Running concurrent currency update across {workers} worker threads...")
     print("-" * 75)
 
@@ -47,27 +57,37 @@ def update_currencies(
             if not asset.ticker and not asset.name:
                 return None, f"Skipping {filename} (no valid asset data)"
 
-            currency = asset.currency or "PLN"
-            rate = get_fx_rate_to_pln(currency)
-            val_pln = calculate_value_pln(asset.quantity, asset.current_price, currency)
+            currency = asset.currency or base_curr
+            rate = get_fx_rate(currency, base_curr)
+            val_base = calculate_value_base(asset.quantity, asset.current_price, currency, base_curr)
 
-            asset.value_pln = val_pln if val_pln is not None else 0.0
+            asset.value_base = val_base if val_base is not None else 0.0
+            if base_curr == "PLN":
+                asset.value_pln = asset.value_base
+            else:
+                val_pln = calculate_value_pln(asset.quantity, asset.current_price, currency)
+                asset.value_pln = val_pln if val_pln is not None else 0.0
+
             asset.last_updated = current_date
             asset.save(file_path)
 
-            val_str = f"{val_pln:,.2f} PLN" if val_pln is not None else "N/A"
-            rate_str = "1.0" if currency.upper() == "PLN" else f"{rate:.4f}"
-            msg = f"Updated {filename:<25} | Currency: {currency:<4} | Rate: {rate_str:<7} | value_pln: {val_str}"
-            return val_pln, msg
+            if symbol_pos == "prefix":
+                val_str = f"{curr_symbol}{val_base:,.2f}" if val_base is not None else "N/A"
+            else:
+                val_str = f"{val_base:,.2f} {curr_symbol}" if val_base is not None else "N/A"
+
+            rate_str = "1.0" if currency.upper() == base_curr else f"{rate:.4f}"
+            msg = f"Updated {filename:<25} | Currency: {currency:<4} | Rate: {rate_str:<7} | value_base: {val_str}"
+            return val_base, msg
         except Exception as e:
             return None, f"Error updating {filename}: {e}"
 
-    total_val_pln = 0.0
+    total_val_base = 0.0
     updated_count = 0
 
     with create_progress(disable=not show_progress) as progress:
         task_id = progress.add_task(
-            "[bold green]Updating live FX rates & PLN values[/bold green]",
+            f"[bold green]Updating live FX rates & base values ({base_curr})[/bold green]",
             total=len(md_files),
             status="Starting...",
         )
@@ -75,12 +95,12 @@ def update_currencies(
             futures = {executor.submit(_process_file, fpath): fpath for fpath in md_files}
             for future in concurrent.futures.as_completed(futures):
                 fpath = futures[future]
-                val_pln, msg = future.result()
+                val_base, msg = future.result()
                 fname = os.path.basename(fpath)
 
-                if val_pln is not None:
+                if val_base is not None:
                     updated_count += 1
-                    total_val_pln += val_pln
+                    total_val_base += val_base
                     progress.update(task_id, advance=1, status=f"[green]✓[/green] {fname}")
                 else:
                     progress.update(task_id, advance=1, status=f"[yellow]⚠[/yellow] {fname}")
@@ -94,7 +114,7 @@ def update_currencies(
 
     print("-" * 75)
     print(f"Successfully updated {updated_count} asset files.")
-    print(f"Total Portfolio Value: {total_val_pln:,.2f} PLN")
+    print(f"Total Portfolio Value: {total_val_base:,.2f} {base_curr}")
 
 
 def main():

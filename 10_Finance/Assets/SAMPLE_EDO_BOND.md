@@ -6,6 +6,7 @@ portfolio: "Safety net"
 quantity: 300.0
 avg_price: 100.0
 current_price: 100.0
+value_base: 30000.0
 value_pln: 30000.0
 currency: PLN
 asset_type: bond

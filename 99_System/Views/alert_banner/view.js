@@ -17,6 +17,37 @@ let pages = input?.pages || [];
 let portfolioName = input?.portfolioName || null;
 let shouldRender = input?.render !== false;
 
+// 1. Load config.yaml for currency formatting
+let configContent = null;
+try {
+    if (app && app.vault && app.vault.adapter) {
+        configContent = await app.vault.adapter.read("config.yaml");
+    }
+} catch (e) {}
+
+let parsedConfig = null;
+if (configContent) {
+    try {
+        let parseYamlFn = window.parseYaml;
+        if (!parseYamlFn) {
+            try { parseYamlFn = require("obsidian").parseYaml; } catch(err) {}
+        }
+        if (parseYamlFn) parsedConfig = parseYamlFn(configContent);
+    } catch (e) {}
+}
+
+let baseCurrency = parsedConfig?.localization?.base_currency || "PLN";
+let currencySymbol = parsedConfig?.localization?.currency_symbol || "zł";
+let symbolPosition = parsedConfig?.localization?.symbol_position || "suffix";
+
+function formatCurrency(amount) {
+    let formatted = amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (symbolPosition === "prefix") {
+        return `${currencySymbol}${formatted}`;
+    }
+    return `${formatted} ${currencySymbol}`;
+}
+
 let alertBreakdown = {
     "Overvalued": 0,
     "Insider Selling": 0,
@@ -29,7 +60,7 @@ let alertCount = 0;
 let alertValue = 0;
 
 for (let p of pages) {
-    let val = p.value_pln || 0;
+    let val = (p.value_base !== undefined && p.value_base !== null) ? p.value_base : (p.value_pln || 0);
     let rawTags = [];
     if (p.tags) {
         rawTags = Array.isArray(p.tags) ? p.tags : [p.tags];
@@ -74,7 +105,7 @@ if (shouldRender) {
         if (alertBreakdown["Other"] > 0) subBadges.push(`🔔 Other: **${alertBreakdown["Other"]}**`);
 
         let breakdownStr = subBadges.length > 0 ? ` (${subBadges.join(" · ")})` : "";
-        dv.paragraph(`> [!WARNING] 🚨 **[[Alerts|Active Alerts]]:** **${alertCount} asset(s)** flagged with **${alertValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PLN** exposure${breakdownStr}.`);
+        dv.paragraph(`> [!WARNING] 🚨 **[[Alerts|Active Alerts]]:** **${alertCount} asset(s)** flagged with **${formatCurrency(alertValue)}** exposure${breakdownStr}.`);
     } else {
         let scopeStr = portfolioName ? ` in ${portfolioName}` : "";
         dv.paragraph(`> [!SUCCESS] 🛡️ **[[Alerts|Portfolio Health]]:** All clear — no active alerts${scopeStr}.`);

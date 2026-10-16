@@ -6,6 +6,7 @@ portfolio: "Aggressive"
 quantity: 50
 avg_price: 35.0
 current_price: 44.2
+value_base: 11411.53
 value_pln: 11411.53
 currency: GBP
 asset_type: etf

@@ -5,6 +5,7 @@ platform: Degiro
 quantity: 2500
 avg_price: null
 current_price: 1.0
+value_base: 10954.25
 value_pln: 10954.25
 currency: EUR
 asset_type: cash

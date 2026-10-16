@@ -48,6 +48,14 @@ def test_discover_patches():
     assert p08 is not None
     assert callable(p08["apply"])
 
+    p09 = next((p for p in patches if p["from_version"] == "0.8.0" and p["to_version"] == "0.9.0"), None)
+    assert p09 is not None
+    assert callable(p09["apply"])
+
+    p10 = next((p for p in patches if p["from_version"] == "0.9.0" and p["to_version"] == "0.10.0"), None)
+    assert p10 is not None
+    assert callable(p10["apply"])
+
 
 def test_build_patch_pipeline():
     mock_patches = [
@@ -230,3 +238,67 @@ def test_upstream_starter_tests_protected_when_target_is_same():
         # Upstream tests MUST remain intact!
         assert os.path.exists(test_file)
         assert os.path.exists(os.path.join(mock_upstream, "99_System", "Tests"))
+
+
+def test_patch_0_9_to_0_10():
+    vault_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    from patch.patches.patch_0_9_to_0_10 import apply as apply_09_to_010
+
+    with tempfile.TemporaryDirectory() as mock_target:
+        # Setup mock vault at 0.9.0
+        os.makedirs(os.path.join(mock_target, "10_Finance", "Assets"), exist_ok=True)
+        os.makedirs(os.path.join(mock_target, "10_Finance", "History"), exist_ok=True)
+        os.makedirs(os.path.join(mock_target, "99_System", "Scripts"), exist_ok=True)
+
+        with open(os.path.join(mock_target, ".vault_version"), "w", encoding="utf-8") as f:
+            f.write("0.9.0\n")
+
+        # config.yaml with min_trade_amount_pln and no localization
+        config_path = os.path.join(mock_target, "config.yaml")
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write("model_portfolios:\n  safety_net:\n    min_trade_amount_pln: 500.0\n    tolerance_band_pct: 5.0\n")
+
+        # Asset note without value_base
+        asset_file = os.path.join(mock_target, "10_Finance", "Assets", "my_asset.md")
+        with open(asset_file, "w", encoding="utf-8") as f:
+            f.write("---\nticker: TEST\nvalue_pln: 1234.50\ncurrency: EUR\n---\n# Test Asset\n")
+
+        # History portfolio.csv with value_pln
+        csv_file = os.path.join(mock_target, "10_Finance", "History", "portfolio.csv")
+        with open(csv_file, "w", encoding="utf-8") as f:
+            f.write(
+                "date,ticker,name,value_pln,current_price,pe_ratio,quantity,portfolio\n"
+                "2026-10-01,TEST,Test,1234.50,10.0,,100,Safety net\n"
+            )
+
+        # Dry run
+        dry_res = apply_09_to_010(vault_root, mock_target, dry_run=True)
+        assert dry_res is True
+        assert get_vault_version(mock_target) == "0.9.0"
+
+        # Live apply
+        res = apply_09_to_010(vault_root, mock_target, dry_run=False)
+        assert res is True
+
+        # Assert version updated
+        assert get_vault_version(mock_target) == "0.10.0"
+
+        # Assert config.yaml has localization and renamed min_trade_amount
+        with open(config_path, encoding="utf-8") as f:
+            cfg_text = f.read()
+        assert "localization:" in cfg_text
+        assert 'base_currency: "PLN"' in cfg_text
+        assert "min_trade_amount: 500.0" in cfg_text
+        assert "min_trade_amount_pln" not in cfg_text
+
+        # Assert asset note has value_base added
+        with open(asset_file, encoding="utf-8") as f:
+            asset_text = f.read()
+        assert "value_base: 1234.50" in asset_text
+        assert "value_pln: 1234.50" in asset_text
+
+        # Assert portfolio.csv header updated
+        with open(csv_file, encoding="utf-8") as f:
+            csv_header = f.readline()
+        assert "value_base" in csv_header
+        assert "value_pln" not in csv_header

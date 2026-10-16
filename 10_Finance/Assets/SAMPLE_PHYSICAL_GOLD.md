@@ -6,6 +6,7 @@ portfolio: "Long term"
 quantity: 1.0
 avg_price: 8200.0
 current_price: 10500.0
+value_base: 10500.0
 value_pln: 10500.0
 currency: PLN
 asset_type: commodity

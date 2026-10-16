@@ -24,6 +24,7 @@ class Asset(BaseModel):
     quantity: int | float = 0
     avg_price: int | float | None = None
     current_price: int | float = 0.0
+    value_base: int | float = 0.0
     value_pln: int | float = 0.0
     currency: str = "USD"
     asset_type: str = "equity"  # 'equity', 'etf', 'cash'
@@ -107,6 +108,7 @@ class Asset(BaseModel):
             "quantity",
             "avg_price",
             "current_price",
+            "value_base",
             "value_pln",
             "currency",
             "asset_type",
@@ -208,6 +210,12 @@ class Asset(BaseModel):
             kwargs["platform"] = ""
         if "source" not in kwargs or not kwargs["source"]:
             kwargs["source"] = "platform"
+
+        # Cross-populate value_base and value_pln for seamless backward compatibility
+        if "value_base" not in kwargs and "value_pln" in kwargs:
+            kwargs["value_base"] = kwargs["value_pln"]
+        elif "value_pln" not in kwargs and "value_base" in kwargs:
+            kwargs["value_pln"] = kwargs["value_base"]
 
         return cls(**kwargs)
 

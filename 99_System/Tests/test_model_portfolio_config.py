@@ -22,7 +22,7 @@ def test_load_model_portfolios_from_config_yaml() -> None:
     assert safety.name == "Safety net"
     assert safety.rebalance_strategy == "inflow_first"
     assert safety.tolerance_band_pct == 5.0
-    assert safety.min_trade_amount_pln == 500.0
+    assert safety.min_trade_amount == 500.0
     assert safety.primary_layer == "asset_classes"
     assert len(safety.layers.asset_classes) == 2
     assert safety.layers.asset_classes[0].target == "Bonds"
@@ -33,7 +33,7 @@ def test_load_model_portfolios_from_config_yaml() -> None:
     # Long Term
     long_term = cfg.model_portfolios["long_term"]
     assert long_term.name == "Long term"
-    assert long_term.min_trade_amount_pln == 1000.0
+    assert long_term.min_trade_amount == 1000.0
     assert len(long_term.layers.asset_classes) == 2
     assert long_term.layers.asset_classes[0].target == "Equities"
     assert long_term.layers.asset_classes[0].weight_pct == 80.0
@@ -111,7 +111,7 @@ def test_target_item_overrides_and_defaults() -> None:
     portfolio = ModelPortfolioConfig(
         name="Test Portfolio",
         tolerance_band_pct=5.0,
-        min_trade_amount_pln=500.0,
+        min_trade_amount=500.0,
         layers=ModelPortfolioLayers(
             asset_classes=[
                 ModelPortfolioTargetItem(target="Equities", weight_pct=80.0),
@@ -119,7 +119,7 @@ def test_target_item_overrides_and_defaults() -> None:
                     target="Cash",
                     weight_pct=20.0,
                     tolerance_band_pct=2.0,
-                    min_trade_amount_pln=100.0,
+                    min_trade_amount=100.0,
                 ),
             ]
         ),
@@ -267,3 +267,15 @@ def test_init_vault_update_user_profile(tmp_path: pytest.TempPathFactory) -> Non
     assert "max_single_stock_pct: 12.5" in content2
     assert "tax_sensitive: true" in content2
     assert "allow_profit_harvesting: false" in content2
+
+
+def test_localization_config() -> None:
+    """Verify localization configuration loads with expected defaults and symbols."""
+    cfg = load_vault_config(force_refresh=True)
+    assert cfg.localization is not None
+    assert cfg.localization.base_currency == "PLN"
+    assert cfg.localization.currency_symbol == "zł"
+    assert cfg.localization.symbol_position == "suffix"
+    assert "PLN" in cfg.localization.supported_currencies
+    assert "EUR" in cfg.localization.supported_currencies
+    assert "USD" in cfg.localization.supported_currencies

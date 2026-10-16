@@ -85,7 +85,7 @@ asset_type: equity
 
         assert any("Missing or empty required field: 'ticker'" in m for m in error_msgs)
         assert any("Missing or invalid required field: 'currency'" in m for m in error_msgs)
-        assert any("Negative 'value_pln'" in m for m in error_msgs)
+        assert any("Negative 'value_base'" in m or "Negative 'value_pln'" in m for m in error_msgs)
         assert any("Negative position quantity" in m for m in error_msgs)
         assert any("Invalid portfolio bucket" in m for m in error_msgs)
 

@@ -95,7 +95,7 @@ const portfolioSnapshots = [];
 for (const d of sortedDates) {
     const dayRows = rowsByDate.get(d) || [];
     for (const r of dayRows) {
-        const valPln = parseFloat(r.value_pln) || 0;
+        const valPln = parseFloat(r.value_base || r.value_pln) || 0;
         const price = parseFloat(r.current_price) || 0;
         const pe = r.pe_ratio && !isNaN(parseFloat(r.pe_ratio)) ? parseFloat(r.pe_ratio) : null;
         const qty = parseFloat(r.quantity) || 0;
@@ -286,7 +286,7 @@ const historyData = [];
 for (const d of sortedDates) {
     const dayRows = rowsByDate.get(d) || [];
     for (const r of dayRows) {
-        const valPln = parseFloat(r.value_pln) || 0;
+        const valPln = parseFloat(r.value_base || r.value_pln) || 0;
         let port = (r.portfolio || "").trim();
         if (!port && assetPortfolioMap.has(r.ticker)) {
             port = assetPortfolioMap.get(r.ticker);
@@ -805,7 +805,7 @@ const tickerMap = new Map(); // ticker -> { name, history: Map(date -> record), 
 for (const d of sortedDates) {
     const dayRows = rowsByDate.get(d) || [];
     for (const r of dayRows) {
-        const valPln = parseFloat(r.value_pln) || 0;
+        const valPln = parseFloat(r.value_base || r.value_pln) || 0;
         const price = parseFloat(r.current_price) || 0;
         const pe = r.pe_ratio && !isNaN(parseFloat(r.pe_ratio)) ? parseFloat(r.pe_ratio) : null;
         const qty = parseFloat(r.quantity) || 0;
@@ -1232,7 +1232,7 @@ const timelineSnapshots = new Map(); // date -> { ticker -> valPln }
 for (const d of sortedDates) {
     const dayRows = rowsByDate.get(d) || [];
     for (const r of dayRows) {
-        const val = parseFloat(r.value_pln) || 0;
+        const val = parseFloat(r.value_base || r.value_pln) || 0;
         const name = r.name || r.ticker;
         if (val <= 0) {
             activeHoldings.delete(r.ticker);
@@ -1394,7 +1394,7 @@ const snapshotEntries = [];
 for (const d of sortedDates) {
     const dayRows = rowsByDate.get(d) || [];
     for (const r of dayRows) {
-        const valPln = parseFloat(r.value_pln) || 0;
+        const valPln = parseFloat(r.value_base || r.value_pln) || 0;
         const name = r.name || r.ticker;
         let port = (r.portfolio || "").trim();
         if (!port && assetPortfolioMap.has(r.ticker)) port = assetPortfolioMap.get(r.ticker);

@@ -6,6 +6,7 @@ portfolio: Long term
 quantity: 85
 avg_price: null
 current_price: 43.63
+value_base: 16249.75
 value_pln: 16249.75
 currency: EUR
 asset_type: etf

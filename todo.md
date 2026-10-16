@@ -1,27 +1,27 @@
 # Project Roadmap & Backlog (TODO)
 
-## ⚡ Current Milestone: v0.9 Investment Strategy, Model Portfolios & AI Rebalance Advisor
+## ⚡ Current Milestone: v0.11 Interactive Model Portfolio Configuration
 
-- [X] **Model Portfolio Configuration (`config.yaml`):**
-  - [X] Target allocation schema per portfolio (*Safety Net*, *Long Term*, *Aggressive*): by asset class, dominant sector, or specific key assets.
-  - [X] Rebalance tolerance bands (corridors, e.g. $\pm 5\%$) and minimum trade thresholds (`min_trade_amount_pln`) to eliminate costly micro-transactions.
-  - [X] Strategy preference definition (e.g. `inflow_first` cash-flow rebalancing vs `full_rebalance`).
-- [X] **Investor Profile & Rebalancing Setup (`config.yaml` & `init.py`):**
-  - [X] Add `user_profile:` schema to `config.yaml` and Pydantic model (`UserProfileConfig` in `model/config.py`): risk tolerance, single stock cap, tax sensitivity, and profit harvesting rules.
-  - [X] Interactive Investor Profile step in `init_vault.py` (`init.py`) to configure risk profile, tax preference, and allocation boundaries during vault setup.
-- [X] **In-Note Rebalance & Drift Alerting Dashboard (`rebalance_status`):**
-  - [X] Dedicated DataviewJS view `99_System/Views/rebalance_status` embedded in `Aggressive_portfolio.md`, `Long_term_portfolio.md`, and `Safety_portfolio.md`.
-  - [X] Live calculation of actual weights vs target corridors ($Target \pm Tolerance\%$) and PLN deltas.
-  - [X] Status badges (`🟢 Balanced`, `⚠️ Overweight`, `⚠️ Underweight`) flagging assets/classes that breached thresholds.
-  - [X] Graceful fallback note (`> [!NOTE] ℹ️ Model portfolio targets are not configured for this bucket`) when a portfolio has no configured targets.
-- [X] **AI Portfolio & Rebalance Advisor Skill (`.agents/skills/rebalance-advisor`):**
-  - [X] Dedicated project workspace skill loaded on demand when the user requests rebalancing assistance.
-  - [X] Cost and friction-aware rebalance proposals (factoring in 19% Belka tax drag on taxable brokers vs 0% on IKE/IKZE, EDO early redemption, single stock limits).
-  - [X] Interactive proposal & approval loop: AI queries for operational context (e.g., fresh cash for DCA vs trimming existing positions), presents concrete trade proposals, and asks for approval.
-  - [X] Automated Decision Drafting: Upon user approval, automatically writes decision notes into `20_Decisions/YYYY/` via `decision_template.md`, instantly populating the `Open Decisions & Pending Orders` view.
+- [ ] **Interactive Model Portfolio Configuration Wizard (`setup_model_portfolios.py` / CLI):**
+  - [ ] Interactive CLI wizard to inspect, configure, and modify target allocations for each portfolio bucket (*Safety Net*, *Long Term*, *Aggressive*).
+  - [ ] Command runner support: `python run.py --setup-model-portfolios` (with step-by-step terminal prompts, live validation, and onboarding integration).
+- [ ] **Layered Target Allocation Builder:**
+  - [ ] Guided configuration across allocation layers: `asset_classes`, `sectors`, and specific `assets`.
+  - [ ] Pre-built portfolio presets and starter templates based on risk profiles (e.g., Conservative 80/20, Balanced 60/40, Aggressive Growth, Core & Satellite).
+  - [ ] Custom allocation editor with live weight calculation and strict 100% layer validation before saving.
+- [ ] **Rebalance Strategy & Threshold Corridors Tuning:**
+  - [ ] Interactive selection of rebalance strategy (`inflow_first` cash-flow DCA vs `full_rebalance`).
+  - [ ] Setting tolerance corridors (`tolerance_band_pct`) and minimum trade floors (`min_trade_amount`) with portfolio-level defaults and per-target overrides.
+- [ ] **Configuration Validation, Diff Preview & Safe Persistence:**
+  - [ ] Interactive preview of changes and visual diff before writing to `config.yaml`.
+  - [ ] Atomic and safe YAML serialization preserving formatting, comments, and existing user settings.
+  - [ ] Pydantic schema validation (`ModelPortfoliosConfig` in `99_System/Scripts/model/config.py`).
+- [ ] **Sequential Migration Patch (`0.10.0` -> `0.11.0`):**
+  - [ ] Migration patch `patch_0_10_to_0_11.py` ensuring configuration schema backward-compatibility and version bump.
+
 ---
 
-## 🏠 Milestone: v1.0 Real Estate Valuation & Property Management
+## 🏠 Milestone: v0.12 Real Estate Valuation & Property Management
 
 - [ ] **Property Parameterization & Schema Expansion:**
   - [ ] Extended frontmatter schema for real estate assets: area (`area_sqm`), floor (`floor`, `total_floors`), rooms, year built, building type, condition, garage/parking, storage room.
@@ -56,13 +56,54 @@
 - [ ] Technical analysis indicators via `tradingview-ta` (e.g., 200-day SMA trend alignment).
 - [ ] News & RSS sentiment feeds (Seeking Alpha, MacroTrends).
 
-### 🌐 Multi-Currency & Localization
-
-- [ ] Generic base currency configuration (EUR/USD) instead of hardcoded PLN.
-
 ---
 
 ## ✅ Completed Milestones
+
+- [X] **v0.10 Multi-Currency & Localization:**
+  - [X] **Configurable Base Portfolio Currency (`config.yaml`):**
+    - [X] Add `localization:` setting to `config.yaml` and Pydantic model (`LocalizationConfig` / `VaultConfig`), defaulting to `PLN` with support for `EUR`, `USD`, `GBP`, `CHF` (and custom ISO-4217 codes).
+    - [X] Support custom base currency symbol and display formatting options (e.g., `currency_symbol: "zł"`, `symbol_position: "suffix"`).
+  - [X] **Universal FX Conversion Engine (`integrations/yfinance.py` & `update_currencies.py`):**
+    - [X] Generalize FX rate fetching to support arbitrary cross pairs ($Quote \to Base$) via Yahoo Finance direct, inverse, and triangular cross pairs.
+    - [X] Implement triangular FX conversion when direct cross-pairs are unavailable (e.g. via USD intermediary).
+    - [X] Multi-currency shared caching to eliminate redundant FX network calls during batch valuation.
+  - [X] **Asset Schema & Vault Frontmatter Migration:**
+    - [X] Introduce `value_base` in asset frontmatter representing valuation in the configured base currency.
+    - [X] Maintain seamless backward compatibility for existing `value_pln` fields across note templates and scripts.
+    - [X] Support multi-currency unallocated broker/bank cash holdings.
+  - [X] **DataviewJS Dashboards & Chart Views Adaptation:**
+    - [X] Update DataviewJS views (`Overview.md`, `Portfolio_performance.md`, `rebalance_status`, `alert_banner`, `Safety_portfolio.md`, `Long_term_portfolio.md`, `Aggressive_portfolio.md`, `Alerts.md`) to dynamically read `base_currency` and formatting from config rather than hardcoding `PLN`.
+    - [X] Adapt performance chart tooltips, tables, and headers to display the configured portfolio currency.
+  - [X] **Localization & Interactive Onboarding (`init.py` / `init_vault.py`):**
+    - [X] Interactive prefix auto-completion prompt (e.g. `P` -> PLN, `E` -> EUR, `U` -> USD, `C` -> disambiguation menu).
+    - [X] Configurable symbol position, currency codes, and custom ISO-4217 inputs.
+  - [X] **Historical Timeline & Archival Compatibility:**
+    - [X] Standardize `portfolio.csv` snapshot recording and archival policies (`retention.py`, `update_portfolio.py`) to support `value_base`.
+  - [X] **Sequential Migration Patch (`0.9.0` -> `0.10.0`):**
+    - [X] Non-destructively merges `localization:` into downstream `config.yaml`.
+    - [X] Renames `min_trade_amount_pln` to `min_trade_amount` in `config.yaml`.
+    - [X] In-place backfill of `value_base` in existing `10_Finance/Assets/*.md` notes.
+    - [X] Updates `portfolio.csv` header to `value_base`.
+
+- [X] **v0.9 Investment Strategy, Model Portfolios & AI Rebalance Advisor:**
+  - [X] **Model Portfolio Configuration (`config.yaml`):**
+    - [X] Target allocation schema per portfolio (*Safety Net*, *Long Term*, *Aggressive*): by asset class, dominant sector, or specific key assets.
+    - [X] Rebalance tolerance bands (corridors, e.g. $\pm 5\%$) and minimum trade thresholds (`min_trade_amount_pln`) to eliminate costly micro-transactions.
+    - [X] Strategy preference definition (e.g. `inflow_first` cash-flow rebalancing vs `full_rebalance`).
+  - [X] **Investor Profile & Rebalancing Setup (`config.yaml` & `init.py`):**
+    - [X] Add `user_profile:` schema to `config.yaml` and Pydantic model (`UserProfileConfig` in `model/config.py`): risk tolerance, single stock cap, tax sensitivity, and profit harvesting rules.
+    - [X] Interactive Investor Profile step in `init_vault.py` (`init.py`) to configure risk profile, tax preference, and allocation boundaries during vault setup.
+  - [X] **In-Note Rebalance & Drift Alerting Dashboard (`rebalance_status`):**
+    - [X] Dedicated DataviewJS view `99_System/Views/rebalance_status` embedded in `Aggressive_portfolio.md`, `Long_term_portfolio.md`, and `Safety_portfolio.md`.
+    - [X] Live calculation of actual weights vs target corridors ($Target \pm Tolerance\%$) and PLN deltas.
+    - [X] Status badges (`🟢 Balanced`, `⚠️ Overweight`, `⚠️ Underweight`) flagging assets/classes that breached thresholds.
+    - [X] Graceful fallback note (`> [!NOTE] ℹ️ Model portfolio targets are not configured for this bucket`) when a portfolio has no configured targets.
+  - [X] **AI Portfolio & Rebalance Advisor Skill (`.agents/skills/rebalance-advisor`):**
+    - [X] Dedicated project workspace skill loaded on demand when the user requests rebalancing assistance.
+    - [X] Cost and friction-aware rebalance proposals (factoring in 19% Belka tax drag on taxable brokers vs 0% on IKE/IKZE, EDO early redemption, single stock limits).
+    - [X] Interactive proposal & approval loop: AI queries for operational context (e.g., fresh cash for DCA vs trimming existing positions), presents concrete trade proposals, and asks for approval.
+    - [X] Automated Decision Drafting: Upon user approval, automatically writes decision notes into `20_Decisions/YYYY/` via `decision_template.md`, instantly populating the `Open Decisions & Pending Orders` view.
 
 - [X] **v0.8 System Health Checks, Sanity Diagnostics & Downstream Decoupling:**
   - [X] **Integrations Health Check & Connectivity Diagnostics (`health_check.py` / CLI):**

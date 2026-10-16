@@ -429,20 +429,17 @@ def fetch_yfinance_analyst_rating(symbol: str) -> str | None:
     return None
 
 
-_fx_cache: dict[str, float] = {"PLN": 1.0}
+_fx_cross_cache: dict[tuple[str, str], float] = {
+    ("PLN", "PLN"): 1.0,
+    ("USD", "USD"): 1.0,
+    ("EUR", "EUR"): 1.0,
+    ("GBP", "GBP"): 1.0,
+    ("CHF", "CHF"): 1.0,
+}
 
 
-def get_fx_rate_to_pln(currency: str) -> float:
-    """Fetch FX exchange rate from specified currency to PLN via yfinance or Yahoo Finance API."""
-    if not currency:
-        return 1.0
-    curr = str(currency).strip().upper()
-    if curr == "PLN":
-        return 1.0
-    if curr in _fx_cache:
-        return _fx_cache[curr]
-
-    symbol = f"{curr}PLN=X"
+def _fetch_yahoo_fx_price(symbol: str) -> float | None:
+    """Fetch live market price for an FX symbol like EURUSD=X or EURPLN=X."""
     if yf is not None:
         try:
             ticker_obj = yf.Ticker(symbol)
@@ -456,9 +453,7 @@ def get_fx_rate_to_pln(currency: str) -> float:
                 if not hist.empty and "Close" in hist:
                     price = float(hist["Close"].iloc[-1])
             if price and float(price) > 0:
-                rate = float(price)
-                _fx_cache[curr] = rate
-                return rate
+                return float(price)
         except Exception as e:
             sys.stderr.write(f"yfinance FX rate fetch failed for {symbol}: {e}\n")
 
@@ -470,27 +465,91 @@ def get_fx_rate_to_pln(currency: str) -> float:
             meta = raw.get("chart", {}).get("result", [{}])[0].get("meta", {})
             price = meta.get("regularMarketPrice") or meta.get("chartPreviousClose")
             if price and float(price) > 0:
-                rate = float(price)
-                _fx_cache[curr] = rate
-                return rate
+                return float(price)
     except Exception:
         pass
 
+    return None
+
+
+def get_fx_rate(from_currency: str, to_currency: str = "PLN") -> float:
+    """Fetch FX exchange rate from from_currency to to_currency with direct and triangular resolution."""
+    f = str(from_currency or "").strip().upper()
+    t = str(to_currency or "PLN").strip().upper()
+    if not f or not t or f == t:
+        return 1.0
+
+    cache_key = (f, t)
+    if cache_key in _fx_cross_cache:
+        return _fx_cross_cache[cache_key]
+
+    inverse_key = (t, f)
+    if inverse_key in _fx_cross_cache and _fx_cross_cache[inverse_key] > 0:
+        rate = 1.0 / _fx_cross_cache[inverse_key]
+        _fx_cross_cache[cache_key] = rate
+        return rate
+
+    # 1. Try direct quote: {FROM}{TO}=X
+    direct_symbol = f"{f}{t}=X"
+    price = _fetch_yahoo_fx_price(direct_symbol)
+    if price and price > 0:
+        _fx_cross_cache[cache_key] = price
+        _fx_cross_cache[inverse_key] = 1.0 / price
+        return price
+
+    # 2. Try inverse quote: {TO}{FROM}=X
+    inv_price = _fetch_yahoo_fx_price(f"{t}{f}=X")
+    if inv_price and inv_price > 0:
+        rate = 1.0 / inv_price
+        _fx_cross_cache[cache_key] = rate
+        _fx_cross_cache[inverse_key] = inv_price
+        return rate
+
+    # 3. Triangular conversion via USD intermediary if neither currency is USD
+    if f != "USD" and t != "USD":
+        try:
+            rate_f_usd = get_fx_rate(f, "USD")
+            rate_usd_t = get_fx_rate("USD", t)
+            if rate_f_usd > 0 and rate_usd_t > 0:
+                triangular_rate = rate_f_usd * rate_usd_t
+                _fx_cross_cache[cache_key] = triangular_rate
+                _fx_cross_cache[inverse_key] = 1.0 / triangular_rate
+                return triangular_rate
+        except Exception:
+            pass
+
+    # 4. Fallback to 1.0 if completely unresolvable
+    _fx_cross_cache[cache_key] = 1.0
     return 1.0
 
 
-def calculate_value_pln(quantity: float | None, current_price: float | None, currency: str) -> float | None:
-    """Calculate asset value in PLN based on quantity, current_price, and currency FX rate."""
+def get_fx_rate_to_pln(currency: str) -> float:
+    """Fetch FX exchange rate from specified currency to PLN via universal FX engine."""
+    return get_fx_rate(currency, "PLN")
+
+
+def calculate_value_base(
+    quantity: float | None,
+    current_price: float | None,
+    quote_currency: str,
+    base_currency: str = "PLN",
+) -> float | None:
+    """Calculate asset value in base_currency based on quantity, current_price, and currency FX rate."""
     if quantity is None or current_price is None:
         return None
     try:
         q = float(quantity)
         p = float(current_price)
-        rate = get_fx_rate_to_pln(currency)
+        rate = get_fx_rate(quote_currency, base_currency)
         res = q * p * rate
         return int(res) if res.is_integer() else round(res, 2)
     except (ValueError, TypeError):
         return None
+
+
+def calculate_value_pln(quantity: float | None, current_price: float | None, currency: str) -> float | None:
+    """Calculate asset value in PLN based on quantity, current_price, and currency FX rate."""
+    return calculate_value_base(quantity, current_price, currency, "PLN")
 
 
 def fetch_yfinance_top_holdings(symbol: str, limit: int = 10) -> list[dict[str, Any]]:

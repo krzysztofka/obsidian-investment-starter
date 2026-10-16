@@ -7,6 +7,7 @@ portfolio: "Aggressive"  # Options: "Safety net", "Long term", "Aggressive"
 quantity: 15
 avg_price: 150.50
 current_price: 175.20
+value_base: 10512.00
 value_pln: 10512.00
 currency: USD
 asset_type: equity       # Options: "equity", "etf", "cash"

@@ -12,7 +12,7 @@ The vault is designed to maintain a single source of truth for:
 ---
 
 ## 🌐 Language Standard
-- **All vault content MUST be in English:** Markdown notes, dashboard views, chart labels, UI controls, frontmatter fields, templates, scripts, code comments, and documentation must always be written in **English** (portfolio currency remains PLN).
+- **All vault content MUST be in English:** Markdown notes, dashboard views, chart labels, UI controls, frontmatter fields, templates, scripts, code comments, and documentation must always be written in **English** (portfolio base currency is configurable under `localization:` in `config.yaml`, defaulting to PLN).
 
 ---
 
@@ -161,7 +161,7 @@ python run.py --import --platform mbank_ikze      # Import mBank IKZE positions
 python run.py --import --platform degiro          # Import Degiro positions
 python run.py --import --platform exante          # Import Exante positions (CSV or API)
 python run.py --import --api                      # Import live positions directly via Exante REST API
-python run.py --update-rates                      # Refresh live FX rates and update value_pln
+python run.py --update-rates                      # Refresh live FX rates and update value_base (with value_pln)
 python run.py --macro                             # Synchronize macroeconomic dashboard indicators, yields & rates
 python run.py --sync-etfs                         # Synchronize ETF top holdings, overlap & exposures
 python run.py --alerts                            # Scan and evaluate portfolio alerts (Alert Rules Engine)
@@ -197,7 +197,7 @@ python 99_System/Scripts/import_assets.py
 python 99_System/Scripts/sync_macro.py
 # (Or dry-run: python 99_System/Scripts/sync_macro.py --dry-run)
 
-# 4. Refresh live currency rates and update value_pln
+# 4. Refresh live currency rates and update value_base (with value_pln)
 python 99_System/Scripts/update_currencies.py
 
 # 5. Scan & evaluate portfolio risk and valuation alerts via Alert Rules Engine
@@ -247,7 +247,7 @@ The project enforces a clean separation of template architecture and personal in
 - **Downstream Personal Vault (`trader`):** Your private Obsidian financial vault. Contains live holdings (`10_Finance/Assets/`), trade theses & decisions (`20_Decisions/`), historical timeline (`10_Finance/History/portfolio.csv`), raw broker exports (`00_Raw/`), `.env`, and personalized configuration overrides.
 
 ### 🏷️ Vault Version Marker (`.vault_version`)
-- The active code and schema version is tracked in the root file **`.vault_version`** (e.g. `0.8.0`).
+- The active code and schema version is tracked in the root file **`.vault_version`** (e.g. `0.10.0`).
 - If `.vault_version` is absent, [`PatchEngine`](file:///C:/workspace/obsidian-investment-starter/99_System/Scripts/patch/patch_engine.py) infers the baseline version automatically (`0.5.0` if `99_System/` exists, otherwise `0.0.0`).
 - Applying patches sequentially upgrades `.vault_version` until target downstream vault matches upstream starter.
 
