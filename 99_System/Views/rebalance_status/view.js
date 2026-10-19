@@ -166,6 +166,10 @@ function getActualValue(targetName) {
         if ((tNorm.includes("bond") || tNorm.includes("obligation")) && (bNorm.includes("bond") || bNorm.includes("obligation"))) {
             return actualBuckets[b];
         }
+        // Handle Gold vs Commodities
+        if ((tNorm.includes("gold") || tNorm.includes("commodit")) && (bNorm.includes("gold") || bNorm.includes("commodit"))) {
+            return actualBuckets[b];
+        }
     }
     return actualBuckets[targetName] || 0;
 }

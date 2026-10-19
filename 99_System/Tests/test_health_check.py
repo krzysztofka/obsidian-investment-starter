@@ -189,3 +189,41 @@ def test_probe_finnhub_missing_key():
         res = probe_finnhub(timeout=5.0)
         assert res.status == HealthStatus.WARN
         assert "not configured" in res.message
+
+
+def test_run_probes_skips_exante_in_csv_mode():
+    def mock_ok(timeout):
+        return ProbeResult("ok_svc", "OK Svc", "Cat", "Auth", HealthStatus.OK, 10.0, "ep", "ok")
+
+    def mock_exante(timeout):
+        return ProbeResult("exante", "Exante", "Broker", "Auth", HealthStatus.WARN, None, "ep", "warn")
+
+    with tempfile.TemporaryDirectory() as tmp_vault:
+        cfg_path = os.path.join(tmp_vault, "config.yaml")
+
+        # 1. Exante in CSV mode -> skipped in general health probe
+        with open(cfg_path, "w", encoding="utf-8") as f:
+            f.write('platforms:\n  exante:\n    enabled: true\n    default_mode: "csv"\n')
+
+        with patch.dict("health_check.PROBES", {"ok_svc": mock_ok, "exante": mock_exante}, clear=True):
+            report_csv = run_probes(target_vault=tmp_vault)
+            probed_ids_csv = [r.id for r in report_csv.results]
+            assert "ok_svc" in probed_ids_csv
+            assert "exante" not in probed_ids_csv
+
+            # Explicit --integration exante still runs
+            report_explicit = run_probes(selected_ids=["exante"], target_vault=tmp_vault)
+            assert [r.id for r in report_explicit.results] == ["exante"]
+
+        # 2. Exante in API mode -> included in general health probe
+        from model.config import load_vault_config
+
+        with open(cfg_path, "w", encoding="utf-8") as f:
+            f.write('platforms:\n  exante:\n    enabled: true\n    default_mode: "api"\n')
+        load_vault_config(base_dir=tmp_vault, force_refresh=True)
+
+        with patch.dict("health_check.PROBES", {"ok_svc": mock_ok, "exante": mock_exante}, clear=True):
+            report_api = run_probes(target_vault=tmp_vault)
+            probed_ids_api = [r.id for r in report_api.results]
+            assert "ok_svc" in probed_ids_api
+            assert "exante" in probed_ids_api

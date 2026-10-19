@@ -763,6 +763,20 @@ def probe_environment(vault_path: str) -> list[SanityIssue]:
         )
         return issues
 
+    exante_api_active = False
+    cfg_file = os.path.join(vault_path, "config.yaml")
+    if os.path.exists(cfg_file):
+        try:
+            import yaml
+
+            with open(cfg_file, encoding="utf-8") as f:
+                raw_cfg_check = yaml.safe_load(f) or {}
+            ex_cfg = (raw_cfg_check.get("platforms") or {}).get("exante") or {}
+            if ex_cfg.get("enabled", True) and str(ex_cfg.get("default_mode", "csv")).strip().lower() == "api":
+                exante_api_active = True
+        except Exception:
+            pass
+
     for line_no, raw_line in enumerate(lines, start=1):
         line = raw_line.strip()
         if not line or line.startswith("#"):
@@ -784,6 +798,10 @@ def probe_environment(vault_path: str) -> list[SanityIssue]:
         key = key.strip()
         val = val.strip().strip("'\"")
 
+        # Skip EXANTE_* placeholder warnings if Exante is disabled or configured for CSV mode
+        if key.upper().startswith("EXANTE_") and not exante_api_active:
+            continue
+
         # Check for placeholder values
         if any(marker in val.lower() for marker in PLACEHOLDER_MARKERS):
             issues.append(
@@ -796,7 +814,6 @@ def probe_environment(vault_path: str) -> list[SanityIssue]:
             )
 
     # Validate config.yaml localization
-    cfg_file = os.path.join(vault_path, "config.yaml")
     if os.path.exists(cfg_file):
         try:
             import yaml

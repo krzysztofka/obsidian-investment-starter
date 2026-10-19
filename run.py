@@ -485,8 +485,13 @@ examples:
 """,
     )
 
-    # Core action flags (from todo.md: --import, --update-rates, --sync-etfs, --alerts, --history)
     actions_group = parser.add_argument_group("primary actions")
+    actions_group.add_argument(
+        "--init",
+        dest="action_init",
+        action="store_true",
+        help="Initialize or configure vault (platforms, base currency, investor profile, and clean/demo data mode).",
+    )
     actions_group.add_argument(
         "--all",
         action="store_true",
@@ -696,6 +701,62 @@ examples:
         default=False,
         help="[--sanity] Attempt automated safe repair of repairable issues (e.g., sorting and deduplicating portfolio.csv).",
     )
+    step_opts.add_argument(
+        "--clean",
+        dest="clean",
+        action="store_true",
+        default=None,
+        help="[--init] Initialize as a Clean Vault (purge sample assets, demo exports, and reset history).",
+    )
+    step_opts.add_argument(
+        "--demo",
+        dest="demo",
+        action="store_true",
+        default=None,
+        help="[--init] Initialize as a Demo Vault (preserve sample assets and demonstration history).",
+    )
+    step_opts.add_argument(
+        "--target",
+        dest="target",
+        type=str,
+        default=None,
+        metavar="TARGET_PATH",
+        help="[--init, --patch] Target vault directory to initialize or upgrade.",
+    )
+    step_opts.add_argument(
+        "--non-interactive",
+        action="store_true",
+        help="[--init] Run initialization without interactive prompts.",
+    )
+    step_opts.add_argument(
+        "--exante-mode",
+        dest="exante_mode",
+        choices=["csv", "api"],
+        default=None,
+        help="[--init] Configure Exante default import mode ('csv' or 'api').",
+    )
+    step_opts.add_argument(
+        "--step",
+        dest="init_step",
+        nargs="?",
+        const="menu",
+        type=str,
+        default=None,
+        help="[--init] Run a specific initialization step (or omit value for interactive step selection menu).",
+    )
+    step_opts.add_argument(
+        "--list-steps",
+        dest="list_steps",
+        action="store_true",
+        help="[--init] List available initialization steps and exit.",
+    )
+    step_opts.add_argument(
+        "--preset",
+        dest="preset",
+        choices=["balanced", "conservative", "aggressive_growth", "classic"],
+        default=None,
+        help="[--init] Model portfolio preset ('balanced', 'conservative', 'aggressive_growth', 'classic').",
+    )
 
     # Global runtime options
     global_opts = parser.add_argument_group("global options")
@@ -772,6 +833,42 @@ def main() -> int:
         PlatformRegistry.set_platform_enabled(args.disable_platform, False, base_dir=vault_root)
         print(f"✓ Platform '{args.disable_platform}' disabled in config.yaml.")
         return 0
+
+    if getattr(args, "list_steps", False):
+        from init_vault import list_init_steps
+
+        print("\nAvailable Vault Initialization Steps:")
+        for s_info in list_init_steps():
+            aliases_str = ", ".join(s_info["aliases"])
+            print(
+                f"  [{s_info['step_number']}] {s_info['step_id']:<18} — {s_info['description']} (aliases: {aliases_str})"
+            )
+        return 0
+
+    if args.action_init:
+        from init_vault import init_vault
+
+        clean_mode = None
+        if args.clean:
+            clean_mode = True
+        elif args.demo:
+            clean_mode = False
+
+        target = args.target or args.sync_vault_path or args.base_dir
+        init_kwargs: dict[str, Any] = {
+            "target_vault": target,
+            "interactive": not args.non_interactive,
+            "clean": clean_mode,
+            "force": args.force,
+        }
+        if args.exante_mode is not None:
+            init_kwargs["exante_mode"] = args.exante_mode
+        if getattr(args, "init_step", None) is not None:
+            init_kwargs["step"] = args.init_step
+        if getattr(args, "preset", None) is not None:
+            init_kwargs["preset_id"] = args.preset
+        success = init_vault(**init_kwargs)
+        return 0 if success else 1
 
     # Determine requested actions
     requested_steps = []

@@ -1,13 +1,13 @@
 # Project Roadmap & Backlog (TODO)
 
-## ⚡ Current Milestone: v0.11 Interactive Model Portfolio Configuration
+## ⚡ Current Milestone: v0.12 Interactive Model Portfolio Configuration
 
 - [ ] **Interactive Model Portfolio Configuration Wizard (`setup_model_portfolios.py` / CLI):**
   - [ ] Interactive CLI wizard to inspect, configure, and modify target allocations for each portfolio bucket (*Safety Net*, *Long Term*, *Aggressive*).
-  - [ ] Command runner support: `python run.py --setup-model-portfolios` (with step-by-step terminal prompts, live validation, and onboarding integration).
+  - [ ] Command runner support: `python run.py --setup-model-portfolios` (with step-by-step terminal prompts, live validation, and onboarding integration into `step_04_model_portfolios.py`).
 - [ ] **Layered Target Allocation Builder:**
   - [ ] Guided configuration across allocation layers: `asset_classes`, `sectors`, and specific `assets`.
-  - [ ] Pre-built portfolio presets and starter templates based on risk profiles (e.g., Conservative 80/20, Balanced 60/40, Aggressive Growth, Core & Satellite).
+  - [X] Pre-built portfolio presets and starter templates based on risk profiles including Real Estate (30%) and Gold (5%) in *Long Term* (`step_04_model_portfolios.py`).
   - [ ] Custom allocation editor with live weight calculation and strict 100% layer validation before saving.
 - [ ] **Rebalance Strategy & Threshold Corridors Tuning:**
   - [ ] Interactive selection of rebalance strategy (`inflow_first` cash-flow DCA vs `full_rebalance`).
@@ -16,12 +16,12 @@
   - [ ] Interactive preview of changes and visual diff before writing to `config.yaml`.
   - [ ] Atomic and safe YAML serialization preserving formatting, comments, and existing user settings.
   - [ ] Pydantic schema validation (`ModelPortfoliosConfig` in `99_System/Scripts/model/config.py`).
-- [ ] **Sequential Migration Patch (`0.10.0` -> `0.11.0`):**
-  - [ ] Migration patch `patch_0_10_to_0_11.py` ensuring configuration schema backward-compatibility and version bump.
+- [ ] **Sequential Migration Patch (`0.11.0` -> `0.12.0`):**
+  - [ ] Migration patch `patch_0_11_to_0_12.py` ensuring configuration schema backward-compatibility and version bump.
 
 ---
 
-## 🏠 Milestone: v0.12 Real Estate Valuation & Property Management
+## 🏠 Milestone: v0.13 Real Estate Valuation & Property Management
 
 - [ ] **Property Parameterization & Schema Expansion:**
   - [ ] Extended frontmatter schema for real estate assets: area (`area_sqm`), floor (`floor`, `total_floors`), rooms, year built, building type, condition, garage/parking, storage room.
@@ -59,6 +59,21 @@
 ---
 
 ## ✅ Completed Milestones
+
+- [X] **v0.11 Modular Step-by-Step Vault Initialization & Reconfiguration Engine:**
+  - [X] **Modular Initialization Step Architecture (`99_System/Scripts/init_steps/`):**
+    - [X] Decoupled `init_vault.py` into 6 discrete, registered steps (`InitStepRegistry` & `InitContext`):
+      1. `vault_mode`: Clean Vault vs Demo Vault mode & core scaffolding.
+      2. `brokers`: Platform selection + per-broker configuration sub-steps (Degiro default portfolio, Exante CSV/API & credentials).
+      3. `localization`: Base currency & symbol formatting (`localization:`).
+      4. `model_portfolios`: Model portfolio multi-asset presets (including Real Estate 30% & Gold 5% in *Long Term*) + single-stock concentration cap (`max_single_stock_pct` synced across `user_profile` and `alerts.allocation_drift`).
+      5. `agent_profile`: Investor risk profile, tax sensitivity, profit harvesting, retirement account priority, and optional AI research credentials (`FINNHUB_API_KEY`).
+      6. `diagnostics`: Python dependency verification & external integration connectivity probe.
+  - [X] **Standalone Step Reconfiguration (`--step` & Interactive Menu):**
+    - [X] CLI support for running any single step in isolation (`python init.py --step <step>` / `python run.py --init --step <step>` / `--list-steps`).
+    - [X] Interactive reconfiguration menu when `init.py` is launched on an already-initialized vault.
+  - [X] **Sequential Migration Patch (`0.10.0` -> `0.11.0`):**
+    - [X] Added `patch_0_10_to_0_11.py` synchronizing modular initialization steps and bumping `.vault_version` to `0.11.0`.
 
 - [X] **v0.10 Multi-Currency & Localization:**
   - [X] **Configurable Base Portfolio Currency (`config.yaml`):**

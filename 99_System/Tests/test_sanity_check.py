@@ -274,6 +274,25 @@ def test_probe_environment():
         assert any(i.severity == "ERROR" and "Invalid syntax" in i.message for i in issues_syntax)
         assert any(i.severity == "WARN" and "placeholder value" in i.message for i in issues_syntax)
 
+        # Exante placeholder ignored when default_mode is csv, warned when api
+        with open(os.path.join(tmp_dir, ".env"), "w", encoding="utf-8") as f:
+            f.write("EXANTE_API_KEY=your_exante_application_id\n")
+        with open(os.path.join(tmp_dir, "config.yaml"), "w", encoding="utf-8") as f:
+            f.write(
+                'localization:\n  base_currency: "PLN"\nplatforms:\n  exante:\n    enabled: true\n    default_mode: "csv"\n'
+            )
+
+        issues_csv = probe_environment(tmp_dir)
+        assert not any("EXANTE_API_KEY" in i.message for i in issues_csv)
+
+        with open(os.path.join(tmp_dir, "config.yaml"), "w", encoding="utf-8") as f:
+            f.write(
+                'localization:\n  base_currency: "PLN"\nplatforms:\n  exante:\n    enabled: true\n    default_mode: "api"\n'
+            )
+
+        issues_api = probe_environment(tmp_dir)
+        assert any("EXANTE_API_KEY" in i.message for i in issues_api)
+
 
 def test_run_sanity_check_master():
     with tempfile.TemporaryDirectory() as tmp_dir:

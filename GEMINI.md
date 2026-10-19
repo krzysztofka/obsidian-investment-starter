@@ -87,10 +87,12 @@ trader/
 ├── 99_System/                      # System tools, templates & configurations
 │   ├── Scripts/                    # Python automation suite
 │   │   ├── history/                # History update & sync utilities
+│   │   ├── init_steps/             # Modular step-by-step onboarding & reconfiguration steps
 │   │   ├── integrations/           # API integrations (yfinance, JustETF, Finnhub, NBP, Eurostat, Stooq)
 │   │   ├── model/                  # Data models corresponding to vault templates (e.g., Asset)
 │   │   ├── platforms/              # Broker platform import modules (Degiro, Exante, mBM, pkobp, common)
 │   │   ├── health_check.py         # Integrations health check & connectivity diagnostics
+│   │   ├── init_vault.py           # Vault initialization orchestrator
 │   │   ├── sync_etf_holdings.py    # ETF top holdings synchronization engine
 │   │   ├── sync_macro.py           # Macroeconomic dashboard synchronization engine
 │   │   └── import_instructions.md  # Detailed manual import documentation
@@ -103,7 +105,7 @@ trader/
 │   │   ├── retrospective_template.md # Template for decision reviews
 │   │   └── watchlist_item_template.md # Template for watchlist items
 │   └── Views/                      # Reusable DataviewJS custom views (e.g., alert_banner, open_decisions, stooq_chart)
-├── .vault_version                  # Vault schema & migration version marker (e.g. 0.8.0)
+├── .vault_version                  # Vault schema & migration version marker (e.g. 0.11.0)
 ├── Alerts.md                       # Active alerts dashboard (Dataview)
 ├── Health.md                       # Integrations health & connectivity diagnostics dashboard
 ├── Portfolio_performance.md        # Historical performance & valuation charts (DataviewJS + Charts)
@@ -144,6 +146,14 @@ All scripts are executed with Python 3.x using the virtual environment / install
 ```bash
 # 1. Install dependencies
 pip install .
+
+# 🛠️ VAULT INITIALIZATION & STEP RECONFIGURATION (init.py / run.py --init)
+python init.py                                    # Run interactive 6-step setup wizard (or reconfiguration menu)
+python init.py --list-steps                       # List all modular initialization steps (1..6) and aliases
+python init.py --step brokers                     # Reconfigure only Step 2 (brokers & per-broker sub-steps)
+python init.py --step localization                # Reconfigure only Step 3 (base currency & formatting)
+python init.py --step model_portfolios            # Reconfigure only Step 4 (model portfolio presets & single-stock cap)
+python init.py --step agent_profile               # Reconfigure only Step 5 (investor & AI assistant profile)
 
 # 🚀 UNIFIED RUNNER (run.py): Execute all or specific pipeline actions
 python run.py --all                               # Run full pipeline: import -> rates -> macro -> etfs -> alerts -> history
@@ -247,7 +257,7 @@ The project enforces a clean separation of template architecture and personal in
 - **Downstream Personal Vault (`trader`):** Your private Obsidian financial vault. Contains live holdings (`10_Finance/Assets/`), trade theses & decisions (`20_Decisions/`), historical timeline (`10_Finance/History/portfolio.csv`), raw broker exports (`00_Raw/`), `.env`, and personalized configuration overrides.
 
 ### 🏷️ Vault Version Marker (`.vault_version`)
-- The active code and schema version is tracked in the root file **`.vault_version`** (e.g. `0.10.0`).
+- The active code and schema version is tracked in the root file **`.vault_version`** (e.g. `0.11.0`).
 - If `.vault_version` is absent, [`PatchEngine`](file:///C:/workspace/obsidian-investment-starter/99_System/Scripts/patch/patch_engine.py) infers the baseline version automatically (`0.5.0` if `99_System/` exists, otherwise `0.0.0`).
 - Applying patches sequentially upgrades `.vault_version` until target downstream vault matches upstream starter.
 

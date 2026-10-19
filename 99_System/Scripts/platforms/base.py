@@ -244,3 +244,173 @@ class PlatformRegistry:
 
         load_vault_config(base_dir=base, force_refresh=True)
         return updated
+
+    @classmethod
+    def set_platform_mode(cls, platform_id: str, mode: str, base_dir: str | None = None) -> bool:
+        """Set default_mode (e.g. 'csv', 'api', 'xls') for a platform in config.yaml."""
+        base = base_dir or get_default_base_dir()
+        canonical_id = cls._alias_map.get(platform_id.lower().strip(), platform_id.lower().strip())
+        if canonical_id not in cls._platforms:
+            raise ValueError(f"Unknown platform ID: '{platform_id}'")
+
+        mode_clean = mode.lower().strip()
+        if mode_clean not in ("csv", "api", "xls"):
+            raise ValueError(f"Unsupported platform mode: '{mode}'. Must be 'csv', 'api', or 'xls'.")
+
+        candidate_paths = [
+            os.path.join(base, "99_System", "config.yaml"),
+            os.path.join(base, "config.yaml"),
+        ]
+        updated = False
+
+        for target_path in candidate_paths:
+            if not os.path.exists(target_path):
+                continue
+            with open(target_path, encoding="utf-8") as f:
+                content = f.read()
+
+            lines = content.splitlines(keepends=True)
+            in_platforms = False
+            in_target_platform = False
+            found_mode = False
+            found_platform = False
+            new_lines = []
+
+            for line in lines:
+                stripped = line.strip()
+                if line.startswith("platforms:"):
+                    in_platforms = True
+                    new_lines.append(line)
+                    continue
+
+                if in_platforms:
+                    # Leaving platforms section
+                    if stripped and not line.startswith(" ") and not line.startswith("\t"):
+                        if in_target_platform and not found_mode:
+                            new_lines.append(f'    default_mode: "{mode_clean}"\n')
+                            found_mode = True
+                        if not found_platform:
+                            new_lines.append(
+                                f'  {canonical_id}:\n    enabled: true\n    default_mode: "{mode_clean}"\n\n'
+                            )
+                            found_platform = True
+                            found_mode = True
+                        in_platforms = False
+                        in_target_platform = False
+                        new_lines.append(line)
+                        continue
+
+                    if re.match(r"^ {2}[a-zA-Z0-9_-]+:", line):
+                        if in_target_platform and not found_mode:
+                            new_lines.append(f'    default_mode: "{mode_clean}"\n')
+                            found_mode = True
+                        if line.startswith(f"  {canonical_id}:"):
+                            in_target_platform = True
+                            found_platform = True
+                        else:
+                            in_target_platform = False
+                        new_lines.append(line)
+                        continue
+
+                    if in_target_platform and re.match(r"^ {4}default_mode:", line):
+                        new_lines.append(f'    default_mode: "{mode_clean}"\n')
+                        found_mode = True
+                        continue
+
+                new_lines.append(line)
+
+            if in_platforms and not found_platform:
+                new_lines.append(f'  {canonical_id}:\n    enabled: true\n    default_mode: "{mode_clean}"\n')
+            elif in_target_platform and not found_mode:
+                new_lines.append(f'    default_mode: "{mode_clean}"\n')
+
+            new_content = "".join(new_lines)
+            with open(target_path, "w", encoding="utf-8") as f:
+                f.write(new_content)
+            updated = True
+
+        load_vault_config(base_dir=base, force_refresh=True)
+        return updated
+
+    @classmethod
+    def set_platform_default_portfolio(cls, platform_id: str, portfolio: str, base_dir: str | None = None) -> bool:
+        """Set default_portfolio (e.g. 'Aggressive', 'Long term', 'Safety net') for a platform in config.yaml."""
+        base = base_dir or get_default_base_dir()
+        canonical_id = cls._alias_map.get(platform_id.lower().strip(), platform_id.lower().strip())
+        if canonical_id not in cls._platforms:
+            raise ValueError(f"Unknown platform ID: '{platform_id}'")
+
+        portfolio_clean = portfolio.strip()
+        candidate_paths = [
+            os.path.join(base, "99_System", "config.yaml"),
+            os.path.join(base, "config.yaml"),
+        ]
+        updated = False
+
+        for target_path in candidate_paths:
+            if not os.path.exists(target_path):
+                continue
+            with open(target_path, encoding="utf-8") as f:
+                content = f.read()
+
+            lines = content.splitlines(keepends=True)
+            in_platforms = False
+            in_target_platform = False
+            found_portfolio = False
+            found_platform = False
+            new_lines = []
+
+            for line in lines:
+                stripped = line.strip()
+                if line.startswith("platforms:"):
+                    in_platforms = True
+                    new_lines.append(line)
+                    continue
+
+                if in_platforms:
+                    if stripped and not line.startswith(" ") and not line.startswith("\t"):
+                        if in_target_platform and not found_portfolio:
+                            new_lines.append(f'    default_portfolio: "{portfolio_clean}"\n')
+                            found_portfolio = True
+                        if not found_platform:
+                            new_lines.append(
+                                f'  {canonical_id}:\n    enabled: true\n    default_portfolio: "{portfolio_clean}"\n\n'
+                            )
+                            found_platform = True
+                            found_portfolio = True
+                        in_platforms = False
+                        in_target_platform = False
+                        new_lines.append(line)
+                        continue
+
+                    if re.match(r"^ {2}[a-zA-Z0-9_-]+:", line):
+                        if in_target_platform and not found_portfolio:
+                            new_lines.append(f'    default_portfolio: "{portfolio_clean}"\n')
+                            found_portfolio = True
+                        if line.startswith(f"  {canonical_id}:"):
+                            in_target_platform = True
+                            found_platform = True
+                        else:
+                            in_target_platform = False
+                        new_lines.append(line)
+                        continue
+
+                    if in_target_platform and re.match(r"^ {4}default_portfolio:", line):
+                        new_lines.append(f'    default_portfolio: "{portfolio_clean}"\n')
+                        found_portfolio = True
+                        continue
+
+                new_lines.append(line)
+
+            if in_platforms and not found_platform:
+                new_lines.append(f'  {canonical_id}:\n    enabled: true\n    default_portfolio: "{portfolio_clean}"\n')
+            elif in_target_platform and not found_portfolio:
+                new_lines.append(f'    default_portfolio: "{portfolio_clean}"\n')
+
+            new_content = "".join(new_lines)
+            with open(target_path, "w", encoding="utf-8") as f:
+                f.write(new_content)
+            updated = True
+
+        load_vault_config(base_dir=base, force_refresh=True)
+        return updated

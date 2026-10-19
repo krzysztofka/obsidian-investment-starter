@@ -33,3 +33,26 @@ _Avoid_: Core portfolio, retirement bucket
 **Aggressive Portfolio**:
 Alpha generation, high-conviction individual equities, and thematic/cyclical opportunities.
 _Avoid_: Speculative bucket, trading portfolio
+
+## Vault Architecture & Lifecycle
+
+**Upstream Template Starter**:
+The public, open-source template repository providing the automation engine (`99_System/`), note templates, Dataview views, documentation, and sample datasets without private personal financial data.
+_Avoid_: Master vault, parent repo
+
+**Downstream Personal Vault**:
+The investor's private Obsidian financial vault holding actual personal asset notes, investment theses, raw broker statements, credentials, and custom target allocations.
+_Avoid_: User vault, child repo, private instance
+
+**Vault Initialization**:
+The guided onboarding and scaffolding workflow (`init.py` or `run.py --init`) configuring platform extensions, base currency, investor risk profile, and environment variables for a new vault.
+_Avoid_: Setup script, install run
+
+**Clean Vault**:
+A personal investment vault initialized with an empty asset ledger and pristine historical timeline, ready for live personal broker imports.
+_Avoid_: Empty vault, bare repo
+
+**Demo Vault**:
+A vault initialized or populated with synthetic demonstration assets, mock raw files, and sample performance history for exploration and testing.
+_Avoid_: Sample vault, test workspace
+

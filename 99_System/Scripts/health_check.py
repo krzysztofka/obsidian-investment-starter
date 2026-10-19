@@ -877,6 +877,21 @@ PROBES: dict[str, Callable[[float], ProbeResult]] = {
 }
 
 
+def _is_exante_api_enabled(target_vault: str | None = None) -> bool:
+    """Return True only if Exante platform is enabled and its default_mode is 'api'."""
+    try:
+        from model.config import load_vault_config
+
+        vault = os.path.abspath(target_vault or VAULT_ROOT)
+        cfg = load_vault_config(base_dir=vault)
+        exante_cfg = cfg.platforms.get("exante")
+        if not exante_cfg or not exante_cfg.enabled:
+            return False
+        return str(exante_cfg.default_mode or "csv").strip().lower() == "api"
+    except Exception:
+        return False
+
+
 # ==============================================================================
 # Execution & Report Generation Engine
 # ==============================================================================
@@ -886,11 +901,15 @@ def run_probes(
     selected_ids: list[str] | None = None,
     timeout: float = 8.0,
     max_workers: int = 6,
+    target_vault: str | None = None,
 ) -> HealthReport:
     """Execute probes concurrently and compile a structured HealthReport."""
-    probe_map = PROBES
     if selected_ids:
         probe_map = {pid: fn for pid, fn in PROBES.items() if pid.lower() in [s.lower() for s in selected_ids]}
+    else:
+        probe_map = dict(PROBES)
+        if "exante" in probe_map and not _is_exante_api_enabled(target_vault):
+            probe_map.pop("exante", None)
 
     results_dict: dict[str, ProbeResult] = {}
 
@@ -1096,7 +1115,7 @@ def run_health_check(
         Tuple of (HealthReport, exit_code), where exit_code is 0 if all configured
         services pass, or 1 if any service failed.
     """
-    report = run_probes(selected_ids=selected_integrations, timeout=timeout)
+    report = run_probes(selected_ids=selected_integrations, timeout=timeout, target_vault=target_vault)
 
     if as_json:
         print(json.dumps(report.to_dict(), indent=2))

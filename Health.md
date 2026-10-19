@@ -1,11 +1,11 @@
 ---
 type: health_dashboard
 title: Integrations Health & Connectivity Diagnostics
-last_checked: "2026-10-11 19:40:58"
-status_summary: "8/11 Passed, 3 Warnings"
-total_probed: 11
+last_checked: "2026-10-19 20:36:12"
+status_summary: "8/10 Passed, 2 Warnings"
+total_probed: 10
 passed_count: 8
-warn_count: 3
+warn_count: 2
 failed_count: 0
 all_ok: true
 tags:
@@ -26,10 +26,10 @@ A real-time diagnostic dashboard monitoring external data providers, financial A
 
 
 > [!WARNING] ⚠️ **Configuration Warnings Detected**
-> **8 service(s)** passed, but **3 optional service(s)** have warnings (unconfigured API keys or optional libraries). Core functionality is intact.
+> **8 service(s)** passed, but **2 optional service(s)** have warnings (unconfigured API keys or optional libraries). Core functionality is intact.
 
 
-**Last Diagnostic Scan:** `2026-10-11 19:40:58` · **Overall Result:** `8/11 Passed, 3 Warnings`
+**Last Diagnostic Scan:** `2026-10-19 20:36:12` · **Overall Result:** `8/10 Passed, 2 Warnings`
 
 ---
 
@@ -84,17 +84,16 @@ btn.onclick = async () => {
 
 | Service | Category | Auth / Requirement | Status | Latency | Target Endpoint / Probe | Details / Status Message |
 | :--- | :--- | :--- | :---: | :---: | :--- | :--- |
-| **Yahoo Finance** | `Market Data` | Public / Free | ✅ `OK` | 811 ms | `query1.finance.yahoo.com (Ticker: SPY)` | Success: retrieved SPY close ($778.57) |
-| **National Bank of Poland (NBP)** | `Macro / FX Rates` | Public / Free | ✅ `OK` | 638 ms | `api.nbp.pl/api/exchangerates/tables/a` | HTTP 200: Active FX Table A fixing (197/A/NBP/2026) |
-| **Eurostat** | `Macro / Sovereign Yields` | Public / Free | ✅ `OK` | 721 ms | `ec.europa.eu/eurostat/api/dissemination (10Y Yield PL)` | HTTP 200: Valid JSON dataset received (data present) |
-| **Stooq** | `Market Quotes & Charts` | Public / Free | ✅ `OK` | 650 ms | `stooq.pl/q/d/l/?s=aapl.us&i=d` | HTTP 200: CSV quote data stream accessible |
-| **JustETF** | `ETF Metadata & Scraper` | Public / Free | ✅ `OK` | 1022 ms | `justetf.com/en/etf-profile.html (ISIN: IE00B4L5Y983)` | HTTP 200: Profile page reachable (ETF metadata detected) |
+| **Yahoo Finance** | `Market Data` | Public / Free | ✅ `OK` | 2268 ms | `query1.finance.yahoo.com (Ticker: SPY)` | Success: retrieved SPY close ($766.96) |
+| **National Bank of Poland (NBP)** | `Macro / FX Rates` | Public / Free | ✅ `OK` | 581 ms | `api.nbp.pl/api/exchangerates/tables/a` | HTTP 200: Active FX Table A fixing (203/A/NBP/2026) |
+| **Eurostat** | `Macro / Sovereign Yields` | Public / Free | ✅ `OK` | 671 ms | `ec.europa.eu/eurostat/api/dissemination (10Y Yield PL)` | HTTP 200: Valid JSON dataset received (data present) |
+| **Stooq** | `Market Quotes & Charts` | Public / Free | ✅ `OK` | 646 ms | `stooq.pl/q/d/l/?s=aapl.us&i=d` | HTTP 200: CSV quote data stream accessible |
+| **JustETF** | `ETF Metadata & Scraper` | Public / Free | ✅ `OK` | 991 ms | `justetf.com/en/etf-profile.html (ISIN: IE00B4L5Y983)` | HTTP 200: Profile page reachable (ETF metadata detected) |
 | **Finnhub** | `Market Intelligence / SEC` | API Key in .env (`FINNHUB_API_KEY`) | ⚠️ `WARN` | — | `finnhub.io` | FINNHUB_API_KEY not configured (placeholder detected in .env) |
-| **Exante REST API** | `Broker API` | API Key & Secret in .env | ⚠️ `WARN` | — | `api-live.exante.eu` | EXANTE credentials not configured (placeholder detected in .env) |
 | **OpenBB Platform** | `Local Quantitative SDK` | Optional Python Library | ⚠️ `WARN` | 0 ms | `openbb python package` | OpenBB package not installed (optional, yfinance fallback active) |
-| **iShares (BlackRock)** | `ETF Issuer Scraper` | Public / Free | ✅ `OK` | 992 ms | `ishares.com/uk (Core MSCI World)` | HTTP 200: iShares fund portal reachable |
-| **Vanguard** | `ETF Issuer Scraper` | Public / Free | ✅ `OK` | 1188 ms | `vanguardinvestor.co.uk` | HTTP 200: Vanguard portal reachable |
-| **VanEck** | `ETF Issuer Scraper` | Public / Free | ✅ `OK` | 2430 ms | `vaneck.com/nl/en/etf/equity/tdiv/overview/` | HTTP 200: VanEck portal reachable |
+| **iShares (BlackRock)** | `ETF Issuer Scraper` | Public / Free | ✅ `OK` | 2005 ms | `ishares.com/uk (Core MSCI World)` | HTTP 200: iShares fund portal reachable |
+| **Vanguard** | `ETF Issuer Scraper` | Public / Free | ✅ `OK` | 1088 ms | `vanguardinvestor.co.uk` | HTTP 200: Vanguard portal reachable |
+| **VanEck** | `ETF Issuer Scraper` | Public / Free | ✅ `OK` | 1671 ms | `vaneck.com/nl/en/etf/equity/tdiv/overview/` | HTTP 200: VanEck portal reachable |
 
 
 ---
@@ -109,14 +108,6 @@ btn.onclick = async () => {
 - **Endpoint:** `finnhub.io`
 - **Remediation:**
 Register for a free key at https://finnhub.io and set `FINNHUB_API_KEY=your_key` in `.env` to enable analyst ratings and SEC insider trading alerts.
-
-
-### 🔧 Exante REST API (⚠️ Configuration Notice)
-
-- **Status:** `WARN` (EXANTE credentials not configured (placeholder detected in .env))
-- **Endpoint:** `api-live.exante.eu`
-- **Remediation:**
-To enable live broker synchronization without manual CSVs, generate API credentials in Exante Client Area and set `EXANTE_API_KEY` and `EXANTE_API_SECRET` in `.env`.
 
 
 ### 🔧 OpenBB Platform (⚠️ Configuration Notice)

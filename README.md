@@ -84,9 +84,9 @@ The system enforces an autonomous **three-bucket capital allocation framework**:
 ### 1. Prerequisites
 
 - **Python 3.10+**
-- **Obsidian** with the following community plugins enabled:
-  - **[Dataview](https://github.com/blacksmithgu/obsidian-dataview)** *(Required: Enable JavaScript Queries in settings)*
-  - **[Obsidian Charts](https://github.com/phibr0/obsidian-charts)** *(Required for allocation & performance charts)*
+- **Obsidian**:
+  - The repository comes pre-bundled with required plugins in `.obsidian/plugins/` (**[Dataview](https://github.com/blacksmithgu/obsidian-dataview)** and **[Obsidian Charts](https://github.com/phibr0/obsidian-charts)**).
+  - When opening the vault in Obsidian for the first time, click **"Trust author and enable plugins"** and ensure **"Enable JavaScript Queries"** is toggled ON under Dataview settings.
 
 ### 2. Environment Setup
 
@@ -107,9 +107,44 @@ source venv/bin/activate
 pip install .
 ```
 
-### 3. API Keys Configuration (Optional)
+### 3. Initialize Your Vault
 
-Create a `.env` file in the root directory to enable live API feeds:
+Run the interactive setup wizard via [init.py](init.py) (or `python run.py --init`):
+
+```bash
+# Interactive setup (platforms, base currency, investor profile, and clean/demo mode)
+python init.py
+
+# Or via unified runner:
+python run.py --init
+```
+
+The wizard guides you through:
+1. **Initial Data Mode:**
+   - **Clean Vault (Default):** Purges sample demo assets, mock raw files, and dummy history, leaving you with a pristine vault ready for your real holdings.
+   - **Demo Vault:** Preserves synthetic demonstration assets across all three portfolios and mock history for exploring dashboards.
+2. **Platform Extensions:** Select which broker extensions to enable (`pko_bp_bonds`, `mbank_ike`, `mbank_ikze`, `degiro`, `exante`).
+3. **Base Currency & Localization:** Select your primary portfolio currency (`PLN`, `EUR`, `USD`, `GBP`, `CHF`, or custom ISO-4217).
+4. **Investor Profile & Rebalancing Rules:** Configure risk tolerance (Conservative, Moderate, Aggressive), Belka tax DCA sensitivity, and single-stock allocation cap.
+5. **Environment Configuration:** Automatically copies `.env.example` -> `.env`.
+6. **Diagnostics:** Verifies installed dependencies and optionally tests market API connectivity.
+
+> [!TIP]
+> **Non-Interactive & Advanced CLI Flags:**
+> - `python init.py --clean` / `python run.py --init --clean`: Non-interactively initialize as a Clean Vault.
+> - `python init.py --demo` / `python run.py --init --demo`: Non-interactively initialize as a Demo Vault.
+> - `python init.py --target ../my-vault`: Scaffold a complete downstream personal vault into an external directory.
+
+### 4. Open in Obsidian
+
+1. Open **Obsidian**, choose **"Open folder as vault"**, and select the repository directory.
+2. In Obsidian Settings → **Community plugins**, confirm plugins are enabled.
+3. In Obsidian Settings → **Dataview**, confirm **"Enable JavaScript Queries"** is enabled.
+4. Open **[Welcome.md](Welcome.md)** or **[Overview.md](Overview.md)** to access your command center.
+
+### 5. API Keys Configuration & Pipeline Execution (Optional)
+
+Configure your API credentials in `.env` (if using Finnhub or Exante REST API):
 
 ```env
 # Finnhub API (for analyst ratings & insider transactions)
@@ -122,6 +157,13 @@ EXANTE_ACCOUNT_ID=your_account_id
 EXANTE_API_URL=https://api-live.exante.eu
 ```
 
+Execute your initial portfolio pipeline:
+
+```bash
+# 🚀 Run complete pipeline (import -> FX rates -> macro -> ETF sync -> alerts -> history)
+python run.py --all
+```
+
 ---
 
 ## ⚡ Automation CLI Commands
@@ -131,6 +173,10 @@ All automation tasks can be run via the unified CLI runner [run.py](run.py):
 ```bash
 # 🚀 Run complete pipeline (import -> FX rates -> macro -> ETF sync -> alerts -> history)
 python run.py --all
+
+# ⚙️ Initialize / re-configure vault
+python run.py --init                    # Interactive setup (currency, profile, platforms, data mode)
+python run.py --init --clean            # Initialize as Clean Vault (wipe sample assets & dummy history)
 
 # 🩺 Diagnostics & Vault Sanity
 python run.py --health                   # Run external integrations connectivity diagnostics
