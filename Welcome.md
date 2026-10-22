@@ -2,8 +2,13 @@
 
 Welcome to your **Investment Second Brain & Portfolio Management System** — a unified, Obsidian-powered command center designed to track holdings across multiple brokers, automate market intelligence, and enforce disciplined investment decisions.
 
-> 🏷️ **Vault Version:** `v0.7.0` (tracked in [`.vault_version`](file:///.vault_version))  
-> 📖 **System Documentation & Guidelines:** Read [[GEMINI|GEMINI.md]] for the complete system architecture, automation workflows, directory structure, and API integrations.
+```dataviewjs
+let v = "unknown";
+try {
+    v = (await app.vault.adapter.read(".vault_version")).trim();
+} catch (e) {}
+dv.paragraph(`> 🏷️ **Vault Version:** \`v${v}\` (tracked in [\`.vault_version\`](file:///.vault_version))  \n> 📖 **System Documentation & Guidelines:** Read [[GEMINI|GEMINI.md]] for the complete system architecture, automation workflows, directory structure, and API integrations.`);
+```
 
 ---
 
@@ -128,7 +133,13 @@ For in-depth technical details, refer to [[99_System/Scripts/import_instructions
 
 ## 🔄 Vault Versioning & Upstream Updates
 
-This vault tracks its code and schema version in [`.vault_version`](file:///.vault_version) (current: `v0.7.0`).
+```dataviewjs
+let v = "unknown";
+try {
+    v = (await app.vault.adapter.read(".vault_version")).trim();
+} catch (e) {}
+dv.paragraph(`This vault tracks its code and schema version in [\`.vault_version\`](file:///.vault_version) (current: \`v${v}\`).`);
+```
 
 When improvements, new broker extensions, or bug fixes are released in the upstream template repository ([`obsidian-investment-starter`](https://github.com/krzysztofka/obsidian-investment-starter)), they can be safely synchronized into downstream personal vaults (e.g. `trader`) using the built-in sequential patch engine:
 

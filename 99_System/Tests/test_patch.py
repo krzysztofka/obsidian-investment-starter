@@ -302,3 +302,33 @@ def test_patch_0_9_to_0_10():
             csv_header = f.readline()
         assert "value_base" in csv_header
         assert "value_pln" not in csv_header
+
+
+def test_patch_0_11_to_0_12():
+    vault_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    from patch.patches.patch_0_11_to_0_12 import apply as apply_11_to_12
+
+    with tempfile.TemporaryDirectory() as mock_target:
+        os.makedirs(os.path.join(mock_target, "99_System", "Scripts"), exist_ok=True)
+        with open(os.path.join(mock_target, ".vault_version"), "w", encoding="utf-8") as f:
+            f.write("0.11.0\n")
+
+        config_path = os.path.join(mock_target, "config.yaml")
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write(
+                "model_portfolios:\n"
+                "  safety_net:\n"
+                '    name: "Safety net"\n'
+                "    tolerance_band_pct: 5.0\n"
+                "    min_trade_amount_pln: 500.0\n"
+            )
+
+        res = apply_11_to_12(vault_root, mock_target, dry_run=False)
+        assert res is True
+        assert get_vault_version(mock_target) == "0.12.0"
+        assert os.path.exists(os.path.join(mock_target, "99_System", "Scripts", "check_model_portfolios.py"))
+        assert os.path.exists(os.path.join(mock_target, "99_System", "Scripts", "setup_model_portfolios.py"))
+        with open(config_path, encoding="utf-8") as f:
+            cfg_text = f.read()
+        assert "min_trade_amount: 500.0" in cfg_text
+        assert "min_trade_amount_pln" not in cfg_text

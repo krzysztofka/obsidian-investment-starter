@@ -71,6 +71,13 @@ def discover_patches() -> list[dict[str, Any]]:
             except Exception as e:
                 print(f"Warning: could not load patch {fname}: {e}")
 
+    def _ver_key(p: dict[str, Any]) -> tuple[int, ...]:
+        try:
+            return tuple(int(part) for part in str(p.get("to_version", "0.0.0")).split("."))
+        except ValueError:
+            return (0, 0, 0)
+
+    patches.sort(key=_ver_key)
     return patches
 
 

@@ -76,32 +76,49 @@ def test_get_model_portfolio_resolution() -> None:
     assert cfg.get_model_portfolio(None) is None
 
 
-def test_layer_validation_sum_to_100() -> None:
-    """Verify layer validation enforces sum of weight_pct equals 100.0%."""
-    # Valid sum
-    valid_layers = ModelPortfolioLayers(
+def test_layer_validation_partial_and_max_100() -> None:
+    """Verify layer validation allows partial sums (0 < sum <= 100.0%) and rejects > 100%, <= 0%, or duplicates."""
+    # 1. Valid full 100% sum
+    valid_full = ModelPortfolioLayers(
         asset_classes=[
             ModelPortfolioTargetItem(target="Equities", weight_pct=60.0),
             ModelPortfolioTargetItem(target="Bonds", weight_pct=40.0),
         ]
     )
-    assert len(valid_layers.asset_classes) == 2
+    assert len(valid_full.asset_classes) == 2
 
-    # Under-allocation (sum < 100%)
-    with pytest.raises(ValidationError, match="asset_classes.*must sum to 100.0%"):
-        ModelPortfolioLayers(
-            asset_classes=[
-                ModelPortfolioTargetItem(target="Equities", weight_pct=60.0),
-                ModelPortfolioTargetItem(target="Bonds", weight_pct=30.0),
-            ]
-        )
+    # 2. Valid partial allocation (sum < 100%, e.g. 30% Equities + 30% Bonds = 60%)
+    valid_partial = ModelPortfolioLayers(
+        asset_classes=[
+            ModelPortfolioTargetItem(target="Equities", weight_pct=30.0),
+            ModelPortfolioTargetItem(target="Bonds", weight_pct=30.0),
+        ]
+    )
+    assert sum(item.weight_pct for item in valid_partial.asset_classes) == 60.0
 
-    # Over-allocation (sum > 100%)
-    with pytest.raises(ValidationError, match="sectors.*must sum to 100.0%"):
+    # 3. Over-allocation (sum > 100%)
+    with pytest.raises(ValidationError, match="sectors.*cannot exceed 100.0%"):
         ModelPortfolioLayers(
             sectors=[
                 ModelPortfolioTargetItem(target="Technology", weight_pct=70.0),
                 ModelPortfolioTargetItem(target="Healthcare", weight_pct=40.0),
+            ]
+        )
+
+    # 4. Zero total allocation (sum <= 0%)
+    with pytest.raises(ValidationError, match="asset_classes.*must be greater than 0%"):
+        ModelPortfolioLayers(
+            asset_classes=[
+                ModelPortfolioTargetItem(target="Equities", weight_pct=0.0),
+            ]
+        )
+
+    # 5. Duplicate target in the same layer
+    with pytest.raises(ValidationError, match="Duplicate target"):
+        ModelPortfolioLayers(
+            asset_classes=[
+                ModelPortfolioTargetItem(target="Equities", weight_pct=30.0),
+                ModelPortfolioTargetItem(target="equities", weight_pct=20.0),
             ]
         )
 
@@ -279,3 +296,155 @@ def test_localization_config() -> None:
     assert "PLN" in cfg.localization.supported_currencies
     assert "EUR" in cfg.localization.supported_currencies
     assert "USD" in cfg.localization.supported_currencies
+
+
+def test_interactive_setup_model_portfolios_custom_layers_and_tolerances(tmp_path: pytest.TempPathFactory) -> None:
+    """Seam 1: Interactive wizard customizes portfolio corridors, per-target tolerance overrides, and partial layers."""
+    from unittest.mock import patch
+
+    from setup_model_portfolios import run_setup_model_portfolios
+
+    cfg_file = tmp_path / "config.yaml"  # type: ignore[operator]
+    cfg_file.write_text(
+        "# Header comment preserved\n"
+        "localization:\n"
+        '  base_currency: "PLN"\n'
+        "\n"
+        "user_profile:\n"
+        '  risk_tolerance: "moderate"\n'
+        "  max_single_stock_pct: 15.0\n",
+        encoding="utf-8",
+    )
+
+    # Simulated interactive session:
+    # 1. Preset choice: "1" (Balanced starter)
+    # 2. Single-stock cap: "12" (12.0%)
+    # 3. Customize portfolios?: "y"
+    # 4. Main menu: "1" (Safety net)
+    #    - Display name: "" (keep "Safety net")
+    #    - Strategy: "2" (full_rebalance)
+    #    - Tolerance band: "4.0"
+    #    - Min trade amount: "250"
+    #    - Primary layer: "1" (asset_classes)
+    #    - Layer action: "C" -> confirm "y" (clear preset items)
+    #    - Layer action: "A" -> target "Equities", weight "30", tol override "", min trade override ""
+    #    - Layer action: "A" -> target "Bonds", weight "30", tol override "2.5", min trade override "100"
+    #    - Layer action: "F" -> allocate remainder to Cash? "n" (keep partial 60% sum!)
+    # 5. Main menu: "3" (Aggressive)
+    #    - Display name: "" (keep "Aggressive")
+    #    - Strategy: "" (keep inflow_first)
+    #    - Tolerance band: "" (keep 5.0)
+    #    - Min trade amount: "" (keep 500.0)
+    #    - Primary layer: "3" (sectors)
+    #    - Layer action: "A" -> target "Technology", weight "60", tol override "3.0", min trade override ""
+    #    - Layer action: "A" -> target "Military", weight "40", tol override "", min trade override ""
+    #    - Layer action: "F" (sum is 100%, finishes immediately)
+    # 6. Main menu: "S" (Save changes to config.yaml and Exit)
+    user_inputs = [
+        "1",
+        "12",
+        "y",
+        "1",
+        "",
+        "2",
+        "4.0",
+        "250",
+        "1",
+        "C",
+        "y",
+        "A",
+        "Equities",
+        "30",
+        "",
+        "",
+        "A",
+        "Bonds",
+        "30",
+        "2.5",
+        "100",
+        "F",
+        "n",
+        "3",
+        "",
+        "",
+        "",
+        "",
+        "3",
+        "A",
+        "Technology",
+        "60",
+        "3.0",
+        "",
+        "A",
+        "Military",
+        "40",
+        "",
+        "",
+        "F",
+        "S",
+    ]
+
+    with patch("builtins.input", side_effect=user_inputs):
+        ok = run_setup_model_portfolios(target_dir=str(tmp_path), interactive=True)
+        assert ok is True
+
+    raw_text = cfg_file.read_text(encoding="utf-8")
+    assert "# Header comment preserved" in raw_text
+    assert "min_trade_amount:" in raw_text
+    assert "min_trade_amount_pln:" not in raw_text
+
+    loaded = load_vault_config(base_dir=str(tmp_path), force_refresh=True)
+    assert loaded.user_profile.max_single_stock_pct == 12.0
+
+    safety = loaded.model_portfolios["safety_net"]
+    assert safety.rebalance_strategy == "full_rebalance"
+    assert safety.tolerance_band_pct == 4.0
+    assert safety.min_trade_amount == 250.0
+    assert safety.primary_layer == "asset_classes"
+    assert len(safety.layers.asset_classes) == 2
+    assert safety.layers.asset_classes[0].target == "Equities"
+    assert safety.layers.asset_classes[0].weight_pct == 30.0
+    assert safety.layers.asset_classes[0].tolerance_band_pct is None
+    assert safety.get_tolerance_band(safety.layers.asset_classes[0]) == 4.0
+    assert safety.layers.asset_classes[1].target == "Bonds"
+    assert safety.layers.asset_classes[1].weight_pct == 30.0
+    assert safety.layers.asset_classes[1].tolerance_band_pct == 2.5
+    assert safety.layers.asset_classes[1].min_trade_amount == 100.0
+    assert safety.get_tolerance_band(safety.layers.asset_classes[1]) == 2.5
+    assert safety.get_min_trade_amount(safety.layers.asset_classes[1]) == 100.0
+
+    agg = loaded.model_portfolios["aggressive"]
+    assert agg.primary_layer == "sectors"
+    assert len(agg.layers.sectors) == 2
+    assert agg.layers.sectors[0].target == "Technology"
+    assert agg.layers.sectors[0].weight_pct == 60.0
+    assert agg.layers.sectors[0].tolerance_band_pct == 3.0
+    assert agg.layers.sectors[1].target == "Military"
+    assert agg.layers.sectors[1].weight_pct == 40.0
+    assert agg.layers.sectors[1].tolerance_band_pct is None
+
+
+def test_run_py_setup_model_portfolios_flag(tmp_path: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Seam 1: run.py --setup-model-portfolios launches interactive model portfolio configurator."""
+    import sys
+    from unittest.mock import patch
+
+    import run as runner_mod
+
+    cfg_file = tmp_path / "config.yaml"  # type: ignore[operator]
+    cfg_file.write_text("localization:\n  base_currency: PLN\n", encoding="utf-8")
+
+    # Immediately save default presets ("S") in interactive_main
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["run.py", "--setup-model-portfolios", "--base-dir", str(tmp_path)],
+    )
+    with patch("builtins.input", side_effect=["S"]):
+        exit_code = runner_mod.main()
+        assert exit_code == 0
+
+    loaded = load_vault_config(base_dir=str(tmp_path), force_refresh=True)
+    assert "safety_net" in loaded.model_portfolios
+    assert "long_term" in loaded.model_portfolios
+    assert "aggressive" in loaded.model_portfolios

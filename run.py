@@ -267,6 +267,31 @@ def run_alerts_step(args: argparse.Namespace, vault_root: str) -> dict[str, Any]
     return {"status": "ok", "scanned": scanned, "updated": updated, "active_alerts": active_alerts}
 
 
+def run_rebalance_step(args: argparse.Namespace, vault_root: str) -> dict[str, Any]:
+    """Execute Model Portfolio drift evaluation across portfolio buckets."""
+    from check_model_portfolios import run_check_model_portfolios
+
+    portfolio_filter = getattr(args, "portfolio", None)
+    strict = getattr(args, "strict", False)
+    as_json = getattr(args, "json", False)
+
+    report, exit_code = run_check_model_portfolios(
+        vault_path=vault_root,
+        portfolio_filter=portfolio_filter,
+        strict=strict,
+        as_json=as_json,
+    )
+    if exit_code != 0:
+        raise RuntimeError(
+            f"Model portfolio drift check detected {report.warning_portfolio_count} breached portfolio(s)."
+        )
+    return {
+        "status": "ok",
+        "warning_portfolio_count": report.warning_portfolio_count,
+        "report": report.to_dict(),
+    }
+
+
 def run_history_step(args: argparse.Namespace, vault_root: str) -> dict[str, Any]:
     """Execute portfolio historical snapshot synchronization."""
     from history.update_portfolio import update_portfolio_history
@@ -361,6 +386,7 @@ PIPELINE_STEPS = [
     ("macro", "Synchronize macroeconomic indicators & yields", run_macro_step),
     ("sync_etfs", "Synchronize ETF top holdings & cross-exposure", run_sync_etfs_step),
     ("alerts", "Scan & evaluate portfolio alerts", run_alerts_step),
+    ("rebalance", "Check model portfolio drift & corridors", run_rebalance_step),
     ("history", "Synchronize portfolio historical timeline", run_history_step),
     ("archive", "Archive historical snapshots & rotate raw data", run_archive_step),
     ("export_template", "Export clean template repository", run_export_template_step),
@@ -493,6 +519,12 @@ examples:
         help="Initialize or configure vault (platforms, base currency, investor profile, and clean/demo data mode).",
     )
     actions_group.add_argument(
+        "--setup-model-portfolios",
+        dest="action_setup_model_portfolios",
+        action="store_true",
+        help="Launch interactive Model Portfolio & Target Corridors configuration wizard.",
+    )
+    actions_group.add_argument(
         "--all",
         action="store_true",
         help="Run all pipeline actions in canonical sequence.",
@@ -545,6 +577,13 @@ examples:
         dest="action_alerts",
         action="store_true",
         help="Scan and evaluate portfolio alerts (Alert Rules Engine).",
+    )
+    actions_group.add_argument(
+        "--rebalance",
+        "--check-model",
+        dest="action_rebalance",
+        action="store_true",
+        help="Evaluate Model Portfolio drift and Tolerance Corridor breaches across portfolio buckets.",
     )
     actions_group.add_argument(
         "-H",
@@ -659,6 +698,18 @@ examples:
         type=str,
         default=None,
         help="[--alerts] Filter specific alert rule (e.g., 'overvalued', 'stop_loss').",
+    )
+    step_opts.add_argument(
+        "--portfolio",
+        type=str,
+        default=None,
+        help="[--rebalance] Filter specific portfolio bucket (e.g., 'safety_net', 'long_term', 'aggressive').",
+    )
+    step_opts.add_argument(
+        "--strict",
+        action="store_true",
+        default=False,
+        help="[--rebalance] Return non-zero exit code if any portfolio requires rebalancing.",
     )
     step_opts.add_argument(
         "--target-dir",
@@ -845,6 +896,12 @@ def main() -> int:
             )
         return 0
 
+    if getattr(args, "action_setup_model_portfolios", False):
+        from setup_model_portfolios import interactive_main
+
+        target = args.target or args.sync_vault_path or args.base_dir or vault_root
+        return interactive_main(vault_root=target)
+
     if args.action_init:
         from init_vault import init_vault
 
@@ -888,6 +945,8 @@ def main() -> int:
         requested_steps.append("sync_etfs")
     if run_all or args.action_alerts:
         requested_steps.append("alerts")
+    if run_all or getattr(args, "action_rebalance", False):
+        requested_steps.append("rebalance")
     if run_all or args.action_history:
         requested_steps.append("history")
     if args.action_archive:

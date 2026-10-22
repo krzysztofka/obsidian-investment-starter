@@ -127,6 +127,15 @@ def load_model_portfolios_raw(config_path: str) -> dict[str, Any]:
     return {}
 
 
+def _get_min_trade_amount(cfg: dict[str, Any], default: float = 500.0) -> float:
+    """Resolve min_trade_amount from dict with fallback to legacy min_trade_amount_pln."""
+    if cfg.get("min_trade_amount") is not None:
+        return float(cfg["min_trade_amount"])
+    if cfg.get("min_trade_amount_pln") is not None:
+        return float(cfg["min_trade_amount_pln"])
+    return default
+
+
 def format_model_portfolios_yaml(model_portfolios_data: dict[str, Any]) -> str:
     """Format model_portfolios data into clean, readable YAML block."""
     lines = [
@@ -142,8 +151,8 @@ def format_model_portfolios_yaml(model_portfolios_data: dict[str, Any]) -> str:
         lines.append(f'    rebalance_strategy: "{strat}"')
         tol = float(pcfg.get("tolerance_band_pct", 5.0))
         lines.append(f"    tolerance_band_pct: {tol:.1f}")
-        min_trade = float(pcfg.get("min_trade_amount_pln", 500.0))
-        lines.append(f"    min_trade_amount_pln: {min_trade:.1f}")
+        min_trade = _get_min_trade_amount(pcfg, 500.0)
+        lines.append(f"    min_trade_amount: {min_trade:.1f}")
         pri_layer = pcfg.get("primary_layer", "asset_classes")
         lines.append(f'    primary_layer: "{pri_layer}"')
 
@@ -162,12 +171,32 @@ def format_model_portfolios_yaml(model_portfolios_data: dict[str, Any]) -> str:
                     if it.get("tolerance_band_pct") is not None:
                         t_band = float(it["tolerance_band_pct"])
                         lines.append(f"          tolerance_band_pct: {t_band:.1f}")
-                    if it.get("min_trade_amount_pln") is not None:
-                        t_min = float(it["min_trade_amount_pln"])
-                        lines.append(f"          min_trade_amount_pln: {t_min:.1f}")
+                    item_min = it.get("min_trade_amount")
+                    if item_min is None:
+                        item_min = it.get("min_trade_amount_pln")
+                    if item_min is not None:
+                        t_min = float(item_min)
+                        lines.append(f"          min_trade_amount: {t_min:.1f}")
         lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
+
+
+def render_model_portfolios_diff(old_data: dict[str, Any], new_data: dict[str, Any]) -> str:
+    """Generate a unified diff between previous and updated model_portfolios blocks."""
+    import difflib
+
+    old_yaml = format_model_portfolios_yaml(old_data) if old_data else ""
+    new_yaml = format_model_portfolios_yaml(new_data)
+    diff_lines = list(
+        difflib.unified_diff(
+            old_yaml.splitlines(keepends=True),
+            new_yaml.splitlines(keepends=True),
+            fromfile="config.yaml (before)",
+            tofile="config.yaml (after)",
+        )
+    )
+    return "".join(diff_lines)
 
 
 def save_model_portfolios_to_config(config_path: str, model_portfolios_data: dict[str, Any]) -> None:
@@ -259,7 +288,7 @@ def display_model_portfolios_summary(model_portfolios: dict[str, Any]) -> None:
             name = pcfg.get("name", key)
             strat = pcfg.get("rebalance_strategy", "inflow_first")
             tol = f"±{pcfg.get('tolerance_band_pct', 5.0)}%"
-            min_tr = f"{pcfg.get('min_trade_amount_pln', 500.0)} PLN"
+            min_tr = f"{_get_min_trade_amount(pcfg, 500.0)}"
             pri_layer = pcfg.get("primary_layer", "asset_classes")
 
             items = pcfg.get("layers", {}).get(pri_layer, [])
@@ -292,7 +321,7 @@ def display_layer_targets_table(targets: list[dict[str, Any]], default_tol: floa
         table.add_column("Target (Asset / Class / Sector)", style="bold")
         table.add_column("Target Weight %", justify="right")
         table.add_column("Tolerance Corridor Margin", justify="right")
-        table.add_column("Min Trade (PLN)", justify="right")
+        table.add_column("Min Trade", justify="right")
 
         for idx, it in enumerate(targets, start=1):
             t_name = it.get("target", "")
@@ -302,11 +331,10 @@ def display_layer_targets_table(targets: list[dict[str, Any]], default_tol: floa
                 if it.get("tolerance_band_pct") is not None
                 else f"±{default_tol:.1f}% (default)"
             )
-            min_tr = (
-                f"{float(it['min_trade_amount_pln']):.1f}"
-                if it.get("min_trade_amount_pln") is not None
-                else f"{default_min_trade:.1f} (default)"
-            )
+            item_min = it.get("min_trade_amount")
+            if item_min is None:
+                item_min = it.get("min_trade_amount_pln")
+            min_tr = f"{float(item_min):.1f}" if item_min is not None else f"{default_min_trade:.1f} (default)"
             table.add_row(str(idx), t_name, w_pct, tol, min_tr)
 
         console.print(table)
@@ -403,7 +431,7 @@ def configure_layer_targets_interactively(
 
             # Optional custom min trade amount override
             override_min = prompt_string(
-                f"Custom min trade PLN (or press Enter to keep default {default_min_trade} PLN)",
+                f"Custom min trade amount (or press Enter to keep default {default_min_trade})",
                 default="",
             )
             min_val = None
@@ -420,7 +448,7 @@ def configure_layer_targets_interactively(
             if tol_val is not None:
                 new_item["tolerance_band_pct"] = tol_val
             if min_val is not None:
-                new_item["min_trade_amount_pln"] = min_val
+                new_item["min_trade_amount"] = min_val
 
             targets.append(new_item)
             print(f"   ✓ Added target '{chosen_target}' ({weight}%).")
@@ -438,6 +466,15 @@ def configure_layer_targets_interactively(
                     max_val=100.0,
                 )
                 item["weight_pct"] = new_w
+                override_margin = prompt_string(
+                    f"Custom tolerance margin % for '{item.get('target')}' (Enter to keep current/default)",
+                    default="",
+                )
+                if override_margin:
+                    try:
+                        item["tolerance_band_pct"] = float(override_margin)
+                    except ValueError:
+                        pass
                 print(f"   ✓ Updated '{item.get('target')}' to {new_w}%.")
 
         elif choice_up == "D" and targets:
@@ -454,16 +491,18 @@ def configure_layer_targets_interactively(
                 print("   ✓ Cleared all targets.")
 
         elif choice_up == "F":
-            # Validation check
+            # Validation check (0 < sum <= 100%)
+            if not targets:
+                return targets
             current_sum = sum(float(it.get("weight_pct", 0.0)) for it in targets)
             if abs(current_sum - 100.0) < 0.1:
                 return targets
 
-            if current_sum < 100.0:
+            if 0.0 < current_sum < 100.0:
                 diff = round(100.0 - current_sum, 1)
                 auto_cash = prompt_string(
-                    f"Current total is {current_sum:.1f}% ({diff:.1f}% remaining). Allocate remainder to 'Cash'? [Y/n]",
-                    default="Y",
+                    f"Current total is {current_sum:.1f}% ({diff:.1f}% remaining). Allocate remainder to 'Cash'? [y/N]",
+                    default="N",
                 )
                 if auto_cash.lower() in ("y", "yes"):
                     cash_item = next((it for it in targets if it.get("target") == "Cash"), None)
@@ -472,9 +511,11 @@ def configure_layer_targets_interactively(
                     else:
                         targets.append({"target": "Cash", "weight_pct": diff})
                     print(f"   ✓ Added/adjusted 'Cash' to absorb remaining {diff}%.")
-                    return targets
                 else:
-                    print("   ⚠️ Targets must sum to 100.0% before finishing.")
+                    print(
+                        f"   ✓ Keeping partial layer allocation ({current_sum:.1f}% configured, {diff:.1f}% unconstrained)."
+                    )
+                return targets
             else:
                 diff = round(current_sum - 100.0, 1)
                 print(f"   ❌ Total weight exceeds 100% by {diff}%. Please edit or delete items.")
@@ -511,11 +552,12 @@ def configure_portfolio_interactively(
     )
 
     # 3. Minimum Trade Amount
-    min_trade_default = float(cfg.get("min_trade_amount_pln", 500.0))
-    cfg["min_trade_amount_pln"] = prompt_float(
-        "Minimum trade threshold in PLN (to eliminate fee-inefficient micro-transactions)",
+    min_trade_default = _get_min_trade_amount(cfg, 500.0)
+    cfg.pop("min_trade_amount_pln", None)
+    cfg["min_trade_amount"] = prompt_float(
+        "Minimum trade threshold in Base Currency (to eliminate fee-inefficient micro-transactions)",
         default=min_trade_default,
-        min_val=50.0,
+        min_val=0.0,
         max_val=100000.0,
     )
 
@@ -545,7 +587,7 @@ def configure_portfolio_interactively(
         portfolio_name=display_name,
         layer_name=chosen_layer,
         default_tolerance=cfg["tolerance_band_pct"],
-        default_min_trade=cfg["min_trade_amount_pln"],
+        default_min_trade=cfg["min_trade_amount"],
         existing_items=existing_items,
     )
     layers[chosen_layer] = new_items
@@ -555,6 +597,8 @@ def configure_portfolio_interactively(
 
 def interactive_main(vault_root: str | None = None) -> int:
     """Run interactive CLI to setup and customize model portfolios in config.yaml."""
+    from model.config import ModelPortfolioConfig
+
     target_dir = os.path.abspath(vault_root or VAULT_ROOT)
     config_path = os.path.join(target_dir, "config.yaml")
 
@@ -574,7 +618,8 @@ def interactive_main(vault_root: str | None = None) -> int:
         print(f"📁 Vault Root: {target_dir}")
         print("=" * 72)
 
-    model_portfolios = load_model_portfolios_raw(config_path)
+    original_portfolios = load_model_portfolios_raw(config_path)
+    model_portfolios = yaml.safe_load(yaml.safe_dump(original_portfolios)) if original_portfolios else {}
 
     # If model_portfolios is completely empty, initialize standard presets
     if not model_portfolios:
@@ -583,7 +628,7 @@ def interactive_main(vault_root: str | None = None) -> int:
                 "name": "Safety net",
                 "rebalance_strategy": "inflow_first",
                 "tolerance_band_pct": 5.0,
-                "min_trade_amount_pln": 500.0,
+                "min_trade_amount": 500.0,
                 "primary_layer": "asset_classes",
                 "layers": {
                     "asset_classes": [
@@ -596,12 +641,14 @@ def interactive_main(vault_root: str | None = None) -> int:
                 "name": "Long term",
                 "rebalance_strategy": "inflow_first",
                 "tolerance_band_pct": 5.0,
-                "min_trade_amount_pln": 1000.0,
+                "min_trade_amount": 1000.0,
                 "primary_layer": "asset_classes",
                 "layers": {
                     "asset_classes": [
-                        {"target": "Equities", "weight_pct": 80.0},
-                        {"target": "Bonds", "weight_pct": 20.0},
+                        {"target": "Equities", "weight_pct": 52.0},
+                        {"target": "Real Estate", "weight_pct": 30.0},
+                        {"target": "Bonds", "weight_pct": 13.0},
+                        {"target": "Gold", "weight_pct": 5.0},
                     ]
                 },
             },
@@ -609,7 +656,7 @@ def interactive_main(vault_root: str | None = None) -> int:
                 "name": "Aggressive",
                 "rebalance_strategy": "inflow_first",
                 "tolerance_band_pct": 5.0,
-                "min_trade_amount_pln": 500.0,
+                "min_trade_amount": 500.0,
                 "primary_layer": "asset_classes",
                 "layers": {
                     "asset_classes": [
@@ -653,11 +700,18 @@ def interactive_main(vault_root: str | None = None) -> int:
                     target_dir, clean_key, model_portfolios.get(clean_key, {})
                 )
         elif action == "S":
-            # Validation check via Pydantic model
+            # Validate via Pydantic model before saving
             try:
-                # Save first to config
+                for pkey, pcfg in model_portfolios.items():
+                    ModelPortfolioConfig.model_validate(pcfg)
+
+                diff_text = render_model_portfolios_diff(original_portfolios, model_portfolios)
+                if diff_text:
+                    print("\n--- Configuration Diff Preview ---")
+                    print(diff_text.rstrip())
+                    print("----------------------------------")
+
                 save_model_portfolios_to_config(config_path, model_portfolios)
-                # Verify that config parses without error
                 load_vault_config(base_dir=target_dir, force_refresh=True)
                 print(f"\n✨ Successfully updated model portfolio configuration in '{config_path}'!")
                 return 0
@@ -669,6 +723,25 @@ def interactive_main(vault_root: str | None = None) -> int:
         elif action == "Q":
             print("\nExiting without saving.")
             return 0
+
+
+def run_setup_model_portfolios(
+    target_dir: str | None = None,
+    interactive: bool = True,
+    preset_id: str | None = None,
+    max_single_stock_pct: float | None = None,
+) -> bool:
+    """Unified entry point to configure model portfolio presets, single-stock cap, and custom targets/corridors."""
+    from init_steps.step_04_model_portfolios import configure_model_portfolios
+
+    resolved_dir = os.path.abspath(target_dir or VAULT_ROOT)
+    configure_model_portfolios(
+        target_dir=resolved_dir,
+        interactive=interactive,
+        preset_id=preset_id,
+        max_single_stock_pct=max_single_stock_pct,
+    )
+    return True
 
 
 def main() -> int:

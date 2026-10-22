@@ -376,14 +376,25 @@ class ModelPortfolioLayers(BaseModel):
 
     @model_validator(mode="after")
     def validate_layer_sums(self) -> "ModelPortfolioLayers":
-        """Verify each configured layer with targets sums to ~100%."""
+        """Verify each configured layer with targets has 0 < sum <= 100.0% and no duplicate targets."""
         for layer_name in ("asset_classes", "sectors", "assets"):
             items: list[ModelPortfolioTargetItem] = getattr(self, layer_name)
             if items:
+                seen_targets: set[str] = set()
+                for item in items:
+                    norm_target = item.target.strip().lower()
+                    if norm_target in seen_targets:
+                        raise ValueError(f"Duplicate target '{item.target}' in model portfolio layer '{layer_name}'.")
+                    seen_targets.add(norm_target)
+
                 total_weight = sum(item.weight_pct for item in items)
-                if abs(total_weight - 100.0) > 0.1:
+                if total_weight <= 0.0:
                     raise ValueError(
-                        f"Model portfolio layer '{layer_name}' target weights must sum to 100.0% (got {total_weight:.2f}%)."
+                        f"Model portfolio layer '{layer_name}' target weights must be greater than 0% (got {total_weight:.2f}%)."
+                    )
+                if total_weight > 100.0 + 0.1:
+                    raise ValueError(
+                        f"Model portfolio layer '{layer_name}' target weights cannot exceed 100.0% (got {total_weight:.2f}%)."
                     )
         return self
 

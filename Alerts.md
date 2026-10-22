@@ -50,7 +50,15 @@ if (count === 0) {
 }
 ```
 
-## Active Alerts
+## ⚖️ Model Portfolio Rebalance Warnings
+
+```dataviewjs
+await dv.view("99_System/Views/rebalance_status", { portfolio: "Safety net" });
+await dv.view("99_System/Views/rebalance_status", { portfolio: "Long term" });
+await dv.view("99_System/Views/rebalance_status", { portfolio: "Aggressive" });
+```
+
+## Active Asset Alerts
 
 ```dataview
 TABLE 

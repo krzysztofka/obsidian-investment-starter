@@ -34,6 +34,32 @@ _Avoid_: Core portfolio, retirement bucket
 Alpha generation, high-conviction individual equities, and thematic/cyclical opportunities.
 _Avoid_: Speculative bucket, trading portfolio
 
+## Model Portfolios & Rebalancing
+
+**Model Portfolio**:
+The target allocation blueprint defined for a specific portfolio bucket, specifying desired weights, tolerance corridors, minimum trade thresholds, and rebalancing strategy.
+_Avoid_: Target portfolio, baseline portfolio, benchmark model
+
+**Allocation Layer**:
+A structural dimension along which a Model Portfolio defines its target weights: broad asset classes, dominant industry sectors, or individual holdings.
+_Avoid_: Target category, grouping level, bucket dimension
+
+**Target Allocation**:
+An individual target entry within an Allocation Layer consisting of a target identifier, its desired percentage weight of the portfolio, and optional per-target tolerance corridor or minimum trade threshold.
+_Avoid_: Target rule, weight assumption, position goal
+
+**Tolerance Corridor**:
+The acceptable percentage-point band around a Target Allocation within which market fluctuations do not require rebalancing.
+_Avoid_: Drift limit, margin of error, deviation threshold
+
+**Portfolio Drift**:
+The deviation of a portfolio bucket's actual weight distribution from its defined Target Allocations; triggers a portfolio-level rebalancing warning when a configured Target Allocation breaches its Tolerance Corridor and the required adjustment meets the minimum trade threshold.
+_Avoid_: Allocation drift (when referring to single-stock cap), weight error
+
+**Single-Stock Concentration**:
+The percentage weight of a single individual equity holding relative to total portfolio value, governed by a prudent risk ceiling.
+_Avoid_: Portfolio drift, model drift
+
 ## Vault Architecture & Lifecycle
 
 **Upstream Template Starter**:

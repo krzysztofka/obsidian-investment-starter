@@ -309,13 +309,22 @@ def _update_single_stock_cap_in_config(config_path: str, max_single_stock_pct: f
         f.write(content)
 
 
+def prompt_customize_model_portfolios() -> bool:
+    """Prompt user whether to customize individual model portfolio targets, layers, or tolerance bands."""
+    try:
+        choice = input("\nCustomize individual portfolio targets, layers, or tolerance bands? [y/N]: ").strip().lower()
+        return choice in ("y", "yes", "c", "customize")
+    except (EOFError, KeyboardInterrupt, StopIteration):
+        return False
+
+
 def configure_model_portfolios(
     target_dir: str,
     interactive: bool = True,
     preset_id: str | None = None,
     max_single_stock_pct: float | None = None,
 ) -> tuple[str, float]:
-    """Configure model portfolio presets and single-stock concentration cap in config.yaml."""
+    """Configure model portfolio presets, single-stock concentration cap, and optional custom targets in config.yaml."""
     config_path = os.path.join(target_dir, "config.yaml")
     selected_preset = preset_id or ("balanced" if interactive else "balanced")
     cap_pct = max_single_stock_pct if max_single_stock_pct is not None else 15.0
@@ -323,18 +332,27 @@ def configure_model_portfolios(
     if not os.path.exists(config_path):
         return selected_preset, cap_pct
 
+    customize = False
     if interactive:
         if preset_id is None:
             selected_preset = prompt_model_portfolio_preset()
         if max_single_stock_pct is None:
             cap_pct = prompt_max_single_stock_pct(default_pct=cap_pct)
+        customize = prompt_customize_model_portfolios()
 
-    _update_model_portfolios_in_config(config_path, selected_preset)
+    if selected_preset != "current":
+        _update_model_portfolios_in_config(config_path, selected_preset)
     _update_single_stock_cap_in_config(config_path, cap_pct)
     load_vault_config(base_dir=target_dir, force_refresh=True)
 
     preset_label = MODEL_PORTFOLIO_PRESETS.get(selected_preset, MODEL_PORTFOLIO_PRESETS["balanced"])["label"]
     print(f"   ✓ Configured model portfolios preset: {preset_label} (Single-Stock Cap: {cap_pct}%).")
+
+    if customize:
+        from setup_model_portfolios import interactive_main
+
+        interactive_main(vault_root=target_dir)
+
     return selected_preset, cap_pct
 
 

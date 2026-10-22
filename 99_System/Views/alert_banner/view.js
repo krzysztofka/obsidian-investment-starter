@@ -20,20 +20,34 @@ let shouldRender = input?.render !== false;
 // 1. Load config.yaml for currency formatting
 let configContent = null;
 try {
-    if (app && app.vault && app.vault.adapter) {
-        configContent = await app.vault.adapter.read("config.yaml");
+    let obsApp = (typeof app !== "undefined" && app) ? app : (dv?.app || window?.app);
+    if (obsApp && obsApp.vault && obsApp.vault.adapter) {
+        configContent = await obsApp.vault.adapter.read("config.yaml");
     }
 } catch (e) {}
+
+if (!configContent && dv?.io?.load) {
+    try { configContent = await dv.io.load("config.yaml"); } catch (e) {}
+}
 
 let parsedConfig = null;
 if (configContent) {
     try {
-        let parseYamlFn = window.parseYaml;
-        if (!parseYamlFn) {
-            try { parseYamlFn = require("obsidian").parseYaml; } catch(err) {}
-        }
-        if (parseYamlFn) parsedConfig = parseYamlFn(configContent);
+        let parseYamlFn = window?.parseYaml || (typeof require === "function" ? require("obsidian")?.parseYaml : null) || window?.require?.("obsidian")?.parseYaml;
+        if (typeof parseYamlFn === "function") parsedConfig = parseYamlFn(configContent);
     } catch (e) {}
+    if (!parsedConfig) {
+        let bc = configContent.match(/base_currency:\s*["']?([A-Za-z]{3})["']?/);
+        let cs = configContent.match(/currency_symbol:\s*["']?([^"'\r\n#]+)["']?/);
+        let sp = configContent.match(/symbol_position:\s*["']?(prefix|suffix)["']?/);
+        parsedConfig = {
+            localization: {
+                base_currency: bc ? bc[1].trim() : "PLN",
+                currency_symbol: cs ? cs[1].trim() : "zł",
+                symbol_position: sp ? sp[1].trim() : "suffix"
+            }
+        };
+    }
 }
 
 let baseCurrency = parsedConfig?.localization?.base_currency || "PLN";

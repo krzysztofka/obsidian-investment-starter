@@ -1,23 +1,29 @@
 # Project Roadmap & Backlog (TODO)
 
-## ⚡ Current Milestone: v0.12 Interactive Model Portfolio Configuration
+## ✅ Completed Milestones
 
-- [ ] **Interactive Model Portfolio Configuration Wizard (`setup_model_portfolios.py` / CLI):**
-  - [ ] Interactive CLI wizard to inspect, configure, and modify target allocations for each portfolio bucket (*Safety Net*, *Long Term*, *Aggressive*).
-  - [ ] Command runner support: `python run.py --setup-model-portfolios` (with step-by-step terminal prompts, live validation, and onboarding integration into `step_04_model_portfolios.py`).
-- [ ] **Layered Target Allocation Builder:**
-  - [ ] Guided configuration across allocation layers: `asset_classes`, `sectors`, and specific `assets`.
-  - [X] Pre-built portfolio presets and starter templates based on risk profiles including Real Estate (30%) and Gold (5%) in *Long Term* (`step_04_model_portfolios.py`).
-  - [ ] Custom allocation editor with live weight calculation and strict 100% layer validation before saving.
-- [ ] **Rebalance Strategy & Threshold Corridors Tuning:**
-  - [ ] Interactive selection of rebalance strategy (`inflow_first` cash-flow DCA vs `full_rebalance`).
-  - [ ] Setting tolerance corridors (`tolerance_band_pct`) and minimum trade floors (`min_trade_amount`) with portfolio-level defaults and per-target overrides.
-- [ ] **Configuration Validation, Diff Preview & Safe Persistence:**
-  - [ ] Interactive preview of changes and visual diff before writing to `config.yaml`.
-  - [ ] Atomic and safe YAML serialization preserving formatting, comments, and existing user settings.
-  - [ ] Pydantic schema validation (`ModelPortfoliosConfig` in `99_System/Scripts/model/config.py`).
-- [ ] **Sequential Migration Patch (`0.11.0` -> `0.12.0`):**
-  - [ ] Migration patch `patch_0_11_to_0_12.py` ensuring configuration schema backward-compatibility and version bump.
+- [X] **v0.12 Interactive Model Portfolio Configuration & Drift Checking:**
+  - [X] **Interactive Model Portfolio Configuration Wizard (`setup_model_portfolios.py` / CLI):**
+    - [X] Interactive CLI wizard to inspect, configure, and modify target allocations for each portfolio bucket (*Safety Net*, *Long Term*, *Aggressive*).
+    - [X] Command runner support: `python run.py --setup-model-portfolios`, `python init.py --step model_portfolios`, and onboarding integration into `step_04_model_portfolios.py`.
+  - [X] **Layered Target Allocation Builder:**
+    - [X] Guided configuration across allocation layers: `asset_classes`, `sectors`, and specific `assets`.
+    - [X] Pre-built portfolio presets and starter templates based on risk profiles including Real Estate (30%) and Gold (5%) in *Long Term* (`step_04_model_portfolios.py`).
+    - [X] Custom allocation editor with live weight calculation and flexible layer sum validation (`0 < sum <= 100%`, allowing unconstrained remainder).
+  - [X] **Rebalance Strategy & Threshold Corridors Tuning:**
+    - [X] Interactive selection of rebalance strategy (`inflow_first` cash-flow DCA vs `full_rebalance`).
+    - [X] Setting tolerance corridors (`tolerance_band_pct`) and minimum trade floors (`min_trade_amount`) with portfolio-level defaults and per-target overrides.
+  - [X] **Standalone Model Portfolio Drift Checker (`check_model_portfolios.py` / `run.py --rebalance`):**
+    - [X] Portfolio-level drift evaluation script (`python 99_System/Scripts/check_model_portfolios.py` and `python run.py --rebalance`, integrated into `python run.py --all`).
+    - [X] Evaluate only configured targets against 100% of portfolio bucket `value_base` (unmodeled holdings included in total value denominator without false warnings).
+    - [X] Ignore empty portfolios (`total_value == 0`) and ignore corridor breaches smaller than `min_trade_amount`.
+    - [X] Emit structured `WARN` alerts per portfolio detailing breached target, actual % vs target % ± corridor `[min–max]`, drift from target, breach beyond corridor, and Base Currency delta (aligned across CLI, `rebalance_status/view.js`, and `Alerts.md`).
+  - [X] **Configuration Validation, Diff Preview & Safe Persistence:**
+    - [X] Interactive preview of changes and visual diff before writing to `config.yaml`.
+    - [X] Atomic and safe YAML serialization preserving formatting, comments, and existing user settings.
+    - [X] Pydantic schema validation (`ModelPortfolioConfig` / `ModelPortfolioLayers` in `99_System/Scripts/model/config.py`).
+  - [X] **Sequential Migration Patch (`0.11.0` -> `0.12.0`):**
+    - [X] Migration patch `patch_0_11_to_0_12.py` ensuring configuration schema backward-compatibility and version bump.
 
 ---
 
