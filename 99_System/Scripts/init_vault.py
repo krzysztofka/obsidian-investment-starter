@@ -144,7 +144,6 @@ def init_vault(
     interactive: bool = True,
     clean: bool | None = None,
     force: bool = False,
-    exante_mode: str | None = None,
     step: str | None = None,
     preset_id: str | None = None,
 ) -> bool:
@@ -169,7 +168,6 @@ def init_vault(
         interactive=interactive,
         clean=clean,
         force=force,
-        exante_mode=exante_mode,
         preset_id=preset_id,
         single_step_mode=bool(effective_step),
     )
@@ -201,7 +199,8 @@ def init_vault(
 
     all_platforms = PlatformRegistry.get_all(base_dir=target_dir)
     selected_platform_ids = ctx.selected_platform_ids or list(all_platforms.keys())
-    effective_exante_mode = ctx.exante_mode or "csv"
+    exante_selected = "exante" in selected_platform_ids
+    effective_exante_mode = (ctx.exante_mode or "csv") if exante_selected else None
 
     print("\n" + "=" * 72)
     print("✨ Vault initialization completed successfully!")
@@ -212,7 +211,7 @@ def init_vault(
         for pid in selected_platform_ids
         if pid in all_platforms and not (pid == "exante" and effective_exante_mode == "api")
     ]
-    api_providers = "Finnhub, Exante" if effective_exante_mode == "api" else "Finnhub"
+    api_providers = "Finnhub, Exante" if (exante_selected and effective_exante_mode == "api") else "Finnhub"
     if ctx.clean:
         if active_folders:
             print(f"  1. Add your real broker exports to 00_Raw/ ({', '.join(active_folders)}).")
@@ -271,13 +270,6 @@ if __name__ == "__main__":
         help="Initialize as a Demo Vault (preserve sample assets and demonstration history).",
     )
     parser.add_argument(
-        "--exante-mode",
-        dest="exante_mode",
-        choices=["csv", "api"],
-        default=None,
-        help="Configure Exante default import mode ('csv' or 'api').",
-    )
-    parser.add_argument(
         "--preset",
         dest="preset",
         choices=list(MODEL_PORTFOLIO_PRESETS.keys()),
@@ -318,8 +310,6 @@ if __name__ == "__main__":
         "clean": clean_mode,
         "force": args.force,
     }
-    if args.exante_mode is not None:
-        init_kwargs["exante_mode"] = args.exante_mode
     if args.step is not None:
         init_kwargs["step"] = args.step
     if args.preset is not None:

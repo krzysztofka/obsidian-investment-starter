@@ -175,17 +175,6 @@ class BrokersStep(BaseInitStep):
                 prompt_platform_selection(all_platforms) if ctx.interactive else list(all_platforms.keys())
             )
 
-        # Create raw folders for selected platforms
-        for pid in ctx.selected_platform_ids:
-            p = all_platforms.get(pid)
-            if p and p.raw_folder:
-                dpath = os.path.join(ctx.target_dir, "00_Raw", p.raw_folder)
-                os.makedirs(dpath, exist_ok=True)
-                gitkeep = os.path.join(dpath, ".gitkeep")
-                if not os.path.exists(gitkeep) and not os.listdir(dpath):
-                    with open(gitkeep, "w", encoding="utf-8") as f:
-                        f.write("")
-
         # Enable/disable platforms in config.yaml
         for pid in all_platforms:
             is_active = pid in ctx.selected_platform_ids
@@ -194,11 +183,24 @@ class BrokersStep(BaseInitStep):
             except Exception:
                 pass
 
-        # Run per-broker sub-steps for selected platforms
+        # Run per-broker sub-steps only for selected platforms
         for pid in ctx.selected_platform_ids:
             substep_fn = BROKER_SUBSTEPS.get(pid)
             if substep_fn:
                 substep_fn(ctx)
+
+        # Create raw folders for selected platforms (skipping Exante if configured for API-only)
+        for pid in ctx.selected_platform_ids:
+            if pid == "exante" and ctx.exante_mode == "api":
+                continue
+            p = all_platforms.get(pid)
+            if p and p.raw_folder:
+                dpath = os.path.join(ctx.target_dir, "00_Raw", p.raw_folder)
+                os.makedirs(dpath, exist_ok=True)
+                gitkeep = os.path.join(dpath, ".gitkeep")
+                if not os.path.exists(gitkeep) and not os.listdir(dpath):
+                    with open(gitkeep, "w", encoding="utf-8") as f:
+                        f.write("")
 
         print(f"   ✓ Configured {len(ctx.selected_platform_ids)} active broker platform(s) in config.yaml.")
         return True

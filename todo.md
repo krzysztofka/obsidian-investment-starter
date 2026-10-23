@@ -1,33 +1,27 @@
 # Project Roadmap & Backlog (TODO)
 
-## ✅ Completed Milestones
+## 🏦 Milestone: v0.13 XTB Broker Integration (API & CSV)
 
-- [X] **v0.12 Interactive Model Portfolio Configuration & Drift Checking:**
-  - [X] **Interactive Model Portfolio Configuration Wizard (`setup_model_portfolios.py` / CLI):**
-    - [X] Interactive CLI wizard to inspect, configure, and modify target allocations for each portfolio bucket (*Safety Net*, *Long Term*, *Aggressive*).
-    - [X] Command runner support: `python run.py --setup-model-portfolios`, `python init.py --step model_portfolios`, and onboarding integration into `step_04_model_portfolios.py`.
-  - [X] **Layered Target Allocation Builder:**
-    - [X] Guided configuration across allocation layers: `asset_classes`, `sectors`, and specific `assets`.
-    - [X] Pre-built portfolio presets and starter templates based on risk profiles including Real Estate (30%) and Gold (5%) in *Long Term* (`step_04_model_portfolios.py`).
-    - [X] Custom allocation editor with live weight calculation and flexible layer sum validation (`0 < sum <= 100%`, allowing unconstrained remainder).
-  - [X] **Rebalance Strategy & Threshold Corridors Tuning:**
-    - [X] Interactive selection of rebalance strategy (`inflow_first` cash-flow DCA vs `full_rebalance`).
-    - [X] Setting tolerance corridors (`tolerance_band_pct`) and minimum trade floors (`min_trade_amount`) with portfolio-level defaults and per-target overrides.
-  - [X] **Standalone Model Portfolio Drift Checker (`check_model_portfolios.py` / `run.py --rebalance`):**
-    - [X] Portfolio-level drift evaluation script (`python 99_System/Scripts/check_model_portfolios.py` and `python run.py --rebalance`, integrated into `python run.py --all`).
-    - [X] Evaluate only configured targets against 100% of portfolio bucket `value_base` (unmodeled holdings included in total value denominator without false warnings).
-    - [X] Ignore empty portfolios (`total_value == 0`) and ignore corridor breaches smaller than `min_trade_amount`.
-    - [X] Emit structured `WARN` alerts per portfolio detailing breached target, actual % vs target % ± corridor `[min–max]`, drift from target, breach beyond corridor, and Base Currency delta (aligned across CLI, `rebalance_status/view.js`, and `Alerts.md`).
-  - [X] **Configuration Validation, Diff Preview & Safe Persistence:**
-    - [X] Interactive preview of changes and visual diff before writing to `config.yaml`.
-    - [X] Atomic and safe YAML serialization preserving formatting, comments, and existing user settings.
-    - [X] Pydantic schema validation (`ModelPortfolioConfig` / `ModelPortfolioLayers` in `99_System/Scripts/model/config.py`).
-  - [X] **Sequential Migration Patch (`0.11.0` -> `0.12.0`):**
-    - [X] Migration patch `patch_0_11_to_0_12.py` ensuring configuration schema backward-compatibility and version bump.
+- [ ] **XTB Platform Extension (`99_System/Scripts/platforms/xtb.py`):**
+  - [ ] Register `xtb` platform in `PlatformRegistry` with support for both `csv` and `api` import modes (`default_mode` in `config.yaml`).
+  - [ ] Configure `00_Raw/xtb/` raw export directory and sample statement file (`00_Raw/xtb/sample_xtb.csv`).
+- [ ] **XTB CSV / Statement Export Parser:**
+  - [ ] Parse XTB xStation 5 exported statements (open positions & multi-currency cash balances).
+  - [ ] Map XTB ticker symbols (e.g., `CDR.PL`, `MSFT.US`, `VWCE.DE`) and ISINs to canonical vault tickers and Yahoo Finance symbols.
+  - [ ] Support stale position cleanup and automatic asset note enrichment (`10_Finance/Assets/`).
+- [ ] **XTB API Integration (`99_System/Scripts/integrations/xtb/`):**
+  - [ ] Implement XTB API client for live synchronization of open positions and account cash balances without manual file exports.
+  - [ ] Support `.env` credentials (`XTB_USER_ID`, `XTB_PASSWORD`, `XTB_ACCOUNT_TYPE` / environment).
+  - [ ] Add connectivity probe for XTB API in `health_check.py` (enabled when `xtb` platform is active in `api` mode).
+- [ ] **Interactive Vault Onboarding & Sub-step (`step_02_brokers.py`):**
+  - [ ] Add XTB per-broker configuration sub-step triggered only when `xtb` is selected during platform initialization (choosing `CSV` vs `API` mode, target portfolio, and optional `.env` credentials).
+- [ ] **Automated Testing & Migration Patch (`0.12.0` -> `0.13.0`):**
+  - [ ] Unit tests for XTB CSV parser, API client mocks, and onboarding sub-step (`99_System/Tests/platforms/test_xtb.py`).
+  - [ ] Sequential migration patch `patch_0_12_to_0_13.py` non-destructively merging `xtb` platform config into `config.yaml`.
 
 ---
 
-## 🏠 Milestone: v0.13 Real Estate Valuation & Property Management
+## 🏠 Milestone: v0.14 Real Estate Valuation & Property Management
 
 - [ ] **Property Parameterization & Schema Expansion:**
   - [ ] Extended frontmatter schema for real estate assets: area (`area_sqm`), floor (`floor`, `total_floors`), rooms, year built, building type, condition, garage/parking, storage room.
@@ -65,6 +59,29 @@
 ---
 
 ## ✅ Completed Milestones
+
+- [X] **v0.12 Interactive Model Portfolio Configuration & Drift Checking:**
+  - [X] **Interactive Model Portfolio Configuration Wizard (`setup_model_portfolios.py` / CLI):**
+    - [X] Interactive CLI wizard to inspect, configure, and modify target allocations for each portfolio bucket (*Safety Net*, *Long Term*, *Aggressive*).
+    - [X] Command runner support: `python run.py --setup-model-portfolios`, `python init.py --step model_portfolios`, and onboarding integration into `step_04_model_portfolios.py`.
+  - [X] **Layered Target Allocation Builder:**
+    - [X] Guided configuration across allocation layers: `asset_classes`, `sectors`, and specific `assets`.
+    - [X] Pre-built portfolio presets and starter templates based on risk profiles including Real Estate (30%) and Gold (5%) in *Long Term* (`step_04_model_portfolios.py`).
+    - [X] Custom allocation editor with live weight calculation and flexible layer sum validation (`0 < sum <= 100%`, allowing unconstrained remainder).
+  - [X] **Rebalance Strategy & Threshold Corridors Tuning:**
+    - [X] Interactive selection of rebalance strategy (`inflow_first` cash-flow DCA vs `full_rebalance`).
+    - [X] Setting tolerance corridors (`tolerance_band_pct`) and minimum trade floors (`min_trade_amount`) with portfolio-level defaults and per-target overrides.
+  - [X] **Standalone Model Portfolio Drift Checker (`check_model_portfolios.py` / `run.py --rebalance`):**
+    - [X] Portfolio-level drift evaluation script (`python 99_System/Scripts/check_model_portfolios.py` and `python run.py --rebalance`, integrated into `python run.py --all`).
+    - [X] Evaluate only configured targets against 100% of portfolio bucket `value_base` (unmodeled holdings included in total value denominator without false warnings).
+    - [X] Ignore empty portfolios (`total_value == 0`) and ignore corridor breaches smaller than `min_trade_amount`.
+    - [X] Emit structured `WARN` alerts per portfolio detailing breached target, actual % vs target % ± corridor `[min–max]`, drift from target, breach beyond corridor, and Base Currency delta (aligned across CLI, `rebalance_status/view.js`, and `Alerts.md`).
+  - [X] **Configuration Validation, Diff Preview & Safe Persistence:**
+    - [X] Interactive preview of changes and visual diff before writing to `config.yaml`.
+    - [X] Atomic and safe YAML serialization preserving formatting, comments, and existing user settings.
+    - [X] Pydantic schema validation (`ModelPortfolioConfig` / `ModelPortfolioLayers` in `99_System/Scripts/model/config.py`).
+  - [X] **Sequential Migration Patch (`0.11.0` -> `0.12.0`):**
+    - [X] Migration patch `patch_0_11_to_0_12.py` ensuring configuration schema backward-compatibility and version bump.
 
 - [X] **v0.11 Modular Step-by-Step Vault Initialization & Reconfiguration Engine:**
   - [X] **Modular Initialization Step Architecture (`99_System/Scripts/init_steps/`):**

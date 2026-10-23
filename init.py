@@ -63,13 +63,6 @@ def main() -> int:
         help="Initialize as a Demo Vault (preserve sample assets and demonstration history).",
     )
     parser.add_argument(
-        "--exante-mode",
-        dest="exante_mode",
-        choices=["csv", "api"],
-        default=None,
-        help="Configure Exante default import mode ('csv' or 'api').",
-    )
-    parser.add_argument(
         "--preset",
         dest="preset",
         choices=list(MODEL_PORTFOLIO_PRESETS.keys()),
@@ -111,8 +104,6 @@ def main() -> int:
         "clean": clean_mode,
         "force": args.force,
     }
-    if args.exante_mode is not None:
-        init_kwargs["exante_mode"] = args.exante_mode
     if args.step is not None:
         init_kwargs["step"] = args.step
     if args.preset is not None:

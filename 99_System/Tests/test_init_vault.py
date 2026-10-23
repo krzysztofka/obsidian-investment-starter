@@ -370,24 +370,45 @@ def test_prompt_exante_api_credentials():
         assert "EXANTE_API_URL=https://api-demo.exante.eu" in env_content
 
 
-def test_init_vault_exante_mode_api():
+def test_brokers_step_exante_mode_api_when_exante_selected():
     from platforms.base import PlatformRegistry
 
     with tempfile.TemporaryDirectory() as tmp_target:
-        ok = init_vault(
-            target_vault=tmp_target,
-            interactive=False,
-            clean=True,
-            force=True,
-            exante_mode="api",
-        )
+        # Select Exante in brokers step -> prompt_exante_mode returns 'api', skip API key prompt
+        with patch("builtins.input", side_effect=["exante", "api", ""]):
+            ok = init_vault(
+                target_vault=tmp_target,
+                interactive=True,
+                step="brokers",
+            )
         assert ok is True
         exante_platform = PlatformRegistry.get("exante", base_dir=tmp_target)
         assert exante_platform is not None
+        assert exante_platform.get_config().enabled is True
         assert exante_platform.get_config().default_mode == "api"
 
         PlatformRegistry.set_platform_mode("exante", "csv", base_dir=tmp_target)
         assert exante_platform.get_config().default_mode == "csv"
+
+
+def test_brokers_step_skips_exante_mode_when_exante_not_selected():
+    from platforms.base import PlatformRegistry
+
+    with tempfile.TemporaryDirectory() as tmp_target:
+        with (
+            patch("builtins.input", return_value="degiro"),
+            patch("init_steps.step_02_brokers.prompt_exante_mode") as mock_exante_prompt,
+        ):
+            ok = init_vault(
+                target_vault=tmp_target,
+                interactive=True,
+                step="brokers",
+            )
+        assert ok is True
+        mock_exante_prompt.assert_not_called()
+        exante_platform = PlatformRegistry.get("exante", base_dir=tmp_target)
+        assert exante_platform is not None
+        assert exante_platform.get_config().enabled is False
 
 
 def test_init_step_registry_and_aliases():

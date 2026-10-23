@@ -780,13 +780,6 @@ examples:
         help="[--init] Run initialization without interactive prompts.",
     )
     step_opts.add_argument(
-        "--exante-mode",
-        dest="exante_mode",
-        choices=["csv", "api"],
-        default=None,
-        help="[--init] Configure Exante default import mode ('csv' or 'api').",
-    )
-    step_opts.add_argument(
         "--step",
         dest="init_step",
         nargs="?",
@@ -918,8 +911,6 @@ def main() -> int:
             "clean": clean_mode,
             "force": args.force,
         }
-        if args.exante_mode is not None:
-            init_kwargs["exante_mode"] = args.exante_mode
         if getattr(args, "init_step", None) is not None:
             init_kwargs["step"] = args.init_step
         if getattr(args, "preset", None) is not None:
